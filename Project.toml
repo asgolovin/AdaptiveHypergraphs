@@ -3,6 +3,9 @@ uuid = "e057b6cc-1fbe-45e6-a4fa-658b9cb170d2"
 authors = ["Anastasia Golovin <asgolovin@protonmail.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+SimpleHypergraphs = "aa4a32ff-dd5d-5357-90e3-e7a9512f0501"
+
 [compat]
 julia = "1.7"
 
