@@ -1,0 +1,13 @@
+name = "AdaptiveHypergraphs"
+uuid = "e057b6cc-1fbe-45e6-a4fa-658b9cb170d2"
+authors = ["Anastasia Golovin <asgolovin@protonmail.com> and contributors"]
+version = "0.1.0"
+
+[compat]
+julia = "1.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
