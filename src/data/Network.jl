@@ -59,7 +59,6 @@ function HyperNetwork(n::Integer, p0::AbstractFloat)
     for i in 1:n
         rand() < p0 ? node_state[i] = I : node_state[i] = S
     end
-    println(node_state)
     HyperNetwork(n, node_state)
 end
 
