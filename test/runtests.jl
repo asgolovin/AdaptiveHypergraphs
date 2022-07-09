@@ -46,6 +46,22 @@ using Test
             @test get_num_hyperedges(network) == 4
             @test get_node_degree(network, 1) == 3
             @test get_node_degree(network, 5) == 0
+
+            remove_hyperedge!(network, 2)
+            @test size(network.hg) == (n, 3)
+
+            @test_throws AssertionError add_hyperedge!(network, (42, 234)) 
+            @test_throws AssertionError add_node!(network, (1919, 2222), S) 
+            @test_throws AssertionError remove_hyperedge!(network, 213) 
+
+        end
+
+        @testset "Hypernetwork: graph construction" begin
+            n = 50
+            network = HyperNetwork(n)
+            build_RSC_hg!(network, (10, 20, 30))
+
+            @assert get_num_hyperedges(network) == 60
         end
 
     end

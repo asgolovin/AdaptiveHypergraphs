@@ -10,6 +10,8 @@ using Random
 A higher-order network where every node can be in a particular state (SIS or SIR).
 
 The topology of the network is represented by a hypergraph: a graph, where every hyperedge can connect multiple vertices, and not just two. 
+
+Other than the hypergraph and the states, the struct keeps track of any statistics related to the system such as the number of infected nodes. 
 """
 mutable struct HyperNetwork
     # The underlying hypergraph
@@ -17,6 +19,11 @@ mutable struct HyperNetwork
     # Number of nodes in a particular state
     state_dist::Dict{State, Integer}
 end
+
+
+# ====================================================================================
+# ------------------------------- CONSTRUCTORS ---------------------------------------
+
 
 """
     HyperNetwork(n::Integer, node_state::Vector{Union{Nothing, State}})
@@ -63,17 +70,23 @@ function HyperNetwork(n::Integer, p0::AbstractFloat)
 end
 
 
-function add_hyperedge!(network::HyperNetwork, vertices)
-    SimpleHypergraphs.add_hyperedge!(network.hg; vertices = Dict([(v, true) for v in vertices]))
+# ====================================================================================
+# ----------------------------- GRAPH MANIPULATION -----------------------------------
+
+
+function add_hyperedge!(network::HyperNetwork, nodes)
+    @assert all(nodes .<= get_num_nodes(network))
+    SimpleHypergraphs.add_hyperedge!(network.hg; vertices = Dict([(n, true) for n in nodes]))
 end
 
 function add_node!(network::HyperNetwork, hyperedges, state::State)
+    @assert all(hyperedges .<= get_num_hyperedges(network)) 
     SimpleHypergraphs.add_vertex!(network.hg, hyperedges = Dict([(h, true) for h in hyperedges]), v_meta = state)
     network.state_dist[state] += 1
 end
 
 function remove_hyperedge!(network::HyperNetwork, hyperedge)
-    @assert hyperedge <= network.hg.nhe()
+    @assert hyperedge <= get_num_nodes(network)
     SimpleHypergraphs.remove_hyperedge!(network.hg, hyperedge)
 end
 
@@ -98,4 +111,45 @@ end
 
 function get_node_degree(network::HyperNetwork, node::Integer)
     return length(gethyperedges(network.hg, node))
+end
+
+
+# ====================================================================================
+# ----------------------------- GRAPH CONSTRUCTION -----------------------------------
+
+
+"""
+    build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
+
+Populates the hypergraph with randomly distributed hyperedges of different dimensions. 
+
+The number of hyperedges in each dimension is given by `num_hyperedges`, starting with d = 1 (e.g., edge between two nodes). 
+
+The resulting hyperedges will contain only distinct nodes and each hyperedge occures only once.
+It is however possible that some hyperedges will be subsets of others.
+It is assumed that the hypergraph is empty; otherwise, the hyperedges will be added, but the conditions above are not guaranteed. 
+
+The algorithm roughly follows the Iacopini paper, but uses the absolute number of hyperdeges instead of p_d and <k_d>.
+
+TODO: make this more formal
+"""
+function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
+    max_dim = length(num_hyperedges)
+    n = get_num_nodes(network)
+    for d in 1:max_dim
+        num_inserted_hyperedges = 0
+        # TODO: think of a better data structure if this ever becomes a bottleneck
+        history::Vector{Vector{Int64}} = []
+        while num_inserted_hyperedges < num_hyperedges[d]
+            nodes = rand(1:n, d + 1)
+            sort!(nodes)
+            # TODO: maybe move this to add_hyperedge? 
+            if allunique(nodes) && !(nodes in history)
+                add_hyperedge!(network, nodes)
+                push!(history, nodes)
+                num_inserted_hyperedges += 1
+            end
+        end
+    end
+    return nothing
 end
