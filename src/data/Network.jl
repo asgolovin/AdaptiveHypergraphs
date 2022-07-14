@@ -103,6 +103,11 @@ function set_state!(network::HyperNetwork, node, state::State)
 end
 
 
+# ====================================================================================
+# --------------------------------- GRAPH INFO ---------------------------------------
+
+
+
 function get_state(network::HyperNetwork, node)
     return get_vertex_meta(network.hg, node)
 end
@@ -123,7 +128,18 @@ function get_node_degree(network::HyperNetwork, node::Integer)
 end
 
 function get_nodes(network::HyperNetwork, hyperedge::Integer)
-    return get_vertices(network.hg, hyperedge)
+    return keys(getvertices(network.hg, hyperedge))
+end
+
+"""
+    is_active(network::HyperNetwork, hyperedge::Integer)
+
+Returns true if the hyperedge contains nodes in different states, false if all states are equal. 
+"""
+function is_active(network::HyperNetwork, hyperedge::Integer)
+    nodes = get_nodes(network, hyperedge)
+    states = [get_state(network, n) for n in nodes]
+    return length(unique(states)) > 1
 end
 
 

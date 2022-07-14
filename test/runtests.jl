@@ -56,6 +56,17 @@ using Test
 
         end
 
+        @testset "Hypernetwork: graph info" begin
+            n = 5
+            network = HyperNetwork(n)
+            add_hyperedge!(network, (1, 3, 4))
+            # test that all nodes are in the same state S (i.e., the hyperedge is not active)
+            @test is_active(network, 1) == false
+            set_state!(network, 3, I)
+            # now this is no longer the case
+            @test is_active(network, 1) == true
+        end
+
         @testset "Hypernetwork: graph construction" begin
             n = 50
             network = HyperNetwork(n)
@@ -63,6 +74,5 @@ using Test
 
             @assert get_num_hyperedges(network) == 60
         end
-
     end
 end
