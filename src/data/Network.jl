@@ -88,10 +88,20 @@ function add_node!(network::HyperNetwork, hyperedges, state::State)
     network.state_dist[state] += 1
 end
 
-
+# TODO: redo the reordering
 function remove_hyperedge!(network::HyperNetwork, hyperedge)
-    @assert hyperedge <= get_num_nodes(network)
+    @assert hyperedge <= get_num_hyperedges(network)
     SimpleHypergraphs.remove_hyperedge!(network.hg, hyperedge)
+end
+
+# TODO: redo the reordering
+function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer, hyperedge::Integer)
+    if length(get_num_nodes(network, hyperedge)) <= 2
+        remove_hyperedge!(network, hyperedge)
+    else
+        network.hg[node, hyperedge] = false
+    end
+    return nothing
 end
 
 
@@ -113,6 +123,14 @@ function get_state(network::HyperNetwork, node)
 end
 
 
+function get_state_dict(network::HyperNetwork)
+    return Dict(node => get_state(network, node) for node in 1:get_num_nodes(network))
+end
+
+function get_state_dict(network::HyperNetwork, hyperedge::Integer)
+    return Dict(node => get_state(network, node) for node in get_nodes(network, hyperedge))
+end
+
 function get_num_hyperedges(network::HyperNetwork)
     return nhe(network.hg)
 end
@@ -122,6 +140,9 @@ function get_num_nodes(network::HyperNetwork)
     return nhv(network.hg)
 end
 
+function get_num_nodes(network::HyperNetwork, hyperedge::Integer)
+    return length(network.hg.he2v[hyperedge])
+end
 
 function get_node_degree(network::HyperNetwork, node::Integer)
     return length(gethyperedges(network.hg, node))
