@@ -41,6 +41,7 @@ function HyperNetwork(n::Integer,
     HyperNetwork(hg, state_dist)
 end
 
+
 """
     HyperNetwork(n::Integer)
 
@@ -54,6 +55,7 @@ function HyperNetwork(n::Integer)
     hg = Hypergraph{Bool, State}(matrix; v_meta=node_state)
     HyperNetwork(hg, Dict(S => n, I => 0))
 end
+
 
 """
     HyperNetwork(n::Integer, p0::AbstractFloat)
@@ -79,16 +81,19 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices = Dict([(n, true) for n in nodes]))
 end
 
+
 function add_node!(network::HyperNetwork, hyperedges, state::State)
     @assert all(hyperedges .<= get_num_hyperedges(network)) 
     SimpleHypergraphs.add_vertex!(network.hg, hyperedges = Dict([(h, true) for h in hyperedges]), v_meta = state)
     network.state_dist[state] += 1
 end
 
+
 function remove_hyperedge!(network::HyperNetwork, hyperedge)
     @assert hyperedge <= get_num_nodes(network)
     SimpleHypergraphs.remove_hyperedge!(network.hg, hyperedge)
 end
+
 
 function set_state!(network::HyperNetwork, node, state::State)
     old_state = get_state(network, node)
@@ -97,20 +102,28 @@ function set_state!(network::HyperNetwork, node, state::State)
     network.state_dist[state] += 1
 end
 
+
 function get_state(network::HyperNetwork, node)
     return get_vertex_meta(network.hg, node)
 end
+
 
 function get_num_hyperedges(network::HyperNetwork)
     return nhe(network.hg)
 end
 
+
 function get_num_nodes(network::HyperNetwork)
     return nhv(network.hg)
 end
 
+
 function get_node_degree(network::HyperNetwork, node::Integer)
     return length(gethyperedges(network.hg, node))
+end
+
+function get_nodes(network::HyperNetwork, hyperedge::Integer)
+    return get_vertices(network.hg, hyperedge)
 end
 
 
@@ -152,4 +165,14 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
         end
     end
     return nothing
+end
+
+
+"""
+    build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
+
+Populates the hypergraph with hyperedges such that every node has degrees {d_1, d_2, ...}. 
+"""
+function build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
+# TODO
 end
