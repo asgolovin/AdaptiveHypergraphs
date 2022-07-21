@@ -17,6 +17,8 @@ function Makie.plot!(hgplot::HypergraphPlot)
     states = Observable(Int64[])
     # the two-section graph of the hypergraph, used as a skeleton to draw the full hypergraph
     simple_graph = Observable(Graphs.SimpleGraphs.SimpleGraph())
+    # labels of the nodes
+    labels = Observable(String[])
     
     # Called whenever the network changes to update all observables with new values
     function update_plot(network::HyperNetwork)
@@ -24,10 +26,13 @@ function Makie.plot!(hgplot::HypergraphPlot)
         simple_graph[] = get_twosection_graph(network)
         
         empty!(states[])
+        empty!(labels[])
         for node = 1:get_num_nodes(network)
             push!(states[], Int(get_state(network, node)))
+            push!(labels[], "#$node, $(get_state(network, node))")
         end
         states[] = states[]
+        labels[] = labels[]
     end
 
     # call update_plot whenever the network changes
@@ -43,7 +48,11 @@ function Makie.plot!(hgplot::HypergraphPlot)
     end
 
     # draw the skeleton simple graph
-    graphplot!(hgplot, simple_graph)
+    graphplot!(hgplot, 
+               simple_graph; 
+               nlabels=labels,
+               nlabels_distance=10,
+               node_attr = (color=states, colormap=colormap, markersize=15))
 
     return hgplot
 end
