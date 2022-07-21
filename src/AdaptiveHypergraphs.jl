@@ -34,9 +34,9 @@ for i = 1:10
     step!(time_stepper)
     println(network.hg)
 
-    SimpleHypergraphs.draw(network.hg, HyperNetX; width=5, height=5, no_border=true)
-    show()
-    readline()
+    #SimpleHypergraphs.draw(network.hg, HyperNetX; width=5, height=5, no_border=true)
+    #show()
+    #readline()
 end
 
 
