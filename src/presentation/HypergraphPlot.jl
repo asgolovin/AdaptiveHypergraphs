@@ -4,8 +4,9 @@ include("../data/Network.jl")
 
 @recipe(HypergraphPlot) do scene
     Attributes(
-        S_color = :green,
-        I_color = :red,
+        S_color = :seagreen,
+        I_color = :firebrick2,
+        triangle_color = (:orange, 0.3),
         hyperedge_colormap = :GnBu
     )
 end
@@ -36,7 +37,7 @@ function Makie.plot!(hgplot::HypergraphPlot)
         faces[] = []
         for node = 1:get_num_nodes(network)
             push!(states[], Int(get_state(network, node)))
-            push!(labels[], "#$node, $(get_state(network, node))")
+            push!(labels[], "#$node")
         end
         for h = 1:get_num_hyperedges(network)
             if get_hyperedge_size(network, h) > 2
@@ -65,13 +66,14 @@ function Makie.plot!(hgplot::HypergraphPlot)
                     simple_graph; 
                     nlabels=labels,
                     nlabels_distance=10,
-                    node_attr = (color=states, colormap=colormap, markersize=15))
+                    node_attr = (color=states, colormap=colormap, markersize=15),
+                    nlabels_attr = (textsize = 12, color = :gray))
     
     # graphplot gives us the positions of the nodes
     node_pos = gp[:node_pos]
 
     # plot the hyperedges as triangles
-    mesh!(hgplot, node_pos, faces, color = (:orange, 0.3), shading = false)
+    mesh!(hgplot, node_pos, faces, color = hgplot.triangle_color, shading = false)
 
     return hgplot
 end
