@@ -1,6 +1,7 @@
 using SimpleHypergraphs
 using StatsBase
 using Random
+using Graphs
 
 @enum State::Bool S=false I=true
 
@@ -164,6 +165,21 @@ function is_active(network::HyperNetwork, hyperedge::Integer)
 end
 
 
+"""
+    get_twosection_graph(network::HyperNetwork)
+
+Returns the two-section graph of the hypergraph as a SimpleGraph. 
+
+A two-section of a hypergraph is a graph with the same vertices where two vertices 
+are connected if they belong to the same hyperedge. Information about overlapping or 
+parallel hyperedges is lost during conversion. 
+"""
+function get_twosection_graph(network::HyperNetwork)
+    adjmatrix = get_twosection_adjacency_mx(network.hg, replace_weights=1)
+    return Graphs.SimpleGraphs.SimpleGraph(adjmatrix)
+end
+
+
 # ====================================================================================
 # ----------------------------- GRAPH CONSTRUCTION -----------------------------------
 
@@ -193,7 +209,6 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
         while num_inserted_hyperedges < num_hyperedges[d]
             nodes = rand(1:n, d + 1)
             sort!(nodes)
-            # TODO: maybe move this to add_hyperedge? 
             if allunique(nodes) && !(nodes in history)
                 add_hyperedge!(network, nodes)
                 push!(history, nodes)
