@@ -59,17 +59,3 @@ function step!(time_stepper::ContinuousTimeStepper)
 
     # return τ
 end
-
-n = 4
-network = HyperNetwork(n, 0.5)
-build_RSC_hg!(network, (4, 3))
-
-majority_rule = MajorityRule()
-rewiring_rule = RewiringRule(0.7)
-
-time_stepper = DiscrTimeStepper{MajorityRule, RewiringRule}(network, majority_rule, rewiring_rule)
-
-for i = 1:10
-    println(network.hg)
-    step!(time_stepper)
-end
