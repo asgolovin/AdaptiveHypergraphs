@@ -149,8 +149,12 @@ function get_node_degree(network::HyperNetwork, node::Integer)
     return length(gethyperedges(network.hg, node))
 end
 
+function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
+    return length(getvertices(network.hg, hyperedge))
+end
+
 function get_nodes(network::HyperNetwork, hyperedge::Integer)
-    return keys(getvertices(network.hg, hyperedge))
+    return collect(keys(getvertices(network.hg, hyperedge)))
 end
 
 """
