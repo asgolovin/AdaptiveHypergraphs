@@ -16,8 +16,8 @@ struct MajorityRule <: PropagationRule end
 
 function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedge::Integer)
     nodes = get_nodes(network, hyperedge)
-    state_dict = get_state_dict(network, hyperedge)
-    state_count = countmap(values(state_dict))
+    state_dict = get_node_to_state_dict(network, hyperedge)
+    state_count = get_state_dist(network)
     # number of votes for the majority opinion
     max_count = maximum(values(state_count))
 
