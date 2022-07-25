@@ -1,4 +1,5 @@
 using GLMakie
+using GraphMakie
 using GeometryBasics
 using Combinatorics
 
@@ -36,8 +37,8 @@ function Makie.plot!(hgplot::HypergraphPlot)
         empty!(labels[])
         faces[] = Matrix{Int64}(undef, 0, 3)
         for node = 1:get_num_nodes(network)
-            push!(states[], Int(get_state(network, node)))
-            push!(labels[], "#$node")
+            push!(states[], Int64(get_state(network, node)))
+            push!(labels[], "#$node, $(get_state(network, node))")
         end
         for h = 1:get_num_hyperedges(network)
             hsize = get_hyperedge_size(network, h)
@@ -55,8 +56,12 @@ function Makie.plot!(hgplot::HypergraphPlot)
             end
         end
         # trigger the update of observables
-        states[] = states[]
         labels[] = labels[]
+        # hack to fix weird error when the whole vector contains 
+        # the same value
+        push!(states[], 1 - states[][end])
+        states[] = states[]
+        pop!(states[])
     end
 
     # call update_plot whenever the network changes
@@ -83,7 +88,9 @@ function Makie.plot!(hgplot::HypergraphPlot)
     node_pos = gp[:node_pos]
 
     # plot the hyperedges as triangles
+    # colors = [1, 1, 1, ..., 2, 2, 2, ..., 3, 3, 3, ...]
     colors = @lift repeat(1:get_max_hyperedge_size($network), inner = get_num_nodes($network))
+    # stacked_node_pos = [1, 2, 3, ..., 1, 2, 3, ..., 1, 2, 3, ...]
     stacked_node_pos = @lift repeat($node_pos, outer = get_max_hyperedge_size($network))
     mesh!(hgplot,
           stacked_node_pos,
@@ -91,17 +98,7 @@ function Makie.plot!(hgplot::HypergraphPlot)
           color = colors,
           colormap = (hgplot.hyperedge_colormap, 0.3),
           shading = false,
-          transparency = true, 
-          depth_shift = 0)
+          transparency = true)
 
     return hgplot
 end
-
-n = 50
-network = Observable(HyperNetwork(n, 0.3))
-build_RSC_hg!(network[], (50, 2, 1, 1, 1, 1))
-
-f = Figure()
-display(f)
-
-hypergraphplot(f[1, 1], network)
