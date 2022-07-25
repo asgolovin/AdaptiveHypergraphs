@@ -33,6 +33,6 @@ function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedg
         set_state!(network, node, majority_state)
     end
 
-    println("All nodes in hyperedge $hyperedge were set to $majority_state")
+    println("Nodes $(nodes) in hyperedge $hyperedge were set to $majority_state")
     return majority_state
 end
