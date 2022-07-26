@@ -81,7 +81,7 @@ function Makie.plot!(hgplot::HypergraphPlot)
                     simple_graph; 
                     nlabels=labels,
                     nlabels_distance=10,
-                    node_attr = (color=states, colormap=node_colormap, markersize=15),
+                    node_attr = (color=states, colormap=node_colormap, markersize=12),
                     nlabels_attr = (textsize = 12, color = :gray))
     
     # graphplot gives us the positions of the nodes
