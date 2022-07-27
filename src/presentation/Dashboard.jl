@@ -1,5 +1,3 @@
-include("HypergraphPlot.jl")
-
 abstract type Plot end
 
 struct HGPlot <: Plot end

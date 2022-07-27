@@ -3,7 +3,6 @@ using GraphMakie
 using GeometryBasics
 using Combinatorics
 
-include("../data/Network.jl")
 
 @recipe(HypergraphPlot) do scene
     Attributes(

@@ -1,10 +1,6 @@
 using DataStructures
 using Random
 
-include("../data/Network.jl")
-include("AdaptivityRule.jl")
-include("PropagationRule.jl")
-
 
 abstract type AbstractModel{P <: PropagationRule, A <: AdaptivityRule} end
 
