@@ -28,13 +28,7 @@ model = DiscrModel{MajorityRule, RewiringRule}(network[],
                                                majority_rule,
                                                rewiring_rule)
 
-fig = Figure(resolution = (1200, 800))
-ax = Axis(fig[1, 1])
-display(fig)
-xlims!(ax, low = -3, high = 3)
-ylims!(ax, low = -3, high = 3)
-
-hypergraphplot!(ax, network)
+create_dashboard(model, 20; plot_hypergraph=true, interactivity=false)
 
 # record(fig, "results\\first_test.mp4", 1:100, framerate = 3, compression = 1) do i
 #     network_changed = step!(model)
@@ -44,12 +38,12 @@ hypergraphplot!(ax, network)
 #     ax.title = "t = $i"
 # end
 
-for i = 1:10
-    network_changed = step!(model)
-    if network_changed
-        network[] = network[]
-    end
-    sleep(0.1)
-end
+# for i = 1:10
+#     network_changed = step!(model)
+#     if network_changed
+#         network[] = network[]
+#     end
+#     sleep(0.1)
+# end
 
 end
