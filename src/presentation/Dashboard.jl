@@ -1,7 +1,5 @@
 """
 Types of data that can be visualized in the dashboard.
-
-Each panel can have multiple axes: for example, the state_dist_panel 
 """
 @enum Panel begin
     hypergraphPanel
@@ -11,7 +9,7 @@ end
 struct Dashboard
     fig::Figure
     panels::Vector{Panel}
-    axes::Dict{Panel, Vector{Axis}}
+    axes::Dict{Panel, Axis}
     mo::ModelObservable
 end
 
@@ -22,7 +20,7 @@ function Dashboard(model::AbstractModel,
                    interactivity::Bool=false)
     fig = Figure(resolution = (600, 400))
     display(fig)
-    axes = Dict{Panel, Vector{Axis}}()
+    axes = Dict{Panel, Axis}()
     panels = Panel[]
 
     mo = ModelObservable{typeof(model)}(model, history_size)
@@ -36,21 +34,26 @@ function Dashboard(model::AbstractModel,
     
     if plot_hypergraph
         plot_count += 1
-        hgax, _ = hypergraphplot(plot_box[1, plot_count], mo.network)
+        hg_box = plot_box[1, plot_count]
+        hgax, _ = hypergraphplot(hg_box[1, 1], mo.network)
         push!(panels, hypergraphPanel)
-        axes[hypergraphPanel] = [hgax, ]
+        hgax.title = "Visualization of the hypergraph"
+        axes[hypergraphPanel] = hgax
     end
 
     if plot_states
         plot_count += 1
         push!(panels, stateDistPanel)
-        axes[stateDistPanel] = []
         state_hist_box = plot_box[1, plot_count]
+        axes[stateDistPanel] = Axis(state_hist_box[1, 1], title="Distribution of states")
         for (i, state) in enumerate(instances(State))
-            ax, _ = lines(state_hist_box[i, 1], mo.state_history[state])
-            push!(axes[stateDistPanel], ax)
-            ylims!(ax, 0, get_num_nodes(model.network))
+            lines!(axes[stateDistPanel], mo.state_history[state], label="# of $state nodes")
+            ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
         end
+        state_hist_box[2, 1] = Legend(state_hist_box, 
+                                      axes[stateDistPanel],
+                                      orientation = :horizontal,
+                                      framevisible=false)
 
     end
 
@@ -61,12 +64,10 @@ function Dashboard(model::AbstractModel,
             step!(mo)
             notify(mo.network)
             if plot_states
-                for (s, state) in enumerate(instances(State))
-                    xlims!(axes[stateDistPanel][s], 0, history_size)
-                end
+                xlims!(axes[stateDistPanel], 0, history_size)
             end
             if plot_hypergraph
-                autolimits!(axes[hypergraphPanel][1])
+                autolimits!(axes[hypergraphPanel])
             end
             sleep(0.1)
         end
