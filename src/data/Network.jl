@@ -1,6 +1,7 @@
 using SimpleHypergraphs
 using StatsBase
 using Random
+using Graphs
 
 @enum State::Bool S=false I=true
 
@@ -41,6 +42,7 @@ function HyperNetwork(n::Integer,
     HyperNetwork(hg, state_dist)
 end
 
+
 """
     HyperNetwork(n::Integer)
 
@@ -54,6 +56,7 @@ function HyperNetwork(n::Integer)
     hg = Hypergraph{Bool, State}(matrix; v_meta=node_state)
     HyperNetwork(hg, Dict(S => n, I => 0))
 end
+
 
 """
     HyperNetwork(n::Integer, p0::AbstractFloat)
@@ -79,16 +82,29 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices = Dict([(n, true) for n in nodes]))
 end
 
+
 function add_node!(network::HyperNetwork, hyperedges, state::State)
     @assert all(hyperedges .<= get_num_hyperedges(network)) 
     SimpleHypergraphs.add_vertex!(network.hg, hyperedges = Dict([(h, true) for h in hyperedges]), v_meta = state)
     network.state_dist[state] += 1
 end
 
+# TODO: redo the reordering
 function remove_hyperedge!(network::HyperNetwork, hyperedge)
-    @assert hyperedge <= get_num_nodes(network)
+    @assert hyperedge <= get_num_hyperedges(network)
     SimpleHypergraphs.remove_hyperedge!(network.hg, hyperedge)
 end
+
+# TODO: redo the reordering
+function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer, hyperedge::Integer)
+    if get_hyperedge_size(network, hyperedge) <= 2
+        remove_hyperedge!(network, hyperedge)
+    else
+        network.hg[node, hyperedge] = false
+    end
+    return nothing
+end
+
 
 function set_state!(network::HyperNetwork, node, state::State)
     old_state = get_state(network, node)
@@ -97,8 +113,27 @@ function set_state!(network::HyperNetwork, node, state::State)
     network.state_dist[state] += 1
 end
 
+
+# ====================================================================================
+# --------------------------------- GRAPH INFO ---------------------------------------
+
+
+
 function get_state(network::HyperNetwork, node)
     return get_vertex_meta(network.hg, node)
+end
+
+
+function get_node_to_state_dict(network::HyperNetwork)
+    return Dict(node => get_state(network, node) for node in 1:get_num_nodes(network))
+end
+
+function get_node_to_state_dict(network::HyperNetwork, hyperedge::Integer)
+    return Dict(node => get_state(network, node) for node in get_nodes(network, hyperedge))
+end
+
+function get_state_dist(network::HyperNetwork)
+    return network.state_dist
 end
 
 function get_num_hyperedges(network::HyperNetwork)
@@ -110,7 +145,45 @@ function get_num_nodes(network::HyperNetwork)
 end
 
 function get_node_degree(network::HyperNetwork, node::Integer)
-    return length(gethyperedges(network.hg, node))
+    return length(network.hg.v2he[node])
+end
+
+function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
+    return length(network.hg.he2v[hyperedge])
+end
+
+function get_max_hyperedge_size(network::HyperNetwork)
+    return maximum([length(d) for d in network.hg.he2v])
+end
+
+function get_nodes(network::HyperNetwork, hyperedge::Integer)
+    return collect(keys(getvertices(network.hg, hyperedge)))
+end
+
+"""
+    is_active(network::HyperNetwork, hyperedge::Integer)
+
+Returns true if the hyperedge contains nodes in different states, false if all states are equal. 
+"""
+function is_active(network::HyperNetwork, hyperedge::Integer)
+    nodes = get_nodes(network, hyperedge)
+    states = [get_state(network, n) for n in nodes]
+    return length(unique(states)) > 1
+end
+
+
+"""
+    get_twosection_graph(network::HyperNetwork)
+
+Returns the two-section graph of the hypergraph as a SimpleGraph. 
+
+A two-section of a hypergraph is a graph with the same vertices where two vertices 
+are connected if they belong to the same hyperedge. Information about overlapping or 
+parallel hyperedges is lost during conversion. 
+"""
+function get_twosection_graph(network::HyperNetwork)
+    adjmatrix = get_twosection_adjacency_mx(network.hg, replace_weights=1)
+    return Graphs.SimpleGraphs.SimpleGraph(adjmatrix)
 end
 
 
@@ -143,7 +216,6 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
         while num_inserted_hyperedges < num_hyperedges[d]
             nodes = rand(1:n, d + 1)
             sort!(nodes)
-            # TODO: maybe move this to add_hyperedge? 
             if allunique(nodes) && !(nodes in history)
                 add_hyperedge!(network, nodes)
                 push!(history, nodes)
@@ -152,4 +224,14 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
         end
     end
     return nothing
+end
+
+
+"""
+    build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
+
+Populates the hypergraph with hyperedges such that every node has degrees {d_1, d_2, ...}. 
+"""
+function build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
+# TODO
 end
