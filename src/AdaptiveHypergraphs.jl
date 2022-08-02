@@ -28,7 +28,7 @@ model = DiscrModel{MajorityRule, RewiringRule}(network[],
                                                majority_rule,
                                                rewiring_rule)
 
-dashboard = Dashboard(model, 100; plot_hypergraph=true, is_interactive=false)
-run!(dashboard, 1000, 10)
-# record!(dashboard, "test_record", 100, 10)
+dashboard = Dashboard(model; plot_hypergraph=true, is_interactive=false)
+# run!(dashboard, 1000, 10)
+record!(dashboard, "test_record", 100, 10, 1)
 end

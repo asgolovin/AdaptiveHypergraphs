@@ -17,16 +17,14 @@ end
 
 
 """
-    Dashboard(model::AbstractModel,
-              history_size::Int64;
+    Dashboard(model::AbstractModel;
               plot_hypergraph::Bool=false,
               plot_states::Bool=true,
               is_interactive::Bool=false)
 
 A visualization of the evolution of the hypergraph during the simulation.
 """
-function Dashboard(model::AbstractModel,
-                   history_size::Int64;
+function Dashboard(model::AbstractModel;
                    plot_hypergraph::Bool=false,
                    plot_states::Bool=true,
                    is_interactive::Bool=false)
@@ -35,7 +33,7 @@ function Dashboard(model::AbstractModel,
     axes = Dict{Panel, Axis}()
     panels = Panel[]
 
-    mo = ModelObservable{typeof(model)}(model, history_size)
+    mo = ModelObservable{typeof(model)}(model)
 
     plot_box = fig[1, 1] = GridLayout()
     if is_interactive
@@ -73,12 +71,12 @@ end
 
 
 """
-    run!(dashboard::Dashboard, num_steps::Integer, framerate::Integer)
+    run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
 
 Run the simulation for `num_steps` time steps. The visualization is updated only 
-once every number of steps given by `framerate`.
+once every number of steps given by `steps_per_update`.
 """
-function run!(dashboard::Dashboard, num_steps::Integer, framerate::Integer)
+function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
     mo = dashboard.mo
     axes = dashboard.axes
 
@@ -87,10 +85,10 @@ function run!(dashboard::Dashboard, num_steps::Integer, framerate::Integer)
     else
         for i = 1:num_steps
             step!(mo)
-            if i % framerate == 0
+            if i % steps_per_update == 0
                 notify(mo.network)
                 if stateDistPanel in dashboard.panels
-                    xlims!(axes[stateDistPanel], 0, mo.history_size)
+                    xlims!(axes[stateDistPanel], 0, max(i, 100))
                 end
                 if hypergraphPanel in dashboard.panels
                     autolimits!(axes[hypergraphPanel])
@@ -103,17 +101,18 @@ end
 
 
 """
-    record!(dashboard::Dashboard, filename::String, num_steps::Integer, framerate::Integer)
+    record!(dashboard::Dashboard, filename::String, num_steps::Integer, steps_per_update::Integer, framerate::Integer)
 
 Run the simulation for `num_steps` time steps and record a video of the dashboard. 
 
 The video is saved to ./videos in a .mp4 format. `filename` should only contain the name 
 of the file without the extension.
 """
-function record!(dashboard::Dashboard, filename::String, num_steps::Integer, framerate::Integer)
+function record!(dashboard::Dashboard, filename::String, num_steps::Integer, steps_per_update::Integer, framerate::Integer)
     savepath = joinpath("videos", filename * ".mp4")
 
-    record(dashboard.fig, savepath, 1:(num_steps ÷ framerate), framerate = 1, compression = 1) do i
-        run!(dashboard, framerate, framerate)
+    num_updates = num_steps ÷ steps_per_update
+    record(dashboard.fig, savepath, 1:num_updates, framerate=framerate, compression=1) do i
+        run!(dashboard, steps_per_update, steps_per_update)
     end
 end
