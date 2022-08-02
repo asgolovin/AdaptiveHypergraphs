@@ -18,7 +18,7 @@ function Dashboard(model::AbstractModel,
                    plot_hypergraph::Bool=false,
                    plot_states::Bool=true,
                    interactivity::Bool=false)
-    fig = Figure(resolution = (600, 400))
+    fig = Figure(resolution = (1000, 600))
     display(fig)
     axes = Dict{Panel, Axis}()
     panels = Panel[]
