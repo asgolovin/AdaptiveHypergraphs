@@ -34,8 +34,8 @@ Progress the model one time step forward and update the history.
 """
 function step!(mo::ModelObservable)
     model, state_history = mo.model, mo.state_history
-    step!(model[])
-    notify(model)
+    network_changed = step!(model[])
+    network_changed && notify(model)
     record_state_history!(model[], state_history)
 end
 
