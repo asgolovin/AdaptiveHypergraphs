@@ -1,6 +1,3 @@
-using DataStructures
-
-
 """
     ModelObservable{P <: PropagationRule, A <: AdaptivityRule}
 
