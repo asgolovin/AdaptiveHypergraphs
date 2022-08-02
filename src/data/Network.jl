@@ -1,6 +1,7 @@
 using SimpleHypergraphs
 using StatsBase
 using Random
+using Graphs
 
 @enum State::Bool S=false I=true
 
@@ -96,7 +97,7 @@ end
 
 # TODO: redo the reordering
 function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer, hyperedge::Integer)
-    if length(get_num_nodes(network, hyperedge)) <= 2
+    if get_hyperedge_size(network, hyperedge) <= 2
         remove_hyperedge!(network, hyperedge)
     else
         network.hg[node, hyperedge] = false
@@ -123,33 +124,40 @@ function get_state(network::HyperNetwork, node)
 end
 
 
-function get_state_dict(network::HyperNetwork)
+function get_node_to_state_dict(network::HyperNetwork)
     return Dict(node => get_state(network, node) for node in 1:get_num_nodes(network))
 end
 
-function get_state_dict(network::HyperNetwork, hyperedge::Integer)
+function get_node_to_state_dict(network::HyperNetwork, hyperedge::Integer)
     return Dict(node => get_state(network, node) for node in get_nodes(network, hyperedge))
+end
+
+function get_state_dist(network::HyperNetwork)
+    return network.state_dist
 end
 
 function get_num_hyperedges(network::HyperNetwork)
     return nhe(network.hg)
 end
 
-
 function get_num_nodes(network::HyperNetwork)
     return nhv(network.hg)
 end
 
-function get_num_nodes(network::HyperNetwork, hyperedge::Integer)
+function get_node_degree(network::HyperNetwork, node::Integer)
+    return length(network.hg.v2he[node])
+end
+
+function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
     return length(network.hg.he2v[hyperedge])
 end
 
-function get_node_degree(network::HyperNetwork, node::Integer)
-    return length(gethyperedges(network.hg, node))
+function get_max_hyperedge_size(network::HyperNetwork)
+    return maximum([length(d) for d in network.hg.he2v])
 end
 
 function get_nodes(network::HyperNetwork, hyperedge::Integer)
-    return keys(getvertices(network.hg, hyperedge))
+    return collect(keys(getvertices(network.hg, hyperedge)))
 end
 
 """
@@ -161,6 +169,21 @@ function is_active(network::HyperNetwork, hyperedge::Integer)
     nodes = get_nodes(network, hyperedge)
     states = [get_state(network, n) for n in nodes]
     return length(unique(states)) > 1
+end
+
+
+"""
+    get_twosection_graph(network::HyperNetwork)
+
+Returns the two-section graph of the hypergraph as a SimpleGraph. 
+
+A two-section of a hypergraph is a graph with the same vertices where two vertices 
+are connected if they belong to the same hyperedge. Information about overlapping or 
+parallel hyperedges is lost during conversion. 
+"""
+function get_twosection_graph(network::HyperNetwork)
+    adjmatrix = get_twosection_adjacency_mx(network.hg, replace_weights=1)
+    return Graphs.SimpleGraphs.SimpleGraph(adjmatrix)
 end
 
 
@@ -193,7 +216,6 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
         while num_inserted_hyperedges < num_hyperedges[d]
             nodes = rand(1:n, d + 1)
             sort!(nodes)
-            # TODO: maybe move this to add_hyperedge? 
             if allunique(nodes) && !(nodes in history)
                 add_hyperedge!(network, nodes)
                 push!(history, nodes)
