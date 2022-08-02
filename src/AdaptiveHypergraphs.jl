@@ -1,44 +1,49 @@
 module AdaptiveHypergraphs
 
-# Use HyperNetX to plot the graph
-using PyCall
-using Conda
-# Conda.runconda(`install matplotlib --yes`)
-# Conda.runconda(`install networkx --yes`)
-# run(`$(PyCall.python) -m pip install 'decorator>=5.0.9'`)
-# run(`$(PyCall.python) -m pip install hypernetx`)
-
 using SimpleHypergraphs
-using PyPlot
-using GraphPlot
 using ColorSchemes
+using GLMakie
 
-# use python matplotlib backend
-pygui(true)
+include("data/Network.jl")
+
+include("simulation/AdaptivityRule.jl")
+include("simulation/PropagationRule.jl")
+include("simulation/Model.jl")
+
+include("presentation/HypergraphPlot.jl")
+include("presentation/ModelObservable.jl")
+include("presentation/Dashboard.jl")
 
 # ====================================================================================
 # ---------------------------------- TEST CODE ---------------------------------------
 
-include("simulation/TimeStepper.jl")
-
-n = 4
-network = HyperNetwork(n, 0.5)
-build_RSC_hg!(network, (4, 3))
+n = 30
+network = Observable(HyperNetwork(n, 0.5))
+build_RSC_hg!(network[], (2n, n ÷ 3, 1, 1))
 
 majority_rule = MajorityRule()
-rewiring_rule = RewiringRule(0.7)
+rewiring_rule = RewiringRule(0.5)
 
-time_stepper = DiscrTimeStepper{MajorityRule, RewiringRule}(network, majority_rule, rewiring_rule)
+model = DiscrModel{MajorityRule, RewiringRule}(network[],
+                                               majority_rule,
+                                               rewiring_rule)
 
-for i = 1:10
-    step!(time_stepper)
-    println(network.hg)
+create_dashboard(model, 20; plot_hypergraph=true, interactivity=false)
 
-    #SimpleHypergraphs.draw(network.hg, HyperNetX; width=5, height=5, no_border=true)
-    #show()
-    #readline()
-end
+# record(fig, "results\\first_test.mp4", 1:100, framerate = 3, compression = 1) do i
+#     network_changed = step!(model)
+#     if network_changed
+#         network[] = network[]
+#     end
+#     ax.title = "t = $i"
+# end
 
-
+# for i = 1:10
+#     network_changed = step!(model)
+#     if network_changed
+#         network[] = network[]
+#     end
+#     sleep(0.1)
+# end
 
 end
