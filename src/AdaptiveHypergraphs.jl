@@ -19,7 +19,7 @@ include("presentation/Dashboard.jl")
 
 n = 30
 network = Observable(HyperNetwork(n, 0.5))
-build_RSC_hg!(network[], (2n, n ÷ 3, 1, 1))
+build_RSC_hg!(network[], (2n, n ÷ 2, 10, 1))
 
 majority_rule = MajorityRule()
 rewiring_rule = RewiringRule(0.5)
@@ -29,6 +29,6 @@ model = DiscrModel{MajorityRule, RewiringRule}(network[],
                                                rewiring_rule)
 
 dashboard = Dashboard(model; plot_hypergraph=true, is_interactive=false)
-# run!(dashboard, 1000, 10)
-record!(dashboard, "test_record", 100, 10, 1)
+run!(dashboard, 200, 10)
+# record!(dashboard, "test_record", 100, 10, 1)
 end

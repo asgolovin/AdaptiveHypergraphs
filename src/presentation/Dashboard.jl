@@ -4,6 +4,7 @@ Types of data that can be visualized in the dashboard.
 @enum Panel begin
     hypergraphPanel
     stateDistPanel
+    hyperedgeDistPanel
 end
 
 
@@ -27,6 +28,7 @@ A visualization of the evolution of the hypergraph during the simulation.
 function Dashboard(model::AbstractModel;
                    plot_hypergraph::Bool=false,
                    plot_states::Bool=true,
+                   plot_hyperedges::Bool=true,
                    is_interactive::Bool=false)
     fig = Figure(resolution = (1000, 600))
     display(fig)
@@ -51,19 +53,40 @@ function Dashboard(model::AbstractModel;
         axes[hypergraphPanel] = hgax
     end
 
-    if plot_states
+    if plot_states || plot_hyperedges
         plot_count += 1
+        history_box = plot_box[1, plot_count]
+    end
+
+    if plot_states
         push!(panels, stateDistPanel)
-        state_hist_box = plot_box[1, plot_count]
+        state_hist_box = history_box[1, 1]
         axes[stateDistPanel] = Axis(state_hist_box[1, 1], title="Distribution of states")
         for (i, state) in enumerate(instances(State))
             lines!(axes[stateDistPanel], mo.state_history[state], label="# of $state nodes")
+            xlims!(axes[stateDistPanel], 0, 100)
             ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
         end
         state_hist_box[2, 1] = Legend(state_hist_box, 
                                       axes[stateDistPanel],
                                       orientation = :horizontal,
                                       framevisible=false)
+    end
+
+    if plot_hyperedges
+        push!(panels, hyperedgeDistPanel)
+        hyperedge_hist_box = history_box[plot_states ? 2 : 1, 1]
+        axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box[1, 1], title="Distribution of hyperdeges")
+        for size in 2:get_max_hyperedge_size(mo.network[])
+            lines!(axes[hyperedgeDistPanel],
+                   mo.hyperedge_history[size],
+                   label="# of hyperdeges of size $size")
+            xlims!(axes[hyperedgeDistPanel], 0, 100)
+        end
+        hyperedge_hist_box[2, 1] = Legend(hyperedge_hist_box, 
+                                          axes[hyperedgeDistPanel],
+                                          orientation = :vertical,
+                                          framevisible=false)
     end
 
     Dashboard(fig, panels, axes, mo, is_interactive)
@@ -89,6 +112,10 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 notify(mo.network)
                 if stateDistPanel in dashboard.panels
                     xlims!(axes[stateDistPanel], 0, max(i, 100))
+                end
+                if hyperedgeDistPanel in dashboard.panels
+                    autolimits!(axes[hyperedgeDistPanel])
+                    xlims!(axes[hyperedgeDistPanel], 0, max(i, 100))
                 end
                 if hypergraphPanel in dashboard.panels
                     autolimits!(axes[hypergraphPanel])
