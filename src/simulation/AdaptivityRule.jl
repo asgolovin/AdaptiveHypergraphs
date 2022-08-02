@@ -22,7 +22,7 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge:
     required_state = get_state(network, selected_node)
 
     # find a new random node with the same state 
-    state_dict = get_state_dict(network)
+    state_dict = get_node_to_state_dict(network)
     filter!(pair -> (pair.second == required_state) && (pair.first != selected_node), state_dict)
 
     if length(state_dict) == 0

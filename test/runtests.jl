@@ -72,7 +72,32 @@ using Test
             network = HyperNetwork(n)
             build_RSC_hg!(network, (10, 20, 30))
 
-            @assert get_num_hyperedges(network) == 60
+            @test get_num_hyperedges(network) == 60
+        end
+    end
+
+    @testset "Presentation" begin
+        @testset "ModelObservable" begin
+            include("../src/presentation/ModelObservable.jl")
+            n = 10
+            node_state = Vector{Union{Nothing, State}}(nothing, n)
+            fill!(node_state, S)
+            node_state[2] = I
+            node_state[5] = I
+            network = Observable(HyperNetwork(n, node_state))
+            build_RSC_hg!(network[], (2n, ))
+
+            majority_rule = MajorityRule()
+            rewiring_rule = RewiringRule(0.5)
+
+            model = DiscrModel{MajorityRule, RewiringRule}(network[],
+                                                        majority_rule,
+                                                        rewiring_rule)
+
+            mo = ModelObservable(model)
+            @test typeof(mo.model) <: Observable{DiscrModel}
+            @test mo.state_history[][S] = n - 2
+            @test mo.state_history[][I] = 2
         end
     end
 end
