@@ -49,6 +49,7 @@ function Dashboard(model::AbstractModel,
         for (i, state) in enumerate(instances(State))
             ax, _ = lines(state_hist_box[i, 1], mo.state_history[state])
             push!(axes[stateDistPanel], ax)
+            ylims!(ax, 0, get_num_nodes(model.network))
         end
 
     end
@@ -56,13 +57,16 @@ function Dashboard(model::AbstractModel,
     if interactivity
         # something happens
     else
-        for i = 1:100
+        for i = 1:1000
             step!(mo)
             notify(mo.network)
             if plot_states
-                for (i, state) in enumerate(instances(State))
-                    autolimits!(axes[stateDistPanel][i])
+                for (s, state) in enumerate(instances(State))
+                    xlims!(axes[stateDistPanel][s], 0, history_size)
                 end
+            end
+            if plot_hypergraph
+                autolimits!(axes[hypergraphPanel][1])
             end
             sleep(0.1)
         end
