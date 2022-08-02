@@ -18,6 +18,7 @@ SimpleHypergraphs = "aa4a32ff-dd5d-5357-90e3-e7a9512f0501"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
+SimpleHypergraphs = "0.2"
 Graphs = "1"
 julia = "1.7"
 
