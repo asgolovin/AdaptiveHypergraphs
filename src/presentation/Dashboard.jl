@@ -6,18 +6,30 @@ Types of data that can be visualized in the dashboard.
     stateDistPanel
 end
 
+
 struct Dashboard
     fig::Figure
     panels::Vector{Panel}
     axes::Dict{Panel, Axis}
     mo::ModelObservable
+    is_interactive::Bool
 end
 
+
+"""
+    Dashboard(model::AbstractModel,
+              history_size::Int64;
+              plot_hypergraph::Bool=false,
+              plot_states::Bool=true,
+              is_interactive::Bool=false)
+
+A visualization of the evolution of the hypergraph during the simulation.
+"""
 function Dashboard(model::AbstractModel,
                    history_size::Int64;
                    plot_hypergraph::Bool=false,
                    plot_states::Bool=true,
-                   interactivity::Bool=false)
+                   is_interactive::Bool=false)
     fig = Figure(resolution = (1000, 600))
     display(fig)
     axes = Dict{Panel, Axis}()
@@ -26,7 +38,7 @@ function Dashboard(model::AbstractModel,
     mo = ModelObservable{typeof(model)}(model, history_size)
 
     plot_box = fig[1, 1] = GridLayout()
-    if interactivity
+    if is_interactive
         controls_box = fig[2, 1] = GridLayout()
     end
 
@@ -54,24 +66,54 @@ function Dashboard(model::AbstractModel,
                                       axes[stateDistPanel],
                                       orientation = :horizontal,
                                       framevisible=false)
-
     end
 
-    if interactivity
-        # something happens
+    Dashboard(fig, panels, axes, mo, is_interactive)
+end
+
+
+"""
+    run!(dashboard::Dashboard, num_steps::Integer, framerate::Integer)
+
+Run the simulation for `num_steps` time steps. The visualization is updated only 
+once every number of steps given by `framerate`.
+"""
+function run!(dashboard::Dashboard, num_steps::Integer, framerate::Integer)
+    mo = dashboard.mo
+    axes = dashboard.axes
+
+    if dashboard.is_interactive
+        # TODO: something should happen here
     else
-        for i = 1:1000
+        for i = 1:num_steps
             step!(mo)
-            notify(mo.network)
-            if plot_states
-                xlims!(axes[stateDistPanel], 0, history_size)
+            if i % framerate == 0
+                notify(mo.network)
+                if stateDistPanel in dashboard.panels
+                    xlims!(axes[stateDistPanel], 0, mo.history_size)
+                end
+                if hypergraphPanel in dashboard.panels
+                    autolimits!(axes[hypergraphPanel])
+                end
+                sleep(0.1)
             end
-            if plot_hypergraph
-                autolimits!(axes[hypergraphPanel])
-            end
-            sleep(0.1)
         end
     end
+end
 
-    Dashboard(fig, panels, axes, mo)
+
+"""
+    record!(dashboard::Dashboard, filename::String, num_steps::Integer, framerate::Integer)
+
+Run the simulation for `num_steps` time steps and record a video of the dashboard. 
+
+The video is saved to ./videos in a .mp4 format. `filename` should only contain the name 
+of the file without the extension.
+"""
+function record!(dashboard::Dashboard, filename::String, num_steps::Integer, framerate::Integer)
+    savepath = joinpath("videos", filename * ".mp4")
+
+    record(dashboard.fig, savepath, 1:(num_steps ÷ framerate), framerate = 1, compression = 1) do i
+        run!(dashboard, framerate, framerate)
+    end
 end

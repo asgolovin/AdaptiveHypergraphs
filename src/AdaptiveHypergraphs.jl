@@ -28,22 +28,7 @@ model = DiscrModel{MajorityRule, RewiringRule}(network[],
                                                majority_rule,
                                                rewiring_rule)
 
-Dashboard(model, 100; plot_hypergraph=true, interactivity=false)
-
-# record(fig, "results\\first_test.mp4", 1:100, framerate = 3, compression = 1) do i
-#     network_changed = step!(model)
-#     if network_changed
-#         network[] = network[]
-#     end
-#     ax.title = "t = $i"
-# end
-
-# for i = 1:10
-#     network_changed = step!(model)
-#     if network_changed
-#         network[] = network[]
-#     end
-#     sleep(0.1)
-# end
-
+dashboard = Dashboard(model, 100; plot_hypergraph=true, is_interactive=false)
+run!(dashboard, 1000, 10)
+# record!(dashboard, "test_record", 100, 10)
 end
