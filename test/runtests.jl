@@ -2,8 +2,17 @@ using AdaptiveHypergraphs
 using Test
 
 @testset "AdaptiveHypergraphs.jl" begin
+    include("../src/data/Network.jl")
+
+    include("../src/simulation/AdaptivityRule.jl")
+    include("../src/simulation/PropagationRule.jl")
+    include("../src/simulation/Model.jl")
+
+    include("../src/presentation/HypergraphPlot.jl")
+    include("../src/presentation/ModelObservable.jl")
+    include("../src/presentation/Dashboard.jl")
+
     @testset "HyperNetwork" begin
-        include("../src/data/Network.jl")
 
         @testset "HyperNetwork: constructors" begin
             # create an empty network with all suseptible nodes
@@ -46,9 +55,15 @@ using Test
             @test get_num_hyperedges(network) == 4
             @test get_node_degree(network, 1) == 3
             @test get_node_degree(network, 5) == 0
+            hyperedge_dist = get_hyperedge_dist(network)
+            @test hyperedge_dist[1] == 1
+            @test hyperedge_dist[2] == 2
+            @test hyperedge_dist[3] == 1
 
             remove_hyperedge!(network, 2)
             @test size(network.hg) == (n, 3)
+            hyperedge_dist = get_hyperedge_dist(network)
+            @test hyperedge_dist[2] == 1
 
             @test_throws AssertionError add_hyperedge!(network, (42, 234)) 
             @test_throws AssertionError add_node!(network, (1919, 2222), S) 
@@ -73,19 +88,21 @@ using Test
             build_RSC_hg!(network, (10, 20, 30))
 
             @test get_num_hyperedges(network) == 60
+            @test get_hyperedge_dist(network)[2] == 10
+            @test get_hyperedge_dist(network)[3] == 20
+            @test get_hyperedge_dist(network)[4] == 30
         end
     end
 
     @testset "Presentation" begin
         @testset "ModelObservable" begin
-            include("../src/presentation/ModelObservable.jl")
             n = 10
             node_state = Vector{Union{Nothing, State}}(nothing, n)
             fill!(node_state, S)
             node_state[2] = I
             node_state[5] = I
             network = Observable(HyperNetwork(n, node_state))
-            build_RSC_hg!(network[], (2n, ))
+            build_RSC_hg!(network[], (3, 4, 5))
 
             majority_rule = MajorityRule()
             rewiring_rule = RewiringRule(0.5)
@@ -94,10 +111,13 @@ using Test
                                                         majority_rule,
                                                         rewiring_rule)
 
-            mo = ModelObservable(model)
-            @test typeof(mo.model) <: Observable{DiscrModel}
-            @test mo.state_history[][S] = n - 2
-            @test mo.state_history[][I] = 2
+            mo = ModelObservable{typeof(model)}(model)
+            @test typeof(mo.model) <: Observable{DiscrModel{MajorityRule, RewiringRule}}
+            @test mo.state_history[S][] == [n - 2, ]
+            @test mo.state_history[I][] == [2, ]
+            @test mo.hyperedge_history[2][] == [3, ]
+            @test mo.hyperedge_history[3][] == [4, ]
+            @test mo.hyperedge_history[4][] == [5, ]
         end
     end
 end
