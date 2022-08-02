@@ -19,6 +19,8 @@ mutable struct HyperNetwork
     hg::Hypergraph{Bool, State}
     # Number of nodes in a particular state
     state_dist::Dict{State, Integer}
+    # Number of hyperedges of a particular size
+    hyperedge_dist::Dict{Integer, Integer}
 end
 
 
@@ -33,13 +35,13 @@ Create an empty network with n nodes and no hyperedges.
 `node_state` denotes the state of each node. 
 """
 function HyperNetwork(n::Integer,
-                      node_state::Vector{Union{Nothing, State}}
-                      )
+                      node_state::Vector{Union{Nothing, State}})
     @assert length(node_state) == n
     matrix = Matrix{Union{Nothing, Bool}}(nothing, (n, 0))
     hg = Hypergraph{Bool, State}(matrix; v_meta=node_state)
     state_dist = countmap(node_state)
-    HyperNetwork(hg, state_dist)
+    hyperedge_dist = Dict()
+    HyperNetwork(hg, state_dist, hyperedge_dist)
 end
 
 
@@ -54,7 +56,8 @@ function HyperNetwork(n::Integer)
     fill!(node_state, S)
     matrix = Matrix{Union{Nothing, Bool}}(nothing, (n, 0))
     hg = Hypergraph{Bool, State}(matrix; v_meta=node_state)
-    HyperNetwork(hg, Dict(S => n, I => 0))
+    hyperedge_dist = Dict()
+    HyperNetwork(hg, Dict(S => n, I => 0), hyperedge_dist)
 end
 
 
@@ -80,11 +83,26 @@ end
 function add_hyperedge!(network::HyperNetwork, nodes)
     @assert all(nodes .<= get_num_nodes(network))
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices = Dict([(n, true) for n in nodes]))
+    if length(nodes) in keys(network.hyperedge_dist)
+        network.hyperedge_dist[length(nodes)] += 1
+    else
+        network.hyperedge_dist[length(nodes)] = 1
+    end
 end
 
 
 function add_node!(network::HyperNetwork, hyperedges, state::State)
     @assert all(hyperedges .<= get_num_hyperedges(network)) 
+    # update hyperedge_dist
+    for h in hyperedges
+        old_size = get_hyperedge_size(network, h)
+        network.hyperedge_dist[old_size] -= 1
+        if old_size + 1 in keys(network.hyperedge_dist)
+            network.hyperedge_dist[old_size + 1] += 1
+        else
+            network.hyperedge_dist[old_size + 1] = 1
+        end
+    end
     SimpleHypergraphs.add_vertex!(network.hg, hyperedges = Dict([(h, true) for h in hyperedges]), v_meta = state)
     network.state_dist[state] += 1
 end
@@ -92,12 +110,23 @@ end
 # TODO: redo the reordering
 function remove_hyperedge!(network::HyperNetwork, hyperedge)
     @assert hyperedge <= get_num_hyperedges(network)
+    old_size = get_hyperedge_size(network, hyperedge)
+    network.hyperedge_dist[old_size] -= 1
     SimpleHypergraphs.remove_hyperedge!(network.hg, hyperedge)
 end
 
 # TODO: redo the reordering
 function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer, hyperedge::Integer)
-    if get_hyperedge_size(network, hyperedge) <= 2
+    old_size = get_hyperedge_size(network, hyperedge)
+    network.hyperedge_dist[old_size] -= 1
+    if old_size > 2
+        if old_size - 1 in keys(network.hyperedge_dist)
+            network.hyperedge_dist[old_size - 1] += 1
+        else
+            network.hyperedge_dist[old_size - 1] = 1
+        end
+    end
+    if old_size <= 2
         remove_hyperedge!(network, hyperedge)
     else
         network.hg[node, hyperedge] = false
@@ -123,7 +152,6 @@ function get_state(network::HyperNetwork, node)
     return get_vertex_meta(network.hg, node)
 end
 
-
 function get_node_to_state_dict(network::HyperNetwork)
     return Dict(node => get_state(network, node) for node in 1:get_num_nodes(network))
 end
@@ -134,6 +162,10 @@ end
 
 function get_state_dist(network::HyperNetwork)
     return network.state_dist
+end
+
+function get_hyperedge_dist(network::HyperNetwork)
+    return network.hyperedge_dist
 end
 
 function get_num_hyperedges(network::HyperNetwork)
