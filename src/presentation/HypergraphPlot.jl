@@ -3,6 +3,7 @@ using GraphMakie
 using GeometryBasics
 using Combinatorics
 
+export hypergraphplot, hypergraphplot!
 
 @recipe(HypergraphPlot) do scene
     Attributes(

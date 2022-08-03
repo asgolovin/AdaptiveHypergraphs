@@ -1,3 +1,5 @@
+export PropagationRule, MajorityRule, propagate!
+
 """
     PropagationRule
 

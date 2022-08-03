@@ -3,6 +3,8 @@ using StatsBase
 using Random
 using Graphs
 
+export State, HyperNetwork, build_regular_hg!, build_RSC_hg!
+
 @enum State::Bool S=false I=true
 
 """

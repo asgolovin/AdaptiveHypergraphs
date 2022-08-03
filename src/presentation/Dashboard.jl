@@ -1,3 +1,5 @@
+export Panel, Dashboard, run!, record!
+
 """
 Types of data that can be visualized in the dashboard.
 """

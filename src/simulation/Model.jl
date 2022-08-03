@@ -1,6 +1,8 @@
 using DataStructures
 using Random
 
+export AbstractModel, DiscrModel, ContinuousModel, step!
+
 
 abstract type AbstractModel{P <: PropagationRule, A <: AdaptivityRule} end
 

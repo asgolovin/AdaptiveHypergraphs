@@ -1,5 +1,7 @@
 using Random
 
+export AdaptivityRule, RewiringRule, adapt!
+
 """
     AdaptivityRule
 
