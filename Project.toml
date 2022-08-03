@@ -20,6 +20,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 [compat]
 ColorSchemes = "3"
 Combinatorics = "1"
+DataStructures = "0.18"
 GLMakie = "0.6"
 GeometryBasics = "0.4"
 GraphMakie = "0.4"
