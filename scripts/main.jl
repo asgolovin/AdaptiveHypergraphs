@@ -1,17 +1,28 @@
 using AdaptiveHypergraphs
 
+include("../input/small_network.jl")
 
-n = 100
+nparams, mparams, vparams = params.network_params, params.model_params, params.visualization_params
+
+n = nparams.num_nodes
 network = HyperNetwork(n, 0.5)
-build_RSC_hg!(network, (2n, n ÷ 2, 10, 1))
+build_RSC_hg!(network, nparams.num_hyperedges)
 
-majority_rule = MajorityRule()
-rewiring_rule = RewiringRule(0.5)
+propagation_rule = mparams.propagation_rule
+adaptivity_rule = mparams.adaptivity_rule
 
-model = DiscrModel{MajorityRule, RewiringRule}(network,
-                                               majority_rule,
-                                               rewiring_rule)
+if mparams.is_discrete
+    model_type = DiscrModel{typeof(propagation_rule), typeof(adaptivity_rule)}
+else
+    model_type = ContModel{typeof(propagation_rule), typeof(adaptivity_rule)}
+end
 
-dashboard = Dashboard(model; plot_hypergraph=true, is_interactive=false)
-run!(dashboard, 500, 10)
-# record!(dashboard, "test_record", 100, 10, 1)
+model = model_type(network, propagation_rule, adaptivity_rule)
+@show vparams.dashboard_params
+dashboard = Dashboard(model; vparams.dashboard_params...)
+
+if !vparams.record_video
+    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
+else
+    record!(dashboard, "test_record", 100, 10, 1)
+end

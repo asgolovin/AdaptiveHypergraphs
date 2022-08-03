@@ -23,6 +23,7 @@ end
     Dashboard(model::AbstractModel;
               plot_hypergraph::Bool=false,
               plot_states::Bool=true,
+              plot_hyperedges::Bool=true,
               is_interactive::Bool=false)
 
 A visualization of the evolution of the hypergraph during the simulation.
