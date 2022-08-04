@@ -2,6 +2,7 @@ using SimpleHypergraphs
 using StatsBase
 using Random
 using Graphs
+using Combinatorics
 
 export State, HyperNetwork, build_regular_hg!, build_RSC_hg!
 
@@ -258,6 +259,51 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
         end
     end
     return nothing
+end
+
+
+function build_RSC_hg_new!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
+    max_dim = length(num_hyperedges)
+    n = get_num_nodes(network)
+    for d in 1:max_dim
+        # draw num_hyperedges[d] distinct indices of the combinations
+        indices = rand(0:binomial(n - 1, d) - 1, num_hyperedges[d])
+        for index in indices
+            nodes = _index_to_combination(index, d)
+            # _index_to_combination returns combinations with numbers starting from zero,
+            # but we need them to start from one
+            nodes .+= 1
+            add_hyperedge!(network, nodes)
+        end
+    end
+    return nothing
+end
+
+
+"""
+Finds the combination of size `size` at the given index. 
+
+Each combination is a set of unique numbers greater or equal than zero sorted in *decreasing* order. 
+If all combinations are sorted in a lexographic order, a unique index can be assigned to every combination. 
+This function computes the reverse mapping: given an index, it finds the corresponding combination. 
+
+See https://en.wikipedia.org/wiki/Combinatorial_number_system#Finding_the_k-combination_for_a_given_number
+"""
+function _index_to_combination(index, size)
+    @assert index ≥ binomial(size - 1, size)
+    combination = []
+    for k = size:-1:1
+        ck = k - 1
+        binom = binomial(ck + 1, k)
+        while binom <= index
+            ck += 1
+            binom *= (ck + 1) 
+            binom ÷= (ck + 1 - k)
+        end
+        push!(combination, ck)
+        index -= binomial(ck, k)
+    end
+    return combination
 end
 
 
