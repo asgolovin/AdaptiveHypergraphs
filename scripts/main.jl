@@ -18,11 +18,10 @@ else
 end
 
 model = model_type(network, propagation_rule, adaptivity_rule)
-@show vparams.dashboard_params
 dashboard = Dashboard(model; vparams.dashboard_params...)
 
-if !vparams.record_video
-    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
-else
+if vparams.record_video
     record!(dashboard, "test_record", 100, 10, 1)
+else
+    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
 end
