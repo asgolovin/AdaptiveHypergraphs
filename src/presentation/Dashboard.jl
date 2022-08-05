@@ -32,7 +32,9 @@ function Dashboard(model::AbstractModel;
                    plot_hypergraph::Bool=false,
                    plot_states::Bool=true,
                    plot_hyperedges::Bool=true,
-                   is_interactive::Bool=false)
+                   is_interactive::Bool=false,
+                   node_colormap = :RdYlGn_6,
+                   hyperedge_colormap = :thermal)
     fig = Figure(resolution = (1000, 600))
     display(fig)
     axes = Dict{Panel, Axis}()
@@ -50,7 +52,7 @@ function Dashboard(model::AbstractModel;
     if plot_hypergraph
         plot_count += 1
         hg_box = plot_box[1, plot_count]
-        hgax, _ = hypergraphplot(hg_box[1, 1], mo.network)
+        hgax, _ = hypergraphplot(hg_box[1, 1], mo.network; node_colormap, hyperedge_colormap)
         push!(panels, hypergraphPanel)
         hgax.title = "Visualization of the hypergraph"
         axes[hypergraphPanel] = hgax
@@ -65,8 +67,13 @@ function Dashboard(model::AbstractModel;
         push!(panels, stateDistPanel)
         state_hist_box = history_box[1, 1]
         axes[stateDistPanel] = Axis(state_hist_box[1, 1], title="Distribution of states")
+        num_states = length(instances(State))
+        linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
         for (i, state) in enumerate(instances(State))
-            lines!(axes[stateDistPanel], mo.state_history[state], label="# of $state nodes")
+            lines!(axes[stateDistPanel],
+                   mo.state_history[state], 
+                   label = "# of $state nodes",
+                   color = linecolors[i])
             xlims!(axes[stateDistPanel], 0, 100)
             ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
         end
@@ -80,10 +87,13 @@ function Dashboard(model::AbstractModel;
         push!(panels, hyperedgeDistPanel)
         hyperedge_hist_box = history_box[plot_states ? 2 : 1, 1]
         axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box[1, 1], title="Distribution of hyperdeges")
-        for size in 2:get_max_hyperedge_size(mo.network[])
+        max_hyperedge_size = get_max_hyperedge_size(mo.network[])
+        linecolors = get(colorschemes[hyperedge_colormap], 2:max_hyperedge_size, (2, max_hyperedge_size))
+        for size in 2:max_hyperedge_size
             lines!(axes[hyperedgeDistPanel],
                    mo.hyperedge_history[size],
-                   label="# of hyperdeges of size $size")
+                   label="# of hyperdeges of size $size",
+                   color = linecolors[size - 1])
             xlims!(axes[hyperedgeDistPanel], 0, 100)
         end
         hyperedge_hist_box[2, 1] = Legend(hyperedge_hist_box, 

@@ -8,9 +8,7 @@ export hypergraphplot, hypergraphplot!
 
 @recipe(HypergraphPlot) do scene
     Attributes(
-        S_color = :yellowgreen,
-        I_color = :firebrick2,
-        triangle_color = (:orange, 0.3),
+        node_colormap = :RdYlGn_6,
         hyperedge_colormap = :thermal
     )
 end
@@ -77,12 +75,6 @@ function Makie.plot!(hgplot::HypergraphPlot)
     # call the function for the first time
     update_plot(network[])
 
-    # map states to colors
-    node_colormap = Observable{Any}()
-    map!(node_colormap, hgplot.S_color, hgplot.I_color) do I_color, S_color
-        [I_color, S_color]
-    end
-
     # draw the skeleton simple graph
     gp = graphplot!(hgplot, 
                     simple_graph; 
@@ -90,7 +82,7 @@ function Makie.plot!(hgplot::HypergraphPlot)
                     nlabels_distance=10,
                     edge_color = :gray,
                     edge_width = 1.5,
-                    node_attr = (color=states, colormap=node_colormap, markersize=12),
+                    node_attr = (color=states, colormap=hgplot.node_colormap, markersize=12),
                     nlabels_attr = (textsize = 12, color = :gray))
     
     # graphplot gives us the positions of the nodes
