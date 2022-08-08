@@ -15,29 +15,36 @@ end
 
 function Makie.plot!(hgplot::HypergraphPlot)
     network = hgplot[1]
-
-    # a vector of states expressed as integers 
+    
+    # a vector of node states expressed as integers 
     states = Observable(Int64[])
     # the two-section graph of the hypergraph, used as a skeleton to draw the full hypergraph
     simple_graph = Observable(Graphs.SimpleGraphs.SimpleGraph())
     # labels of the nodes
     labels = Observable(String[])
-    # positions of the nodes in the image
+    # coordinates of the nodes in the image
     node_pos = Observable(Point{2, Float32}[])
     # indices of the nodes which belong to the same triangle
     faces = Observable(Matrix{Int64}(undef, 0, 3))
     # indices of the nodes which belong to the same edge
     edges = Observable(NTuple{2, Int64}[])
+    # historical maximum hyperdege size
+    max_hedge_size = get_max_hyperedge_size(network[])
+    # coordinates of the nodes stacked on top of eack other max_hedge_size times.
+    # We need this artificial dublication to draw hyperedges of different sizes in different colors.
+    # stacked_node_pos = [1, 2, 3, ..., 1, 2, 3, ..., 1, 2, 3, ...]
+    stacked_node_pos = Observable(Point{2, Float32}[])
+    # colors of the triangle faces
+    # colors = [1, 1, 1, ..., 2, 2, 2, ..., max_hedge_size, max_hedge_size, max_hedge_size, ...]
+    colors = repeat(1:max_hedge_size, inner = get_num_nodes(network[]))
     
-    # Called whenever the network changes to update all observables with new values
-    # TODO: why is it called twice?
-    function update_plot(network::HyperNetwork)
+    # Called whenever the network changes to update observables with new values
+    Makie.Observables.on(network) do network
         simple_graph[] = get_twosection_graph(network)
         
         empty!(states[])
         empty!(labels[])
         empty!(edges[])
-        faces[] = Matrix{Int64}(undef, 0, 3)
         for node = 1:get_num_nodes(network)
             push!(states[], Int64(get_state(network, node)))
             push!(labels[], "#$node, $(get_state(network, node))")
@@ -48,33 +55,20 @@ function Makie.plot!(hgplot::HypergraphPlot)
             if hsize == 2
                 # add edges between the nodes
                 push!(edges[], Tuple(nodes))
-            elseif hsize > 2
-                # The nodes will be dublicated for each possible size of 
-                # the hyperedge - otherwise, it is not possible to draw 
-                # hyperedges of different sizes in different colors. 
-                # This is why we need to offset the index of the nodes. 
-                nodes .+= (hsize - 2) * get_num_nodes(network)
-                # add triangular faces between all triples of nodes
-                simplex_faces = collect(combinations(nodes, 3))
-                simplex_faces = reduce(vcat, transpose.(simplex_faces))
-                faces[] = [faces[]; simplex_faces]
             end
         end
         # trigger the update of observables
         notify(labels)
-        # hack to fix weird error when the whole vector contains 
+        # hack to fix a weird error when the whole vector contains 
         # the same value
         push!(states[], 1 - states[][end])
         notify(states)
         pop!(states[])
     end
-
-    # call update_plot whenever the network changes
-    Makie.Observables.on(update_plot, network)
-
+    
     # call the function for the first time
-    update_plot(network[])
-
+    notify(network)
+    
     # draw the skeleton simple graph
     gp = graphplot!(hgplot, 
                     simple_graph; 
@@ -84,15 +78,32 @@ function Makie.plot!(hgplot::HypergraphPlot)
                     edge_width = 1.5,
                     node_attr = (color=states, colormap=hgplot.node_colormap, markersize=12),
                     nlabels_attr = (textsize = 12, color = :gray))
-    
+                    
     # graphplot gives us the positions of the nodes
     node_pos = gp[:node_pos]
-
-    # plot the hyperedges as triangles
-    # colors = [1, 1, 1, ..., 2, 2, 2, ..., 3, 3, 3, ...]
-    colors = @lift repeat(1:get_max_hyperedge_size($network), inner = get_num_nodes($network))
-    # stacked_node_pos = [1, 2, 3, ..., 1, 2, 3, ..., 1, 2, 3, ...]
-    stacked_node_pos = @lift repeat($node_pos, outer = get_max_hyperedge_size($network))
+    
+    # using the positions of the nodes, update Observables related to the triangle faces
+    Makie.Observables.onany(network, node_pos) do network, node_pos
+        faces.val = Matrix{Int64}(undef, 0, 3)
+        for h = 1:get_num_hyperedges(network)
+            hsize = get_hyperedge_size(network, h)
+            nodes = get_nodes(network, h)
+            if hsize > 2
+                # The indices are offsetted because they refer to the 
+                # position in the stacked_node_pos vector, not the node_pos 
+                # vector. 
+                nodes .+= (hsize - 2) * get_num_nodes(network)
+                # add triangular faces between all triples of nodes
+                simplex_faces = collect(combinations(nodes, 3))
+                simplex_faces = reduce(vcat, transpose.(simplex_faces))
+                faces.val = [faces[]; simplex_faces]
+            end
+        end
+        stacked_node_pos[] = repeat(node_pos, outer = max_hedge_size)
+    end
+    
+    notify(node_pos)
+    
     mesh!(hgplot,
           stacked_node_pos,
           faces,
@@ -102,10 +113,11 @@ function Makie.plot!(hgplot::HypergraphPlot)
           transparency = true)
 
     edge_node_pos = @lift [($node_pos[first], $node_pos[second]) for (first, second) in $edges]
+
     # plot the 2-hyperedges
     linesegments!(hgplot,
                   edge_node_pos,
                   color = colorschemes[hgplot.hyperedge_colormap[]][1])
-
+    
     return hgplot
 end

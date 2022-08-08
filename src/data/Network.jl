@@ -121,18 +121,17 @@ end
 # TODO: redo the reordering
 function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     old_size = get_hyperedge_size(network, hyperedge)
-    network.hyperedge_dist[old_size] -= 1
-    if old_size > 2
-        if old_size - 1 in keys(network.hyperedge_dist)
-            network.hyperedge_dist[old_size - 1] += 1
-        else
-            network.hyperedge_dist[old_size - 1] = 1
-        end
-    end
-    if old_size <= 2
+    if old_size == 2
         remove_hyperedge!(network, hyperedge)
     else
-        network.hg[node, hyperedge] = false
+        network.hyperedge_dist[old_size] -= 1
+        new_size = old_size - 1
+        if new_size in keys(network.hyperedge_dist)
+            network.hyperedge_dist[new_size] += 1
+        else
+            network.hyperedge_dist[new_size] = 1
+        end
+        network.hg[node, hyperedge] = nothing
     end
     return nothing
 end
@@ -180,19 +179,19 @@ function get_num_nodes(network::HyperNetwork)
 end
 
 function get_node_degree(network::HyperNetwork, node::Integer)
-    return length(network.hg.v2he[node])
+    return sum(values(network.hg.v2he[node]))
 end
 
 function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
-    return length(network.hg.he2v[hyperedge])
+    return sum(values(network.hg.he2v[hyperedge]))
 end
 
 function get_max_hyperedge_size(network::HyperNetwork)
-    return maximum([length(d) for d in network.hg.he2v])
+    return maximum([sum(values(d)) for d in network.hg.he2v])
 end
 
 function get_nodes(network::HyperNetwork, hyperedge::Integer)
-    return collect(keys(getvertices(network.hg, hyperedge)))
+    return collect(keys(filter(d->d.second, getvertices(network.hg, hyperedge))))
 end
 
 """

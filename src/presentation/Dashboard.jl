@@ -88,7 +88,7 @@ function Dashboard(model::AbstractModel;
         hyperedge_hist_box = history_box[plot_states ? 2 : 1, 1]
         axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box[1, 1], title="Distribution of hyperdeges")
         max_hyperedge_size = get_max_hyperedge_size(mo.network[])
-        linecolors = get(colorschemes[hyperedge_colormap], 2:max_hyperedge_size, (2, max_hyperedge_size))
+        linecolors = get(colorschemes[hyperedge_colormap], 1:max_hyperedge_size, (1, max_hyperedge_size))
         for size in 2:max_hyperedge_size
             lines!(axes[hyperedgeDistPanel],
                    mo.hyperedge_history[size],
@@ -133,7 +133,6 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 if hypergraphPanel in dashboard.panels
                     autolimits!(axes[hypergraphPanel])
                 end
-                sleep(0.1)
             end
         end
     end
