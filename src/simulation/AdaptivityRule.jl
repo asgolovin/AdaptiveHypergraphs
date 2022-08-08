@@ -34,9 +34,11 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge:
     
     new_node = rand(keys(state_dict))
 
+    former_neighbors = get_nodes(network, hyperedge)
+    println("Node $selected_node was disconnected from hyperedge with nodes $(former_neighbors) and connected with node $new_node")
+
     remove_node_from_hyperedge!(network, selected_node, hyperedge)
     add_hyperedge!(network, [selected_node, new_node])
 
-    println("Node $selected_node was disconnected from hyperedge $hyperedge and connected with node $new_node")
     return nothing
 end

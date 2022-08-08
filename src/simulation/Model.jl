@@ -39,7 +39,6 @@ function step!(model::DiscrModel)
 
     # do nothing if the hyperedge connects vertices with the same state
     if !is_active(network, hyperedge)
-        println("Doing nothing")
         return false
     end
 
