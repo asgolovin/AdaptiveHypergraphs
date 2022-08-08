@@ -54,7 +54,7 @@ function record_history!(model::AbstractModel,
         notify(state_history[state])
     end
     hyperedge_dist = get_hyperedge_dist(model.network)
-    for size in 2:get_max_hyperedge_size(model.network)
+    for size in keys(hyperedge_dist)
         push!(hyperedge_history[size][], hyperedge_dist[size])
         notify(hyperedge_history[size])
     end
