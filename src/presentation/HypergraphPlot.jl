@@ -6,12 +6,36 @@ using ColorSchemes
 
 export hypergraphplot, hypergraphplot!
 
+"""
+    hypergraphplot(network::HyperNetwork)
+    hypergraphplot!(ax, network::HyperNetwork)
+
+Plots a visualization of a hypergraph with nodes in particular states. 
+
+The visualization consists of three consecutive steps:
+
+    1. First, the two-section of the hypergraph is plotted using the `graphplot()` function 
+    from GraphMakie. A two-section of a hypergarph is a simple graph in which two nodes 
+    are connected if they belong to the same hyperedge. Importantly, the `graphplot()` 
+    function also computes the positions of the nodes on a two-dimensional plane. Those 
+    node positions are used for the two following steps. 
+
+    2. Having obtained the node positions, hyperedges of size greater than two are plotted 
+    using meshes: within each hyperedge, all tripples of nodes are connected with a triangle. 
+    This produces a visualization similar to what is usually used to plot simplical complexes: 
+    hyperdeges with three nodes are visualized as triangles, hyperdeges with four nodes 
+    as tetrahedra and so on. Hyperedges of different sizes are plotted in different colors. 
+
+    3. Finally, hyperdeges with two nodes, i.e., simple edges, are plotted as lines. The 
+    color of the lines is sampled from the hyperdege colormap. 
+"""
 @recipe(HypergraphPlot) do scene
     Attributes(
         node_colormap = :RdYlGn_6,
         hyperedge_colormap = :thermal
     )
 end
+
 
 function Makie.plot!(hgplot::HypergraphPlot)
     network = hgplot[1]

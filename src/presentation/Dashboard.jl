@@ -133,6 +133,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 if hypergraphPanel in dashboard.panels
                     autolimits!(axes[hypergraphPanel])
                 end
+                sleep(0.5)
             end
         end
     end
