@@ -11,7 +11,7 @@ struct DiscrModel{P <: PropagationRule, A <: AdaptivityRule} <: AbstractModel{P,
     network::HyperNetwork
     propagation_rule::PropagationRule
     adaptivity_rule::AdaptivityRule
-    #...
+    propagation_prob::Real
 end
 
 
@@ -20,14 +20,15 @@ struct ContinuousModel{P <: PropagationRule, A <: AdaptivityRule} <: AbstractMod
     event_queue::PriorityQueue
     propagation_rule::PropagationRule
     adaptivity_rule::AdaptivityRule
-    #...
+    propagation_rate::Real
+    adaptivity_rate::Real
 end
 
 
 """
 Advances the dynamics of the network by one step. 
 
-Returns true if the netwrok has changed, false otherwise. 
+Returns true if the network has changed, false otherwise. 
 """
 function step!(model::DiscrModel)
     network = model.network
@@ -43,12 +44,12 @@ function step!(model::DiscrModel)
     end
 
     p = rand()
-    if p < adaptivity_rule.rewiring_prob
-        println("Executing adaptivity rule")
-        adapt!(network, adaptivity_rule, hyperedge)
-    else
+    if p < model.propagation_prob
         println("Executing propagation rule")
         propagate!(network, propagation_rule, hyperedge)
+    else
+        println("Executing adaptivity rule")
+        adapt!(network, adaptivity_rule, hyperedge)
     end
 
     return true
@@ -56,6 +57,9 @@ end
 
 # TODO
 function step!(model::ContinuousModel)
+    network = model.network
+    propagation_rule = model.propagation_rule
+    adaptivity_rule = model.adaptivity_rule
 
-    # return τ
+    
 end

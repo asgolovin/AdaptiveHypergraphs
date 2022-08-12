@@ -9,9 +9,7 @@ Determines how the edges of the graph change with time.
 """
 abstract type AdaptivityRule end
 
-struct RewiringRule <: AdaptivityRule
-    rewiring_prob::Real
-end
+struct RewiringRule <: AdaptivityRule end
 
 
 """

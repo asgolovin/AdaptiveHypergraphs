@@ -8,9 +8,12 @@ end
 
 @with_kw struct ModelParams
     is_discrete::Bool = true
-    adaptivity_rule::AdaptivityRule = RewiringRule(0.5)
+    adaptivity_rule::AdaptivityRule = RewiringRule()
     propagation_rule::PropagationRule = MajorityRule()
     num_time_steps::Integer = 500
+    propagation_prob::Real = 0.5
+    propagation_rate::Real = 1.
+    adaptivity_rate::Real = 1.
 end
 
 @with_kw struct VisualizationParams

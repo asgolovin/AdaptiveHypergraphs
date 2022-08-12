@@ -12,12 +12,20 @@ propagation_rule = mparams.propagation_rule
 adaptivity_rule = mparams.adaptivity_rule
 
 if mparams.is_discrete
-    model_type = DiscrModel{typeof(propagation_rule), typeof(adaptivity_rule)}
+    model = DiscrModel{typeof(propagation_rule), 
+                       typeof(adaptivity_rule)}(network,
+                                                propagation_rule,
+                                                adaptivity_rule,
+                                                mparams.propagation_prob)
 else
-    model_type = ContModel{typeof(propagation_rule), typeof(adaptivity_rule)}
+    model = ContModel{typeof(propagation_rule), 
+                      typeof(adaptivity_rule)}(network,
+                                               propagation_rule,
+                                               adaptivity_rule,
+                                               mparams.adaptivity_rate,
+                                               mparams.propagation_rate)
 end
 
-model = model_type(network, propagation_rule, adaptivity_rule)
 dashboard = Dashboard(model; vparams.dashboard_params...)
 
 if vparams.record_video
