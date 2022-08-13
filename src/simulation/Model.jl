@@ -26,7 +26,7 @@ function step!(model::DiscrModel)
     adaptivity_rule = model.adaptivity_rule
 
     # choose a random hyperedge
-    hyperedge = rand(1:get_num_hyperedges(network))
+    hyperedge = rand(network.hyperedge_uid)
 
     # do nothing if the hyperedge connects vertices with the same state
     if !is_active(network, hyperedge)
