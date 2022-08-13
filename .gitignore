@@ -2,5 +2,5 @@
 videos
 plots
 results
-input
+input/*
 !input/InputParams.jl
