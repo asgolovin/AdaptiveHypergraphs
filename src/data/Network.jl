@@ -82,7 +82,7 @@ end
 # ====================================================================================
 # ----------------------------- GRAPH MANIPULATION -----------------------------------
 
-function add_hyperedge!(network::HyperNetwork, nodes)
+function add_hyperedge!(network::HyperNetwork, nodes::Vector{Int64})
     @assert all(nodes .<= get_num_nodes(network))
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices = Dict([(n, true) for n in nodes]))
     new_size = length(nodes)
@@ -90,7 +90,7 @@ function add_hyperedge!(network::HyperNetwork, nodes)
 end
 
 
-function add_node!(network::HyperNetwork, hyperedges, state::State)
+function add_node!(network::HyperNetwork, hyperedges::Vector{Int64}, state::State)
     @assert all(hyperedges .<= get_num_hyperedges(network)) 
     # update hyperedge_dist
     for h in hyperedges
@@ -104,7 +104,7 @@ function add_node!(network::HyperNetwork, hyperedges, state::State)
 end
 
 
-function _add_to_hyperedge_dist!(hyperedge_dist, new_size)
+function _add_to_hyperedge_dist!(hyperedge_dist::Dict, new_size::Integer)
     if new_size in keys(hyperedge_dist)
         hyperedge_dist[new_size] += 1
     else
@@ -123,7 +123,7 @@ end
 Does not preserve the indices of the hyperedges! The last hyperedge
 gets the index of the removed hyperedge. 
 """
-function remove_hyperedge!(network::HyperNetwork, hyperedge)
+function remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge <= get_num_hyperedges(network)
     old_size = get_hyperedge_size(network, hyperedge)
     network.hyperedge_dist[old_size] -= 1
@@ -150,7 +150,7 @@ function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer, hyper
 end
 
 
-function set_state!(network::HyperNetwork, node, state::State)
+function set_state!(network::HyperNetwork, node::Integer, state::State)
     old_state = get_state(network, node)
     set_vertex_meta!(network.hg, state, node)
     network.state_dist[old_state] -= 1
@@ -158,20 +158,24 @@ function set_state!(network::HyperNetwork, node, state::State)
 end
 
 
-function set_hyperedge_meta!(network::HyperNetwork, hyperedge, meta)
+function set_hyperedge_meta!(network::HyperNetwork, hyperedge::Integer, meta)
     SimpleHypergraphs.set_hyperedge_meta!(network.hg, meta, hyperedge)
 end
 
 
-function set_hyperedge_meta!(network::HyperNetwork, hyperedge, key::Symbol, value::Any)
+function set_hyperedge_meta!(network::HyperNetwork, hyperedge::Integer, key::Symbol, value::Any)
     meta = SimpleHypergraphs.get_hyperedge_meta(network.hg, hyperedge)
     meta[key] = value
     SimpleHypergraphs.set_hyperedge_meta!(network.hg, meta, hyperedge)
 end
 
 
-function get_hyperedge_meta(network::HyperNetwork, hyperedge)
+function get_hyperedge_meta(network::HyperNetwork, hyperedge::Integer)
     SimpleHypergraphs.get_hyperedge_meta(network.hg, hyperedge)
+end
+
+function get_hyperedge_meta(network::HyperNetwork, hyperedge::Integer, key::Symbol)
+    SimpleHypergraphs.get_hyperedge_meta(network.hg, hyperedge)[key]
 end
 
 
@@ -180,7 +184,7 @@ end
 
 
 
-function get_state(network::HyperNetwork, node)
+function get_state(network::HyperNetwork, node::Integer)
     return get_vertex_meta(network.hg, node)
 end
 
@@ -318,7 +322,7 @@ This function computes the reverse mapping: given an index, it finds the corresp
 
 See https://en.wikipedia.org/wiki/Combinatorial_number_system#Finding_the_k-combination_for_a_given_number
 """
-function _index_to_combination(index, size)
+function _index_to_combination(index::Integer, size::Integer)
     @assert index ≥ binomial(size - 1, size)
     combination = []
     for k = size:-1:1
