@@ -158,6 +158,23 @@ function set_state!(network::HyperNetwork, node, state::State)
 end
 
 
+function set_hyperedge_meta!(network::HyperNetwork, hyperedge, meta)
+    SimpleHypergraphs.set_hyperedge_meta!(network.hg, meta, hyperedge)
+end
+
+
+function set_hyperedge_meta!(network::HyperNetwork, hyperedge, key::Symbol, value::Any)
+    meta = SimpleHypergraphs.get_hyperedge_meta(network.hg, hyperedge)
+    meta[key] = value
+    SimpleHypergraphs.set_hyperedge_meta!(network.hg, meta, hyperedge)
+end
+
+
+function get_hyperedge_meta(network::HyperNetwork, hyperedge)
+    SimpleHypergraphs.get_hyperedge_meta(network.hg, hyperedge)
+end
+
+
 # ====================================================================================
 # --------------------------------- GRAPH INFO ---------------------------------------
 
