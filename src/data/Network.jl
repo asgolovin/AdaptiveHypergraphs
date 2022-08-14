@@ -192,29 +192,6 @@ function set_state!(network::HyperNetwork, node::Integer, state::State)
 end
 
 
-function set_hyperedge_meta!(network::HyperNetwork, hyperedge::Integer, meta)
-    mid = indexin(hyperedge, network.hyperedge_uid)[]
-    SimpleHypergraphs.set_hyperedge_meta!(network.hg, meta, mid)
-end
-
-
-function set_hyperedge_meta!(network::HyperNetwork, hyperedge::Integer, key::Symbol, value::Any)
-    meta = get_hyperedge_meta(network, hyperedge)
-    meta[key] = value
-    set_hyperedge_meta!(network, meta, hyperedge)
-end
-
-
-function get_hyperedge_meta(network::HyperNetwork, hyperedge::Integer)
-    mid = indexin(hyperedge, network.hyperedge_uid)[]
-    SimpleHypergraphs.get_hyperedge_meta(network.hg, mid)
-end
-
-function get_hyperedge_meta(network::HyperNetwork, hyperedge::Integer, key::Symbol)
-    get_hyperedge_meta(network, hyperedge)[key]
-end
-
-
 # ====================================================================================
 # --------------------------------- GRAPH INFO ---------------------------------------
 
