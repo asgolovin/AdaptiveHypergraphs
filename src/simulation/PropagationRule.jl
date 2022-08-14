@@ -18,10 +18,12 @@ struct MajorityRule <: PropagationRule end
 
 function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedge::Integer)
     nodes = get_nodes(network, hyperedge)
-    state_dict = get_node_to_state_dict(network, hyperedge)
     state_count = get_state_dist(network)
     # number of votes for the majority opinion
     max_count = maximum(values(state_count))
+
+    # track which hyperedges were affected by the change
+    affected_nodes = Dict{Int64, NamedTuple{(:before, :after), Tuple{State, State}}}()
 
     # get all opinions with the same maximum number of votes
     max_states = [pair.first for pair in state_count if pair.second == max_count]
@@ -32,9 +34,14 @@ function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedg
     end
     
     for node in nodes
-        set_state!(network, node, majority_state)
+        prev_state = get_state(network, node)
+        if prev_state != majority_state
+            affected_nodes[node] = (before = prev_state, after = majority_state)
+            set_state!(network, node, majority_state)
+        end
     end
 
     println("Nodes $(nodes) in hyperedge $hyperedge were set to $majority_state")
-    return majority_state
+
+    return affected_nodes
 end

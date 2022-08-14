@@ -1,6 +1,6 @@
 using AdaptiveHypergraphs
 
-include("../input/small_network.jl")
+include("../input/continuous_model.jl")
 
 nparams, mparams, vparams = params.network_params, params.model_params, params.visualization_params
 
@@ -18,12 +18,12 @@ if mparams.is_discrete
                                                 adaptivity_rule,
                                                 mparams.propagation_prob)
 else
-    model = ContModel{typeof(propagation_rule), 
-                      typeof(adaptivity_rule)}(network,
-                                               propagation_rule,
-                                               adaptivity_rule,
-                                               mparams.adaptivity_rate,
-                                               mparams.propagation_rate)
+    model = ContinuousModel{typeof(propagation_rule), 
+                            typeof(adaptivity_rule)}(network,
+                                                    propagation_rule,
+                                                    adaptivity_rule,
+                                                    mparams.adaptivity_rate,
+                                                    mparams.propagation_rate)
 end
 
 dashboard = Dashboard(model; vparams.dashboard_params...)
