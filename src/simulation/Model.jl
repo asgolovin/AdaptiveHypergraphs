@@ -52,8 +52,6 @@ struct ContinuousModel{P <: PropagationRule, A <: AdaptivityRule} <: AbstractMod
     event_queue::PriorityQueue
     propagation_rule::PropagationRule
     adaptivity_rule::AdaptivityRule
-    propagation_rate::Real
-    adaptivity_rate::Real
     propagation_distr::Distribution
     adaptivity_distr::Distribution
     current_time::Real
@@ -88,8 +86,6 @@ function ContinuousModel{P, A}(network::HyperNetwork,
                     event_queue,
                     propagation_rule,
                     adaptivity_rule,
-                    propagation_rate,
-                    adaptivity_rate,
                     propagation_distr,
                     adaptivity_distr,
                     current_time)
