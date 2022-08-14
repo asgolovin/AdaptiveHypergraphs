@@ -22,7 +22,7 @@ function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedg
     # number of votes for the majority opinion
     max_count = maximum(values(state_count))
 
-    # track which hyperedges were affected by the change
+    # track which nodes were affected by the change
     affected_nodes = Dict{Int64, NamedTuple{(:before, :after), Tuple{State, State}}}()
 
     # get all opinions with the same maximum number of votes

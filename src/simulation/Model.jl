@@ -108,6 +108,7 @@ function step!(model::ContinuousModel)
     propagation_rule = model.propagation_rule
     adaptivity_rule = model.adaptivity_rule
 
+    # Don't do anything if there are no events anymore
     if length(model.event_queue) == 0
         return false
     end
@@ -117,15 +118,19 @@ function step!(model::ContinuousModel)
 
     source_hyperedge = event.hyperedge
 
+    # Should not be necessary... theoretically
     if !is_active(network, source_hyperedge)
+        println("A non-active hyperedge was selected by an event. Something went wrong!")
         return false
     end
 
+    # hyperedges which share a common node with the source hyperedge
+    neighboring_hyperedges = Dict{Int64, Bool}()
+    # nodes which changed their state after the event
     affected_nodes = Dict{Int64, NamedTuple{(:before, :after), Tuple{State, State}}}()
 
     if event.action == propagate
         # record whether the neighbors are active or not
-        neighboring_hyperedges = Dict{Int64, Bool}()
         for node in get_nodes(network, source_hyperedge)
             for h in get_hyperedges(network, node)
                 if !(h == source_hyperedge || h in keys(neighboring_hyperedges))
@@ -136,50 +141,49 @@ function step!(model::ContinuousModel)
 
         println("Executing propagation rule")
         affected_nodes = propagate!(network, propagation_rule, source_hyperedge)
-
-        # if the source hyperedeg is still active, the Poisson process is restarted
-        if is_active(network, source_hyperedge)
-            # add a new event for this hyperedge
-            event_time = model.current_time + rand(model.propagation_distr)
-            event = Event(source_hyperedge, event_time, propagate)
-            enqueue!(model.event_queue, event)
-
-        else # if the source hyperedge was switched off, all future events are removed
-            _remove_hyperedge_events!(model.event_queue, source_hyperedge)
-        end
-
-        # check if any neighboring hyperedges were modified
-        for neighbor in keys(neighboring_hyperedges)
-            # if any node of the neighbor was affected
-            if any(keys(affected_nodes) .∈ Ref(get_nodes(network, neighbor)))
-
-                active_before = neighboring_hyperedges[neighbor]
-                active_after = is_active(network, neighbor)
-
-                # on -> off
-                if active_before == true && active_after == false
-                    _remove_hyperedge_events!(model.event_queue, neighbor)
-                
-                # off -> on
-                elseif active_before == false && active_after == true
-                    # add new event for this hyperedge
-                    event_time = model.current_time + rand(model.propagation_distr)
-                    event = Event(neighbor, event_time, propagate)
-                    enqueue!(model.event_queue, event, event.time)
-
-                end # in all other cases, nothing happens
+        
+    elseif event.action == adapt
+        # since an adaptivity rule can target any hyperedge, we need to record the whole state of the network.
+        # This can be written in a faster way if this ever becomes a bottleneck
+        for h in get_hyperedges(network)
+            if h != source_hyperedge
+                neighboring_hyperedges[h] = is_active(network, h)
             end
         end
 
-    elseif event.action == adapt
-        # TODO
-        # println("Executing adaptivity rule")
-        # adapt!(network, adaptivity_rule, source_hyperedge)
-
-        # process changed hyperedges
-
+        println("Executing adaptivity rule")
+        affected_nodes = adapt!(network, adaptivity_rule, source_hyperedge)
     end
 
+    # Add events for the source hyperedge
+    # if the source hyperedeg is still active, the Poisson process is restarted
+    if is_active(network, source_hyperedge)
+        _add_event!(model, source_hyperedge, propagate)
+    else # if the source hyperedge was switched off, all future events are removed
+        _remove_hyperedge_events!(model.event_queue, source_hyperedge)
+    end
+
+    # Add events for the neighboring hyperedges
+    for neighbor in keys(neighboring_hyperedges)
+        # if any node of the neighbor was affected
+        # TODO: doesn't work for adaptation!
+        if any(keys(affected_nodes) .∈ Ref(get_nodes(network, neighbor)))
+
+            active_before = neighboring_hyperedges[neighbor]
+            active_after = is_active(network, neighbor)
+
+            # on -> off
+            if active_before == true && active_after == false
+                _remove_hyperedge_events!(model.event_queue, neighbor)
+            
+            # off -> on
+            elseif active_before == false && active_after == true
+                _add_event!(model, neighbor, propagate)
+
+            end # in all other cases, nothing happens
+        end
+    end
+    
     return length(affected_nodes) > 0
 end
 
@@ -195,4 +199,11 @@ function _remove_hyperedge_events!(queue::PriorityQueue, hyperedge::Integer)
             delete!(queue, event)
         end
     end
+end
+
+function _add_event!(model::ContinuousModel, hyperedge::Integer, event_type::EventTypes)
+    distr = event_type == propagate ? model.propagation_distr : model.adaptivity_distr
+    event_time = model.current_time + rand(distr)
+    event = Event(hyperedge, event_time, event_type)
+    enqueue!(model.event_queue, event, event.time)
 end
