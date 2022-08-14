@@ -105,11 +105,13 @@ using Test
             build_RSC_hg!(network[], (3, 4, 5))
 
             majority_rule = MajorityRule()
-            rewiring_rule = RewiringRule(0.5)
+            rewiring_rule = RewiringRule()
+            propagation_prob = 0.5
 
             model = DiscrModel{MajorityRule, RewiringRule}(network[],
                                                         majority_rule,
-                                                        rewiring_rule)
+                                                        rewiring_rule,
+                                                        propagation_prob)
 
             mo = ModelObservable{typeof(model)}(model)
             @test typeof(mo.model) <: Observable{DiscrModel{MajorityRule, RewiringRule}}

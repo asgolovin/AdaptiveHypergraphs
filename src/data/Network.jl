@@ -95,7 +95,7 @@ end
 # ----------------------------- GRAPH MANIPULATION -----------------------------------
 
 
-function add_hyperedge!(network::HyperNetwork, nodes::Vector{Int64})
+function add_hyperedge!(network::HyperNetwork, nodes)
     @assert all(nodes .<= get_num_nodes(network))
     
     vertices = Dict([(n, true) for n in nodes])
@@ -107,7 +107,7 @@ function add_hyperedge!(network::HyperNetwork, nodes::Vector{Int64})
 end
 
 
-function add_node!(network::HyperNetwork, hyperedges::Vector{Int64}, state::State)
+function add_node!(network::HyperNetwork, hyperedges, state::State)
     @assert all([h in network.hyperedge_uid for h in hyperedges])
 
     # update hyperedge_dist
