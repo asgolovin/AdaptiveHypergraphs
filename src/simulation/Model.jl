@@ -10,8 +10,8 @@ abstract type AbstractModel{P <: PropagationRule, A <: AdaptivityRule} end
 
 struct DiscrModel{P <: PropagationRule, A <: AdaptivityRule} <: AbstractModel{P, A}
     network::HyperNetwork
-    propagation_rule::PropagationRule
-    adaptivity_rule::AdaptivityRule
+    propagation_rule::P
+    adaptivity_rule::A
     propagation_prob::Real
 end
 
@@ -47,11 +47,13 @@ function step!(model::DiscrModel)
 end
 
 
-struct ContinuousModel{P <: PropagationRule, A <: AdaptivityRule} <: AbstractModel{P, A}
+mutable struct ContinuousModel{P <: PropagationRule, A <: AdaptivityRule} <: AbstractModel{P, A}
     network::HyperNetwork
     event_queue::PriorityQueue
-    propagation_rule::PropagationRule
-    adaptivity_rule::AdaptivityRule
+    # for every hyperedge, stores the time of the next event
+    next_event_time::Dict{Int64, Float64}
+    propagation_rule::P
+    adaptivity_rule::A
     propagation_distr::Distribution
     adaptivity_distr::Distribution
     current_time::Real
@@ -64,26 +66,27 @@ function ContinuousModel{P, A}(network::HyperNetwork,
                                propagation_rate::Real,
                                adaptivity_rate::Real) where {P <: PropagationRule, A <: AdaptivityRule}
     event_queue = PriorityQueue()
-    he_meta = (:change_of_status_time => Inf)
 
     propagation_distr = Exponential(propagation_rate)
     adaptivity_distr = Exponential(adaptivity_rate)
 
     # add all active hyperedges to the queue
+    next_event_time = Dict{Int64, Float64}()
     for hyperedge in get_hyperedges(network)
-        set_hyperedge_meta!(network, hyperedge, he_meta)
+        next_event_time[hyperedge] = Inf
         if is_active(network, hyperedge)
             time = rand(propagation_distr)
             event = Event(hyperedge, time, propagate)
-            set_hyperedge_meta!(network, hyperedge, :change_of_status_time, 0.)
+            next_event_time[hyperedge] = 0.
             enqueue!(event_queue, event, event.time)
         end
     end
 
     current_time = 0.
 
-    ContinuousModel(network,
+    ContinuousModel{P, A}(network,
                     event_queue,
+                    next_event_time,
                     propagation_rule,
                     adaptivity_rule,
                     propagation_distr,
@@ -106,17 +109,19 @@ function step!(model::ContinuousModel)
     adaptivity_rule = model.adaptivity_rule
 
     if length(model.event_queue) == 0
-        return nothing
+        return false
     end
 
     event = dequeue!(model.event_queue)
     model.current_time = event.time
 
-    source_hyperedge = event.hyperdege
+    source_hyperedge = event.hyperedge
 
     if !is_active(network, source_hyperedge)
-        return nothing
+        return false
     end
+
+    affected_nodes = Dict{Int64, NamedTuple{(:before, :after), Tuple{State, State}}}()
 
     if event.action == propagate
         # record whether the neighbors are active or not
@@ -132,42 +137,35 @@ function step!(model::ContinuousModel)
         println("Executing propagation rule")
         affected_nodes = propagate!(network, propagation_rule, source_hyperedge)
 
-        # check if the source hyperedge was modified 
-        # if the source hyperedge was modified but is still active or was not modified at all
+        # if the source hyperedeg is still active, the Poisson process is restarted
         if is_active(network, source_hyperedge)
             # add a new event for this hyperedge
             event_time = model.current_time + rand(model.propagation_distr)
             event = Event(source_hyperedge, event_time, propagate)
             enqueue!(model.event_queue, event)
 
-        else # if the source hyperedge was switched off
-            # remove all future events for this hyperedge
-            for event in model.event_queue
-                if event.hyperdege == source_hyperedge
-                    delete!(model.event_queue, event)
-                end
-            end
+        else # if the source hyperedge was switched off, all future events are removed
+            _remove_hyperedge_events!(model.event_queue, source_hyperedge)
         end
 
         # check if any neighboring hyperedges were modified
         for neighbor in keys(neighboring_hyperedges)
             # if any node of the neighbor was affected
             if any(keys(affected_nodes) .∈ Ref(get_nodes(network, neighbor)))
+
                 active_before = neighboring_hyperedges[neighbor]
                 active_after = is_active(network, neighbor)
-                if active_before == true && active_after == false
-                    # remove all future events for this hyperdege
-                    for event in model.event_queue
-                        if event.hyperdege == neighbor
-                            delete!(model.event_queue, event)
-                        end
-                    end
 
+                # on -> off
+                if active_before == true && active_after == false
+                    _remove_hyperedge_events!(model.event_queue, neighbor)
+                
+                # off -> on
                 elseif active_before == false && active_after == true
                     # add new event for this hyperedge
                     event_time = model.current_time + rand(model.propagation_distr)
                     event = Event(neighbor, event_time, propagate)
-                    enqueue!(model.event_queue, event)
+                    enqueue!(model.event_queue, event, event.time)
 
                 end # in all other cases, nothing happens
             end
@@ -180,5 +178,21 @@ function step!(model::ContinuousModel)
 
         # process changed hyperedges
 
+    end
+
+    return length(affected_nodes) > 0
+end
+
+
+"""
+    _remove_hyperedge_events!(queue::PriorityQueue, hyperedge::Integer)
+
+Remove all events belonging to the hyperedge `hyperedge`
+"""
+function _remove_hyperedge_events!(queue::PriorityQueue, hyperedge::Integer)
+    for (event, _) in queue
+        if event.hyperedge == hyperedge
+            delete!(queue, event)
+        end
     end
 end
