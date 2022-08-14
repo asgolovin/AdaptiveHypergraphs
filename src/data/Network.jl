@@ -94,9 +94,10 @@ end
 # ====================================================================================
 # ----------------------------- GRAPH MANIPULATION -----------------------------------
 
+
 function add_hyperedge!(network::HyperNetwork, nodes::Vector{Int64})
     @assert all(nodes .<= get_num_nodes(network))
-
+    
     vertices = Dict([(n, true) for n in nodes])
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices = vertices)
     new_size = length(nodes)
@@ -139,7 +140,7 @@ end
 
 
 """
-    remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
+remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
 """
 function remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
@@ -148,7 +149,7 @@ function remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     # update hyperedge_dist
     old_size = get_hyperedge_size(network, hyperedge)
     network.hyperedge_dist[old_size] -= 1
-
+    
     # update hyperedge_uid
     # The function SimpleHypergraphs.remove_hyperedge!() does not preserve the order 
     # of the hyperedges: when a hyperedge is deleted, the last column is moved to 
@@ -158,9 +159,9 @@ function remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     if mid != num_hyperedges
         network.hyperedge_uid[mid] = new_uid
     end
-
+    
     SimpleHypergraphs.remove_hyperedge!(network.hg, mid)
-
+    
     return nothing
 end
 
@@ -217,7 +218,19 @@ end
 # ====================================================================================
 # --------------------------------- GRAPH INFO ---------------------------------------
 
+function get_nodes(network::HyperNetwork)
+    return 1:get_num_nodes(network)
+end
 
+function get_nodes(network::HyperNetwork, hyperedge::Integer)
+    @assert hyperedge in network.hyperedge_uid
+    mid = indexin(hyperedge, network.hyperedge_uid)[]
+    return collect(keys(filter(d->d.second, getvertices(network.hg, mid))))
+end
+
+function get_hyperedges(network::HyperNetwork)
+    return network.hyperedge_uid
+end
 
 function get_state(network::HyperNetwork, node::Integer)
     @assert node <= get_num_nodes(network)
@@ -225,7 +238,7 @@ function get_state(network::HyperNetwork, node::Integer)
 end
 
 function get_node_to_state_dict(network::HyperNetwork)
-    return Dict(node => get_state(network, node) for node in 1:get_num_nodes(network))
+    return Dict(node => get_state(network, node) for node in get_nodes(network))
 end
 
 function get_node_to_state_dict(network::HyperNetwork, hyperedge::Integer)
@@ -264,11 +277,6 @@ function get_max_hyperedge_size(network::HyperNetwork)
     return maximum([sum(values(d)) for d in network.hg.he2v])
 end
 
-function get_nodes(network::HyperNetwork, hyperedge::Integer)
-    @assert hyperedge in network.hyperedge_uid
-    mid = indexin(hyperedge, network.hyperedge_uid)[]
-    return collect(keys(filter(d->d.second, getvertices(network.hg, mid))))
-end
 
 """
     is_active(network::HyperNetwork, hyperedge::Integer)

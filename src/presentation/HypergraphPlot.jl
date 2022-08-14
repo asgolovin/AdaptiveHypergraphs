@@ -69,11 +69,11 @@ function Makie.plot!(hgplot::HypergraphPlot)
         empty!(states[])
         empty!(labels[])
         empty!(edges[])
-        for node = 1:get_num_nodes(network)
+        for node = get_nodes(network)
             push!(states[], Int64(get_state(network, node)))
             push!(labels[], "#$node, $(get_state(network, node))")
         end
-        for h = network.hyperedge_uid
+        for h = get_hyperedges(network)
             hsize = get_hyperedge_size(network, h)
             nodes = get_nodes(network, h)
             if hsize == 2
@@ -109,7 +109,7 @@ function Makie.plot!(hgplot::HypergraphPlot)
     # using the positions of the nodes, update Observables related to the triangle faces
     Makie.Observables.onany(network, node_pos) do network, node_pos
         faces.val = Matrix{Int64}(undef, 0, 3)
-        for h = network.hyperedge_uid
+        for h = get_hyperedges(network)
             hsize = get_hyperedge_size(network, h)
             nodes = get_nodes(network, h)
             if hsize > 2
