@@ -1,3 +1,5 @@
+using StatsBase
+
 export PropagationRule, MajorityRule, propagate!
 
 """
@@ -18,7 +20,8 @@ struct MajorityRule <: PropagationRule end
 
 function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedge::Integer)
     nodes = get_nodes(network, hyperedge)
-    state_count = get_state_dist(network)
+    node_to_state = get_node_to_state_dict(network, hyperedge)
+    state_count = countmap(values(node_to_state))
     # number of votes for the majority opinion
     max_count = maximum(values(state_count))
 
@@ -30,6 +33,7 @@ function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedg
     if length(max_states) == 1
         majority_state = max_states[1]
     else
+        println("choosing randomly")
         majority_state = rand(max_states)
     end
     
