@@ -232,6 +232,12 @@ function get_hyperedges(network::HyperNetwork)
     return network.hyperedge_uid
 end
 
+function get_hyperedges(network::HyperNetwork, node::Integer)
+    @assert node <= get_num_nodes(network)
+    mids = collect(keys(filter(d->d.second, gethyperedges(network.hg, node))))
+    return network.hyperedge_uid[mids]
+end
+
 function get_state(network::HyperNetwork, node::Integer)
     @assert node <= get_num_nodes(network)
     return get_vertex_meta(network.hg, node)
