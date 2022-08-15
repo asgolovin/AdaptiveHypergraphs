@@ -27,7 +27,7 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge:
 
     if length(state_dict) == 0
         println("The network has no other nodes in state $required_state that node $selected_node can connect with.")
-        return nothing
+        return []
     end
     
     new_node = rand(keys(state_dict))
@@ -36,7 +36,9 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge:
     println("Node $selected_node was disconnected from hyperedge with nodes $(former_neighbors) and connected with node $new_node")
 
     remove_node_from_hyperedge!(network, selected_node, hyperedge)
-    add_hyperedge!(network, [selected_node, new_node])
+    new_hyperedge = add_hyperedge!(network, [selected_node, new_node])
+    
+    affected_hyperedges = [new_hyperedge, ]
 
-    return nothing
+    return affected_hyperedges
 end

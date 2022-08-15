@@ -104,6 +104,7 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     _add_to_hyperedge_dist!(network.hyperedge_dist, new_size)
     network.max_hyperedge_uid += 1
     push!(network.hyperedge_uid, network.max_hyperedge_uid)
+    return network.max_hyperedge_uid
 end
 
 

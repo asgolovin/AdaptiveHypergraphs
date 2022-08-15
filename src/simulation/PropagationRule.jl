@@ -26,21 +26,20 @@ function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedg
     max_count = maximum(values(state_count))
 
     # track which nodes were affected by the change
-    affected_nodes = Dict{Int64, NamedTuple{(:before, :after), Tuple{State, State}}}()
+    affected_nodes = Int64[]
 
     # get all opinions with the same maximum number of votes
     max_states = [pair.first for pair in state_count if pair.second == max_count]
     if length(max_states) == 1
         majority_state = max_states[1]
     else
-        println("choosing randomly")
         majority_state = rand(max_states)
     end
     
     for node in nodes
         prev_state = get_state(network, node)
         if prev_state != majority_state
-            affected_nodes[node] = (before = prev_state, after = majority_state)
+            push!(affected_nodes, node)
             set_state!(network, node, majority_state)
         end
     end
