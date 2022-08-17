@@ -62,54 +62,58 @@ function Dashboard(model::AbstractModel;
         axes[hypergraphPanel] = hgax
     end
 
-    if plot_states || plot_hyperedges
+    if plot_states || plot_hyperedges || plot_active_hyperedges
         plot_count += 1
-        history_box = plot_box[1, plot_count]
+        history_box = plot_box[1, plot_count:plot_count + 1]
+        plot_count += 1
+        hist_plot_count = 0
     end
-
+    
     if plot_states
+        hist_plot_count += 1
         push!(panels, stateDistPanel)
-        state_hist_box = history_box[1, 1]
-        axes[stateDistPanel] = Axis(state_hist_box[1, 1], title="Distribution of states")
+        state_hist_box = history_box[hist_plot_count, 1]
+        axes[stateDistPanel] = Axis(state_hist_box, title="Distribution of states")
         num_states = length(instances(State))
         linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
         for (i, state) in enumerate(instances(State))
             lines!(axes[stateDistPanel],
-                   mo.state_history[state], 
-                   label = "# of $state nodes",
-                   color = linecolors[i])
+            mo.state_history[state], 
+            label = "$state nodes",
+            color = linecolors[i])
             xlims!(axes[stateDistPanel], 0, 100)
             ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
         end
-        state_hist_box[2, 1] = Legend(state_hist_box, 
-                                      axes[stateDistPanel],
-                                      orientation = :horizontal,
-                                      framevisible=false)
+        l = Legend(history_box[hist_plot_count, 2],
+                axes[stateDistPanel],
+                framevisible = false,
+                halign = :left)
     end
-
+            
     if plot_hyperedges
+        hist_plot_count += 1
         push!(panels, hyperedgeDistPanel)
-        hyperedge_hist_box = history_box[plot_states ? 2 : 1, 1]
-        axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box[1, 1], title="Distribution of hyperdeges")
+        hyperedge_hist_box = history_box[hist_plot_count, 1]
+        axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box, title="Distribution of hyperdeges")
         max_hyperedge_size = get_max_hyperedge_size(mo.network[])
         linecolors = get(colorschemes[hyperedge_colormap], 1:max_hyperedge_size, (1, max_hyperedge_size))
         for size in 2:max_hyperedge_size
             lines!(axes[hyperedgeDistPanel],
-                   mo.hyperedge_history[size],
-                   label="# of hyperdeges of size $size",
-                   color = linecolors[size - 1])
+            mo.hyperedge_history[size],
+            label="hyperedges of size $size",
+            color = linecolors[size - 1])
             xlims!(axes[hyperedgeDistPanel], 0, 100)
         end
-        hyperedge_hist_box[2, 1] = Legend(hyperedge_hist_box, 
-                                          axes[hyperedgeDistPanel],
-                                          orientation = :vertical,
-                                          framevisible=false)
+        l = Legend(history_box[hist_plot_count, 2], 
+                    axes[hyperedgeDistPanel],
+                    framevisible = false,
+                    halign = :left)
     end
-
+    
     if plot_active_hyperedges
+        hist_plot_count += 1
         push!(panels, activeHyperedgesPanel)
-        plot_count += 1
-        active_hist_box = plot_box[1, plot_count]
+        active_hist_box = history_box[hist_plot_count, 1]
         axes[activeHyperedgesPanel] = Axis(active_hist_box[1, 1], title="Number of active hyperedges")
         lines!(axes[activeHyperedgesPanel],
                mo.active_hyperedges_history)
@@ -141,7 +145,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                     if panel != hypergraphPanel
                         autolimits!(axes[panel])
                         xlims!(axes[panel], 0, max(i, 100))
-                        ylims!(axes[panel], low = 0)
+                        ylims!(axes[panel], low = -5)
                     else
                         autolimits!(axes[panel])
                     end

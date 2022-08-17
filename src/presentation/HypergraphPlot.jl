@@ -132,7 +132,7 @@ function Makie.plot!(hgplot::HypergraphPlot)
           stacked_node_pos,
           faces,
           color = colors,
-          colormap = (hgplot.hyperedge_colormap, 0.7),
+          colormap = (hgplot.hyperedge_colormap, 0.5),
           shading = false,
           transparency = true)
 
