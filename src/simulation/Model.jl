@@ -56,6 +56,8 @@ mutable struct ContinuousModel{P <: PropagationRule, A <: AdaptivityRule} <: Abs
     adaptivity_rule::A
     propagation_distr::Distribution
     adaptivity_distr::Distribution
+    propagation_rate::Real
+    adaptivity_rate::Real
     current_time::Real
 end
 
@@ -75,8 +77,17 @@ function ContinuousModel{P, A}(network::HyperNetwork,
     for hyperedge in get_hyperedges(network)
         next_event_time[hyperedge] = Inf
         if is_active(network, hyperedge)
-            time = rand(propagation_distr)
-            event = Event(hyperedge, time, propagate)
+            # TODO: copy-paste
+            r = rand() * (propagation_rate + adaptivity_rate)
+            if r < propagation_rate
+                distr = propagation_distr
+                event_type = propagate
+            else
+                distr = adaptivity_distr
+                event_type = adapt
+            end
+            time = rand(distr)
+            event = Event(hyperedge, time, event_type)
             next_event_time[hyperedge] = 0.
             enqueue!(event_queue, event, event.time)
         end
@@ -91,6 +102,8 @@ function ContinuousModel{P, A}(network::HyperNetwork,
                     adaptivity_rule,
                     propagation_distr,
                     adaptivity_distr,
+                    propagation_rate,
+                    adaptivity_rate,
                     current_time)
 end
 
@@ -123,6 +136,8 @@ function step!(model::ContinuousModel)
         println("A non-active hyperedge was selected by an event. Something went wrong!")
         return false
     end
+
+    network_changed = false
     
     if event.action == propagate
 
@@ -135,7 +150,6 @@ function step!(model::ContinuousModel)
         # Add events for the neighboring hyperedges
         for neighbor in keys(neighboring_hyperedges)
             # if any node of the neighbor was affected
-            # TODO: doesn't work for adaptation!
             if any(affected_nodes .∈ Ref(get_nodes(network, neighbor)))
     
                 active_before = neighboring_hyperedges[neighbor]
@@ -147,10 +161,14 @@ function step!(model::ContinuousModel)
                 
                 # off -> on
                 elseif active_before == false && active_after == true
-                    _add_event!(model, neighbor, propagate)
+                    _add_event!(model, neighbor)
                     
                 end # in all other cases, nothing happens
             end
+        end
+
+        if length(affected_nodes) > 0
+            network_changed = true
         end
 
     elseif event.action == adapt
@@ -159,20 +177,24 @@ function step!(model::ContinuousModel)
 
         for h in affected_hyperedges
             if is_active(network, h)
-                _add_event!(model, h, adapt)
+                _add_event!(model, h)
             end
+        end
+
+        if length(affected_hyperedges) > 0
+            network_changed = true
         end
     end
     
     # Add events for the source hyperedge
     # if the source hyperedeg is still active, the Poisson process is restarted
-    if is_active(network, source_hyperedge)
-        _add_event!(model, source_hyperedge, propagate)
+    if source_hyperedge in get_hyperedges(network) && is_active(network, source_hyperedge)
+        _add_event!(model, source_hyperedge)
     else # if the source hyperedge was switched off, all future events are removed
         _remove_hyperedge_events!(model.event_queue, source_hyperedge)
     end
 
-    return length(affected_nodes) > 0
+    return network_changed
 end
 
 
@@ -191,12 +213,19 @@ end
 
 
 """
-    _add_event!(model::ContinuousModel, hyperedge::Integer, event_type::EventType)
+    _add_event!(model::ContinuousModel, hyperedge::Integer)
 
 Add an event of type `event_type` to the queue.
 """
-function _add_event!(model::ContinuousModel, hyperedge::Integer, event_type::EventType)
-    distr = event_type == propagate ? model.propagation_distr : model.adaptivity_distr
+function _add_event!(model::ContinuousModel, hyperedge::Integer)
+    r = rand() * (model.propagation_rate + model.adaptivity_rate)
+    if r < model.propagation_rate
+        distr = model.propagation_distr
+        event_type = propagate
+    else
+        distr = model.adaptivity_distr
+        event_type = adapt
+    end
     event_time = model.current_time + rand(distr)
     event = Event(hyperedge, event_time, event_type)
     enqueue!(model.event_queue, event, event.time)
