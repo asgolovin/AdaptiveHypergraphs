@@ -7,6 +7,7 @@ Types of data that can be visualized in the dashboard.
     hypergraphPanel
     stateDistPanel
     hyperedgeDistPanel
+    activeHyperedgesPanel
 end
 
 
@@ -24,6 +25,7 @@ end
               plot_hypergraph::Bool=false,
               plot_states::Bool=true,
               plot_hyperedges::Bool=true,
+              plot_active_hyperedges::Bool=true,
               is_interactive::Bool=false)
 
 A visualization of the evolution of the hypergraph during the simulation.
@@ -32,9 +34,11 @@ function Dashboard(model::AbstractModel;
                    plot_hypergraph::Bool=false,
                    plot_states::Bool=true,
                    plot_hyperedges::Bool=true,
+                   plot_active_hyperedges::Bool=true,
                    is_interactive::Bool=false,
                    node_colormap = :RdYlGn_6,
                    hyperedge_colormap = :thermal)
+
     fig = Figure(resolution = (1000, 600))
     display(fig)
     axes = Dict{Panel, Axis}()
@@ -102,6 +106,16 @@ function Dashboard(model::AbstractModel;
                                           framevisible=false)
     end
 
+    if plot_active_hyperedges
+        push!(panels, activeHyperedgesPanel)
+        plot_count += 1
+        active_hist_box = plot_box[1, plot_count]
+        axes[activeHyperedgesPanel] = Axis(active_hist_box[1, 1], title="Number of active hyperedges")
+        lines!(axes[activeHyperedgesPanel],
+               mo.active_hyperedges_history)
+        xlims!(axes[activeHyperedgesPanel], 0, 100)
+    end
+
     Dashboard(fig, panels, axes, mo, is_interactive)
 end
 
@@ -123,15 +137,14 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
             step!(mo)
             if i % steps_per_update == 0
                 notify(mo.network)
-                if stateDistPanel in dashboard.panels
-                    xlims!(axes[stateDistPanel], 0, max(i, 100))
-                end
-                if hyperedgeDistPanel in dashboard.panels
-                    autolimits!(axes[hyperedgeDistPanel])
-                    xlims!(axes[hyperedgeDistPanel], 0, max(i, 100))
-                end
-                if hypergraphPanel in dashboard.panels
-                    autolimits!(axes[hypergraphPanel])
+                for panel in dashboard.panels
+                    if panel != hypergraphPanel
+                        autolimits!(axes[panel])
+                        xlims!(axes[panel], 0, max(i, 100))
+                        ylims!(axes[panel], low = 0)
+                    else
+                        autolimits!(axes[panel])
+                    end
                 end
                 sleep(0.5)
             end
