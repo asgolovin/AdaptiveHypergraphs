@@ -1,11 +1,11 @@
 using AdaptiveHypergraphs
 
-include("../input/continuous_model.jl")
+include("../input/small_network.jl")
 
 nparams, mparams, vparams = params.network_params, params.model_params, params.visualization_params
 
 n = nparams.num_nodes
-network = HyperNetwork(n, 0.5)
+network = HyperNetwork(n, nparams.infected_prob)
 build_RSC_hg!(network, nparams.num_hyperedges)
 
 propagation_rule = mparams.propagation_rule
@@ -22,8 +22,8 @@ else
                             typeof(adaptivity_rule)}(network,
                                                     propagation_rule,
                                                     adaptivity_rule,
-                                                    mparams.adaptivity_rate,
-                                                    mparams.propagation_rate)
+                                                    mparams.propagation_rate,
+                                                    mparams.adaptivity_rate)
 end
 
 dashboard = Dashboard(model; vparams.dashboard_params...)
