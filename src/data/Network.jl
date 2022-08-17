@@ -215,7 +215,7 @@ end
 # --------------------------------- GRAPH INFO ---------------------------------------
 
 function get_nodes(network::HyperNetwork)
-    return 1:get_num_nodes(network)
+    return collect(1:get_num_nodes(network))
 end
 
 function get_nodes(network::HyperNetwork, hyperedge::Integer)
@@ -225,7 +225,7 @@ function get_nodes(network::HyperNetwork, hyperedge::Integer)
 end
 
 function get_hyperedges(network::HyperNetwork)
-    return network.hyperedge_uid
+    return copy(network.hyperedge_uid)
 end
 
 function get_hyperedges(network::HyperNetwork, node::Integer)
@@ -236,7 +236,7 @@ end
 
 function get_state(network::HyperNetwork, node::Integer)
     @assert 1 <= node <= get_num_nodes(network)
-    return get_vertex_meta(network.hg, node)
+    return SimpleHypergraphs.get_vertex_meta(network.hg, node)
 end
 
 function get_node_to_state_dict(network::HyperNetwork)
@@ -249,11 +249,11 @@ function get_node_to_state_dict(network::HyperNetwork, hyperedge::Integer)
 end
 
 function get_state_dist(network::HyperNetwork)
-    return network.state_dist
+    return copy(network.state_dist)
 end
 
 function get_hyperedge_dist(network::HyperNetwork)
-    return network.hyperedge_dist
+    return copy(network.hyperedge_dist)
 end
 
 function get_num_hyperedges(network::HyperNetwork)
