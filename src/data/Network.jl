@@ -125,6 +125,24 @@ function add_node!(network::HyperNetwork, hyperedges, state::State)
 end
 
 
+"""
+Add an existing node to an existing hyperedge. 
+"""
+function add_node_to_hyperedge!(network::HyperNetwork, node::Integer, hyperedge::Integer)
+    @assert hyperedge in network.hyperedge_uid
+    @assert 1 <= node <= get_num_nodes(network)
+
+    # update hyperedge_dist
+    old_size = get_hyperedge_size(network, hyperedge)
+    network.hyperedge_dist[old_size] -= 1
+    new_size = old_size + 1
+    _add_to_hyperedge_dist!(network.hyperedge_dist, new_size)
+
+    mid = indexin(hyperedge, network.hyperedge_uid)[]
+    network.hg[node, mid] = true
+end
+
+
 function _add_to_hyperedge_dist!(hyperedge_dist::Dict, new_size::Integer)
     if new_size in keys(hyperedge_dist)
         hyperedge_dist[new_size] += 1
@@ -211,13 +229,13 @@ function get_hyperedges(network::HyperNetwork)
 end
 
 function get_hyperedges(network::HyperNetwork, node::Integer)
-    @assert node <= get_num_nodes(network)
+    @assert 1 <= node <= get_num_nodes(network)
     mids = collect(keys(filter(d->d.second, gethyperedges(network.hg, node))))
     return network.hyperedge_uid[mids]
 end
 
 function get_state(network::HyperNetwork, node::Integer)
-    @assert node <= get_num_nodes(network)
+    @assert 1 <= node <= get_num_nodes(network)
     return get_vertex_meta(network.hg, node)
 end
 
@@ -247,7 +265,7 @@ function get_num_nodes(network::HyperNetwork)
 end
 
 function get_node_degree(network::HyperNetwork, node::Integer)
-    @assert node <= get_num_nodes(network)
+    @assert 1 <= node <= get_num_nodes(network)
     return sum(values(network.hg.v2he[node]))
 end
 

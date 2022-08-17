@@ -59,15 +59,23 @@ using Test
             @test hyperedge_dist[1] == 1
             @test hyperedge_dist[2] == 2
             @test hyperedge_dist[3] == 1
+            
+            @test_throws AssertionError add_hyperedge!(network, (42, 234)) 
+            @test_throws AssertionError add_node!(network, (1919, 2222), S) 
+            @test_throws AssertionError remove_hyperedge!(network, 213) 
+            
+            add_node_to_hyperedge!(network, 3, 1)
+            add_node_to_hyperedge!(network, 5, 3)
+            @test all([1, 3] .∈ Ref(get_nodes(network, 1)))
+            @test all([2, 3, 5] .∈ Ref(get_nodes(network, 3)))
+            hyperedge_dist = get_hyperedge_dist(network)
+            @test hyperedge_dist[2] == 2
+            @test hyperedge_dist[3] == 2
 
             remove_hyperedge!(network, 2)
             @test size(network.hg) == (n, 3)
             hyperedge_dist = get_hyperedge_dist(network)
             @test hyperedge_dist[2] == 1
-
-            @test_throws AssertionError add_hyperedge!(network, (42, 234)) 
-            @test_throws AssertionError add_node!(network, (1919, 2222), S) 
-            @test_throws AssertionError remove_hyperedge!(network, 213) 
 
         end
 
@@ -105,16 +113,16 @@ using Test
             build_RSC_hg!(network[], (3, 4, 5))
 
             majority_rule = MajorityRule()
-            rewiring_rule = RewiringRule()
+            rewiring_rule = ConflictAvoiding()
             propagation_prob = 0.5
 
-            model = DiscrModel{MajorityRule, RewiringRule}(network[],
+            model = DiscrModel{MajorityRule, ConflictAvoiding}(network[],
                                                         majority_rule,
                                                         rewiring_rule,
                                                         propagation_prob)
 
             mo = ModelObservable{typeof(model)}(model)
-            @test typeof(mo.model) <: Observable{DiscrModel{MajorityRule, RewiringRule}}
+            @test typeof(mo.model) <: Observable{DiscrModel{MajorityRule, ConflictAvoiding}}
             @test mo.state_history[S][] == [n - 2, ]
             @test mo.state_history[I][] == [2, ]
             @test mo.hyperedge_history[2][] == [3, ]
