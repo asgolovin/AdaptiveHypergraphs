@@ -32,4 +32,18 @@ if vparams.record_video
     record!(dashboard, "test_record", 100, 10, 1)
 else
     run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
+
+    network = HyperNetwork(n, nparams.infected_prob)
+    build_RSC_hg!(network, nparams.num_hyperedges)
+
+    model = DiscrModel{typeof(propagation_rule), 
+                        typeof(adaptivity_rule)}(network,
+                                                propagation_rule,
+                                                adaptivity_rule,
+                                                mparams.propagation_prob)
+
+    reset!(dashboard, model)
+
+    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
+
 end

@@ -1,4 +1,4 @@
-export Panel, Dashboard, run!, record!
+export Panel, Dashboard, run!, record!, reset!
 
 """
 Types of data that can be visualized in the dashboard.
@@ -177,4 +177,42 @@ function record!(dashboard::Dashboard, filename::String, num_steps::Integer, ste
     record(dashboard.fig, savepath, 1:num_updates, framerate=framerate, compression=1) do i
         run!(dashboard, steps_per_update, steps_per_update)
     end
+end
+
+
+"""
+    reset!(dashboard::Dashboard, model::AbstractModel)
+
+Reset the dashboard to run the next simulation from the batch. 
+
+The old history plot lines are made inactive and are grayed out. 
+The observables in the ModelObservable are reset to track the new data from `model`.
+"""
+function reset!(dashboard::Dashboard, model::AbstractModel)
+    mo = dashboard.mo
+    axes = dashboard.axes
+    # gray out the history plot lines
+    if stateDistPanel in dashboard.panels
+        for (i, state) in enumerate(instances(State))
+            lines!(axes[stateDistPanel],
+            mo.state_history[state][], 
+            color = :gray)
+        end
+    end
+    if hyperedgeDistPanel in dashboard.panels
+        max_size = get_max_hyperedge_size(mo.network[])
+        for size in 2:max_size
+            lines!(axes[hyperedgeDistPanel],
+            mo.hyperedge_history[size][],
+            color = :gray)
+        end
+    end
+    if activeHyperedgesPanel in dashboard.panels
+        lines!(axes[activeHyperedgesPanel],
+               mo.active_hyperedges_history[],
+               color = :gray)
+    end
+
+    # reset observables
+    rebind_model!(mo, model)
 end

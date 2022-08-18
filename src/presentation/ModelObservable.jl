@@ -72,3 +72,32 @@ function record_history!(model::AbstractModel,
     notify(active_hyperedges_history)
     return nothing
 end
+
+
+"""
+    rebind_model!(mo::ModelObservable, model::AbstractModel)
+
+Rebind the observables to track the new `model`.
+"""
+function rebind_model!(mo::ModelObservable, model::AbstractModel)
+    clear!(mo)
+    mo.model[] = model
+    mo.network[] = model.network
+    record_history!(model, mo.state_history, mo.hyperedge_history, mo.active_hyperedges_history)
+end
+
+
+"""
+    clear!(mo::ModelObservable)
+
+Clear the history buffers in the ModelObservable.
+"""
+function clear!(mo::ModelObservable)
+    mo.active_hyperedges_history[] = Vector{Int64}()
+    for state in instances(State)
+        mo.state_history[state][] = Vector{Int64}()
+    end
+    for size in 2:get_max_hyperedge_size(mo.network[])
+        mo.hyperedge_history[size][] = Vector{Int64}()
+    end
+end
