@@ -73,48 +73,53 @@ function Dashboard(model::AbstractModel;
         hist_plot_count += 1
         push!(panels, stateDistPanel)
         state_hist_box = history_box[hist_plot_count, 1]
-        axes[stateDistPanel] = Axis(state_hist_box, title="Distribution of states")
+        title = "Distribution of states"
+        axes[stateDistPanel] = Axis(state_hist_box, title=title)
         num_states = length(instances(State))
         linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
         for (i, state) in enumerate(instances(State))
             lines!(axes[stateDistPanel],
             mo.state_history[state], 
-            label = "$state nodes",
+            label = "# of $state nodes",
             color = linecolors[i])
             xlims!(axes[stateDistPanel], 0, 100)
             ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
         end
-        l = Legend(history_box[hist_plot_count, 2],
-                axes[stateDistPanel],
-                framevisible = false,
-                halign = :left)
+        Legend(history_box[hist_plot_count, 2],
+               axes[stateDistPanel],
+               framevisible = false,
+               halign = :left,
+               labelsize = 12)
     end
             
     if plot_hyperedges
         hist_plot_count += 1
         push!(panels, hyperedgeDistPanel)
         hyperedge_hist_box = history_box[hist_plot_count, 1]
-        axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box, title="Distribution of hyperdeges")
-        max_hyperedge_size = get_max_hyperedge_size(mo.network[])
-        linecolors = get(colorschemes[hyperedge_colormap], 1:max_hyperedge_size, (1, max_hyperedge_size))
-        for size in 2:max_hyperedge_size
+        title = "Distribution of hyperdeges"
+        axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box, title=title)
+        max_size = get_max_hyperedge_size(mo.network[])
+        linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
+        for size in 2:max_size
             lines!(axes[hyperedgeDistPanel],
             mo.hyperedge_history[size],
-            label="hyperedges of size $size",
+            label = "hyperedges of size $size",
             color = linecolors[size - 1])
             xlims!(axes[hyperedgeDistPanel], 0, 100)
         end
-        l = Legend(history_box[hist_plot_count, 2], 
-                    axes[hyperedgeDistPanel],
-                    framevisible = false,
-                    halign = :left)
+        Legend(history_box[hist_plot_count, 2], 
+               axes[hyperedgeDistPanel],
+               framevisible = false,
+               halign = :left,
+               labelsize = 12)
     end
     
     if plot_active_hyperedges
         hist_plot_count += 1
         push!(panels, activeHyperedgesPanel)
         active_hist_box = history_box[hist_plot_count, 1]
-        axes[activeHyperedgesPanel] = Axis(active_hist_box[1, 1], title="Number of active hyperedges")
+        title = "Number of active hyperedges"
+        axes[activeHyperedgesPanel] = Axis(active_hist_box[1, 1], title=title)
         lines!(axes[activeHyperedgesPanel],
                mo.active_hyperedges_history)
         xlims!(axes[activeHyperedgesPanel], 0, 100)
