@@ -2,48 +2,46 @@ using AdaptiveHypergraphs
 
 include("../input/small_network.jl")
 
-nparams, mparams, vparams = params.network_params, params.model_params, params.visualization_params
+function _create_model(network, mparams)
+    propagation_rule = mparams.propagation_rule
+    adaptivity_rule = mparams.adaptivity_rule
+    if mparams.is_discrete
+        model = DiscrModel{typeof(propagation_rule), 
+                           typeof(adaptivity_rule)}(network,
+                                                    propagation_rule,
+                                                    adaptivity_rule,
+                                                    mparams.propagation_prob)
+    else
+        model = ContinuousModel{typeof(propagation_rule), 
+                                typeof(adaptivity_rule)}(network,
+                                                        propagation_rule,
+                                                        adaptivity_rule,
+                                                        mparams.propagation_rate,
+                                                        mparams.adaptivity_rate)
+    end
+    return model
+end
+
+nparams, mparams, vparams, bparams = params.network_params, params.model_params, params.visualization_params, params.batch_params
 
 n = nparams.num_nodes
 network = HyperNetwork(n, nparams.infected_prob)
 build_RSC_hg!(network, nparams.num_hyperedges)
 
-propagation_rule = mparams.propagation_rule
-adaptivity_rule = mparams.adaptivity_rule
-
-if mparams.is_discrete
-    model = DiscrModel{typeof(propagation_rule), 
-                       typeof(adaptivity_rule)}(network,
-                                                propagation_rule,
-                                                adaptivity_rule,
-                                                mparams.propagation_prob)
-else
-    model = ContinuousModel{typeof(propagation_rule), 
-                            typeof(adaptivity_rule)}(network,
-                                                    propagation_rule,
-                                                    adaptivity_rule,
-                                                    mparams.propagation_rate,
-                                                    mparams.adaptivity_rate)
-end
+model = _create_model(network, mparams)
 
 dashboard = Dashboard(model; vparams.dashboard_params...)
 
-if vparams.record_video
-    record!(dashboard, "test_record", 100, 10, 1)
-else
-    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
-
+for t in 1:bparams.batch_size
+    if bparams.record_video
+        # TODO: doesn't work with multiple simulations
+        record!(dashboard, "test_record", 100, 10, 1)
+    else
+        run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
+    end
     network = HyperNetwork(n, nparams.infected_prob)
     build_RSC_hg!(network, nparams.num_hyperedges)
-
-    model = DiscrModel{typeof(propagation_rule), 
-                        typeof(adaptivity_rule)}(network,
-                                                propagation_rule,
-                                                adaptivity_rule,
-                                                mparams.propagation_prob)
-
+    
+    model = _create_model(network, mparams)
     reset!(dashboard, model)
-
-    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
-
 end

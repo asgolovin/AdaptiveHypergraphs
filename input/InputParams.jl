@@ -17,13 +17,18 @@ end
 end
 
 @with_kw struct VisualizationParams
-    record_video::Bool = false
     dashboard_params::NamedTuple = ()
     steps_per_update::Integer = 10
+end
+
+@with_kw struct BatchParams
+    record_video::Bool = false
+    batch_size::Integer = 10
 end
 
 struct InputParams
     network_params::NetworkParams
     model_params::ModelParams
     visualization_params::VisualizationParams
+    batch_params::BatchParams
 end
