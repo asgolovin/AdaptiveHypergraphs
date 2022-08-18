@@ -22,7 +22,10 @@ function _create_model(network, mparams)
     return model
 end
 
-nparams, mparams, vparams, bparams = params.network_params, params.model_params, params.visualization_params, params.batch_params
+nparams, mparams, vparams, bparams = params.network_params, 
+                                     params.model_params,
+                                     params.visualization_params,
+                                     params.batch_params
 
 n = nparams.num_nodes
 network = HyperNetwork(n, nparams.infected_prob)
@@ -34,14 +37,8 @@ dashboard = Dashboard(model; vparams.dashboard_params...)
 
 for t in 1:bparams.batch_size
     reset!(dashboard, model)
-    if bparams.record_video
-        # TODO: doesn't work with multiple simulations
-        record!(dashboard, "test_record", 100, 10, 1)
-    else
-        run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
-    end
+    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
     global network = HyperNetwork(n, nparams.infected_prob)
     build_RSC_hg!(network, nparams.num_hyperedges)
-    
     global model = _create_model(network, mparams)
 end
