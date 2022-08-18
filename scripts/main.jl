@@ -33,15 +33,15 @@ model = _create_model(network, mparams)
 dashboard = Dashboard(model; vparams.dashboard_params...)
 
 for t in 1:bparams.batch_size
+    reset!(dashboard, model)
     if bparams.record_video
         # TODO: doesn't work with multiple simulations
         record!(dashboard, "test_record", 100, 10, 1)
     else
         run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
     end
-    network = HyperNetwork(n, nparams.infected_prob)
+    global network = HyperNetwork(n, nparams.infected_prob)
     build_RSC_hg!(network, nparams.num_hyperedges)
     
-    model = _create_model(network, mparams)
-    reset!(dashboard, model)
+    global model = _create_model(network, mparams)
 end
