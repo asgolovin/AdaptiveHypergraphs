@@ -26,7 +26,9 @@ end
               plot_states::Bool=true,
               plot_hyperedges::Bool=true,
               plot_active_hyperedges::Bool=true,
-              is_interactive::Bool=false)
+              is_interactive::Bool=false,
+              node_colormap = :RdYlGn_6,
+              hyperedge_colormap = :thermal)
 
 A visualization of the evolution of the hypergraph during the simulation.
 """
@@ -155,7 +157,6 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                         autolimits!(axes[panel])
                     end
                 end
-                sleep(0.5)
             end
         end
     end
