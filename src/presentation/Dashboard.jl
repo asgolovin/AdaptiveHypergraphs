@@ -195,7 +195,8 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
     if stateDistPanel in dashboard.panels
         for (i, state) in enumerate(instances(State))
             lines!(axes[stateDistPanel],
-            mo.state_history[state][], 
+            mo.state_history[state][],
+            linewidth = 1,
             color = :gray)
         end
     end
@@ -204,12 +205,14 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
         for size in 2:max_size
             lines!(axes[hyperedgeDistPanel],
             mo.hyperedge_history[size][],
+            linewidth = 1,
             color = :gray)
         end
     end
     if activeHyperedgesPanel in dashboard.panels
         lines!(axes[activeHyperedgesPanel],
                mo.active_hyperedges_history[],
+               linewidth = 1,
                color = :gray)
     end
 
