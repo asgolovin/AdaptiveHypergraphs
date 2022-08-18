@@ -149,7 +149,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 for panel in dashboard.panels
                     if panel != hypergraphPanel
                         autolimits!(axes[panel])
-                        xlims!(axes[panel], 0, max(i, 100))
+                        xlims!(axes[panel], low = 0)
                         ylims!(axes[panel], low = -5)
                     else
                         autolimits!(axes[panel])
