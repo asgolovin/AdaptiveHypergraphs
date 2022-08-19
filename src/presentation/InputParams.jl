@@ -1,4 +1,8 @@
 using Parameters
+using DrWatson
+using JSON3
+
+export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams, save_json
 
 @with_kw struct NetworkParams
     num_nodes::Integer = 100
@@ -31,4 +35,20 @@ struct InputParams
     model_params::ModelParams
     visualization_params::VisualizationParams
     batch_params::BatchParams
+end
+
+function save_json(io::IO, params::InputParams)
+    JSON3.pretty(io, save_json(params))
+end
+
+function save_json(params::InputParams)
+    json_dict = Dict{Symbol, Any}()
+    json_dict[:network_params] = struct2dict(params.network_params)
+    json_dict[:model_params] = struct2dict(params.model_params)
+    json_dict[:model_params][:propagation_rule] = nameof(typeof(json_dict[:model_params][:propagation_rule]))
+    json_dict[:model_params][:adaptivity_rule] = nameof(typeof(json_dict[:model_params][:adaptivity_rule]))
+    json_dict[:visualization_params] = struct2dict(params.visualization_params)
+    json_dict[:batch_params] = struct2dict(params.batch_params)
+
+    return JSON3.write(json_dict)
 end
