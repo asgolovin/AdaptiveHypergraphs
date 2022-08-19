@@ -12,7 +12,7 @@ end
 
 @with_kw struct ModelParams
     is_discrete::Bool = true
-    adaptivity_rule::AdaptivityRule = ConflictAvoiding()
+    adaptivity_rule::AdaptivityRule = RewiringRule()
     propagation_rule::PropagationRule = MajorityRule()
     num_time_steps::Integer = 500
     propagation_prob::Real = 0.5
