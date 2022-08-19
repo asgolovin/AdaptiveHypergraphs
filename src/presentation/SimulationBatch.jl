@@ -25,6 +25,7 @@ function start_simulation(params::InputParams)
     for t in 1:bparams.batch_size
         reset!(dashboard, model)
         run!(dashboard, mparams.num_time_steps, vparams.steps_per_update) 
+        sleep(1)
         network = HyperNetwork(n, nparams.infected_prob)
         build_RSC_hg!(network, nparams.num_hyperedges)
         model = _create_model(network, mparams)
