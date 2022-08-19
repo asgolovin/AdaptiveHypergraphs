@@ -151,7 +151,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 for panel in dashboard.panels
                     if panel != hypergraphPanel
                         autolimits!(axes[panel])
-                        xlims!(axes[panel], low = 0)
+                        xlims!(axes[panel], low = 0, high=num_steps)
                         ylims!(axes[panel], low = -5)
                     else
                         autolimits!(axes[panel])
@@ -198,7 +198,7 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
             lines!(axes[stateDistPanel],
             mo.state_history[state][],
             linewidth = 1,
-            color = :gray)
+            color = (:gray, 0.5))
         end
     end
     if hyperedgeDistPanel in dashboard.panels
@@ -207,16 +207,26 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
             lines!(axes[hyperedgeDistPanel],
             mo.hyperedge_history[size][],
             linewidth = 1,
-            color = :gray)
+            color = (:gray, 0.5))
         end
     end
     if activeHyperedgesPanel in dashboard.panels
         lines!(axes[activeHyperedgesPanel],
                mo.active_hyperedges_history[],
                linewidth = 1,
-               color = :gray)
+               color = (:gray, 0.5))
     end
 
     # reset observables
     rebind_model!(mo, model)
+end
+
+
+"""
+    save(dashboard::Dashboard, filename::String)
+
+Saves the data from the last active run 
+"""
+function save(dashboard::Dashboard, filename::String)
+    # TODO
 end
