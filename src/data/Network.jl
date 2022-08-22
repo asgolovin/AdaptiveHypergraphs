@@ -276,7 +276,7 @@ function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
 end
 
 function get_max_hyperedge_size(network::HyperNetwork)
-    return maximum([sum(values(d)) for d in network.hg.he2v])
+    return maximum(keys(network.hyperedge_dist))
 end
 
 
