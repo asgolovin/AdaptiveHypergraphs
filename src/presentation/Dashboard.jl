@@ -144,15 +144,18 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
     if dashboard.is_interactive
         # TODO: something should happen here
     else
+        for panel in dashboard.panels
+            if panel != hypergraphPanel
+                _set_hist_ax_lims!(axes[panel], num_steps)
+            end
+        end
         for i = 1:num_steps
             step!(mo)
             if i % steps_per_update == 0
                 notify(mo.network)
                 for panel in dashboard.panels
                     if panel != hypergraphPanel
-                        autolimits!(axes[panel])
-                        xlims!(axes[panel], low = 0, high=num_steps)
-                        ylims!(axes[panel], low = -5)
+                        _set_hist_ax_lims!(axes[panel], num_steps)
                     else
                         autolimits!(axes[panel])
                     end
@@ -160,6 +163,12 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
             end
         end
     end
+end
+
+function _set_hist_ax_lims!(ax::Axis, xhigh::Real)
+    autolimits!(ax)
+    xlims!(ax, low = 0, high=xhigh)
+    ylims!(ax, low = -5)
 end
 
 
