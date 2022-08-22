@@ -1,6 +1,6 @@
 using Random
 
-export AdaptivityRule, ConflictAvoiding, adapt!
+export AdaptivityRule, RewiringRule, ConflictAvoiding, adapt!
 
 """
     AdaptivityRule
