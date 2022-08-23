@@ -110,17 +110,18 @@ using Test
             network = Observable(HyperNetwork(n, node_state))
             build_RSC_hg!(network[], (3, 4, 5))
 
-            majority_rule = MajorityRule()
+            majority_voting = MajorityVoting()
             rewiring_rule = ConflictAvoiding()
             propagation_prob = 0.5
 
-            model = DiscrModel{MajorityRule,ConflictAvoiding}(network[],
-                                                              majority_rule,
-                                                              rewiring_rule,
-                                                              propagation_prob)
+            model = DiscrModel{MajorityVoting,ConflictAvoiding}(network[],
+                                                                majority_voting,
+                                                                rewiring_rule,
+                                                                propagation_prob)
 
             mo = ModelObservable{typeof(model)}(model)
-            @test typeof(mo.model) <: Observable{DiscrModel{MajorityRule,ConflictAvoiding}}
+            @test typeof(mo.model) <:
+                  Observable{DiscrModel{MajorityVoting,ConflictAvoiding}}
             @test mo.state_history[S][] == [n - 2]
             @test mo.state_history[I][] == [2]
             @test mo.hyperedge_history[2][] == [3]
