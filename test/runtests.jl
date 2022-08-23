@@ -13,7 +13,6 @@ using Test
     include("../src/presentation/Dashboard.jl")
 
     @testset "HyperNetwork" begin
-
         @testset "HyperNetwork: constructors" begin
             # create an empty network with all suseptible nodes
             n = 5
@@ -21,9 +20,9 @@ using Test
             @test typeof(network.hg) <: Hypergraph
             @test size(network.hg) == (n, 0)
             @test network.hg == HyperNetwork(n).hg
-            
+
             # an empty network with a given distribution of infected nodes
-            node_state = Vector{Union{Nothing, State}}(nothing, n)
+            node_state = Vector{Union{Nothing,State}}(nothing, n)
             fill!(node_state, S)
             node_state[2] = I
             node_state[5] = I
@@ -40,17 +39,17 @@ using Test
 
         @testset "Hypernetwork: graph manipulation" begin
             n = 5
-            node_state = Vector{Union{Nothing, State}}(nothing, n)
+            node_state = Vector{Union{Nothing,State}}(nothing, n)
             fill!(node_state, S)
             node_state[2] = I
             node_state[5] = I
             network = HyperNetwork(n, node_state)
 
-            add_hyperedge!(network, (1, ))
+            add_hyperedge!(network, (1,))
             add_hyperedge!(network, (1, 2))
             add_hyperedge!(network, (2, 3))
             add_hyperedge!(network, (1, 3, 4))
-            
+
             @test size(network.hg) == (n, 4)
             @test get_num_hyperedges(network) == 4
             @test get_node_degree(network, 1) == 3
@@ -59,11 +58,11 @@ using Test
             @test hyperedge_dist[1] == 1
             @test hyperedge_dist[2] == 2
             @test hyperedge_dist[3] == 1
-            
-            @test_throws AssertionError add_hyperedge!(network, (42, 234)) 
-            @test_throws AssertionError add_node!(network, (1919, 2222), S) 
-            @test_throws AssertionError remove_hyperedge!(network, 213) 
-            
+
+            @test_throws AssertionError add_hyperedge!(network, (42, 234))
+            @test_throws AssertionError add_node!(network, (1919, 2222), S)
+            @test_throws AssertionError remove_hyperedge!(network, 213)
+
             add_node_to_hyperedge!(network, 3, 1)
             add_node_to_hyperedge!(network, 5, 3)
             @test all([1, 3] .∈ Ref(get_nodes(network, 1)))
@@ -76,7 +75,6 @@ using Test
             @test size(network.hg) == (n, 3)
             hyperedge_dist = get_hyperedge_dist(network)
             @test hyperedge_dist[2] == 1
-
         end
 
         @testset "Hypernetwork: graph info" begin
@@ -105,7 +103,7 @@ using Test
     @testset "Presentation" begin
         @testset "ModelObservable" begin
             n = 10
-            node_state = Vector{Union{Nothing, State}}(nothing, n)
+            node_state = Vector{Union{Nothing,State}}(nothing, n)
             fill!(node_state, S)
             node_state[2] = I
             node_state[5] = I
@@ -116,18 +114,18 @@ using Test
             rewiring_rule = ConflictAvoiding()
             propagation_prob = 0.5
 
-            model = DiscrModel{MajorityRule, ConflictAvoiding}(network[],
-                                                        majority_rule,
-                                                        rewiring_rule,
-                                                        propagation_prob)
+            model = DiscrModel{MajorityRule,ConflictAvoiding}(network[],
+                                                              majority_rule,
+                                                              rewiring_rule,
+                                                              propagation_prob)
 
             mo = ModelObservable{typeof(model)}(model)
-            @test typeof(mo.model) <: Observable{DiscrModel{MajorityRule, ConflictAvoiding}}
-            @test mo.state_history[S][] == [n - 2, ]
-            @test mo.state_history[I][] == [2, ]
-            @test mo.hyperedge_history[2][] == [3, ]
-            @test mo.hyperedge_history[3][] == [4, ]
-            @test mo.hyperedge_history[4][] == [5, ]
+            @test typeof(mo.model) <: Observable{DiscrModel{MajorityRule,ConflictAvoiding}}
+            @test mo.state_history[S][] == [n - 2]
+            @test mo.state_history[I][] == [2]
+            @test mo.hyperedge_history[2][] == [3]
+            @test mo.hyperedge_history[3][] == [4]
+            @test mo.hyperedge_history[4][] == [5]
         end
     end
 end

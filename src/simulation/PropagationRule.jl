@@ -9,14 +9,12 @@ Determines how the states of the graph change with time.
 """
 abstract type PropagationRule end
 
-
 """
 All nodes within the hyperedge take the opinion of the majority. 
 
 In case of a tie, a decision is made randomly. 
 """
 struct MajorityRule <: PropagationRule end
-
 
 function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedge::Integer)
     nodes = get_nodes(network, hyperedge)
@@ -35,7 +33,7 @@ function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedg
     else
         majority_state = rand(max_states)
     end
-    
+
     for node in nodes
         prev_state = get_state(network, node)
         if prev_state != majority_state

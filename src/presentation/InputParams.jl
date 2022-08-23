@@ -16,8 +16,8 @@ end
     propagation_rule::PropagationRule = MajorityRule()
     num_time_steps::Integer = 500
     propagation_prob::Real = 0.5
-    propagation_rate::Real = 1.
-    adaptivity_rate::Real = 1.
+    propagation_rate::Real = 1.0
+    adaptivity_rate::Real = 1.0
 end
 
 @with_kw struct VisualizationParams
@@ -38,11 +38,11 @@ struct InputParams
 end
 
 function save_json(io::IO, params::InputParams)
-    JSON3.pretty(io, save_json(params))
+    return JSON3.pretty(io, save_json(params))
 end
 
 function save_json(params::InputParams)
-    json_dict = Dict{Symbol, Any}()
+    json_dict = Dict{Symbol,Any}()
     json_dict[:network_params] = struct2dict(params.network_params)
     json_dict[:model_params] = struct2dict(params.model_params)
     json_dict[:model_params][:propagation_rule] = nameof(typeof(json_dict[:model_params][:propagation_rule]))
