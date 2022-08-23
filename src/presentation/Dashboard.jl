@@ -15,6 +15,7 @@ struct Dashboard
     fig::Figure
     panels::Vector{Panel}
     axes::Dict{Panel, Axis}
+    lines::Dict{Panel, Any}
     mo::ModelObservable
     is_interactive::Bool
 end
@@ -45,6 +46,7 @@ function Dashboard(model::AbstractModel;
     display(fig)
     axes = Dict{Panel, Axis}()
     panels = Panel[]
+    obs_lines = Dict{Panel, Any}()
 
     mo = ModelObservable{typeof(model)}(model)
 
@@ -74,16 +76,18 @@ function Dashboard(model::AbstractModel;
     if plot_states
         hist_plot_count += 1
         push!(panels, stateDistPanel)
+        obs_lines[stateDistPanel] = []
         state_hist_box = history_box[hist_plot_count, 1]
         title = "Distribution of states"
         axes[stateDistPanel] = Axis(state_hist_box, title=title)
         num_states = length(instances(State))
         linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
         for (i, state) in enumerate(instances(State))
-            lines!(axes[stateDistPanel],
-            mo.state_history[state], 
-            label = "# of $state nodes",
-            color = linecolors[i])
+            l = lines!(axes[stateDistPanel],
+                       mo.state_history[state], 
+                       label = "# of $state nodes",
+                       color = linecolors[i])
+            push!(obs_lines[stateDistPanel], l)
             xlims!(axes[stateDistPanel], 0, 100)
             ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
         end
@@ -97,16 +101,18 @@ function Dashboard(model::AbstractModel;
     if plot_hyperedges
         hist_plot_count += 1
         push!(panels, hyperedgeDistPanel)
+        obs_lines[hyperedgeDistPanel] = []
         hyperedge_hist_box = history_box[hist_plot_count, 1]
         title = "Distribution of hyperdeges"
         axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box, title=title)
         max_size = get_max_hyperedge_size(mo.network[])
         linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
         for size in 2:max_size
-            lines!(axes[hyperedgeDistPanel],
-            mo.hyperedge_history[size],
-            label = "hyperedges of size $size",
-            color = linecolors[size - 1])
+            l = lines!(axes[hyperedgeDistPanel],
+                       mo.hyperedge_history[size],
+                       label = "hyperedges of size $size",
+                       color = linecolors[size - 1])
+            push!(obs_lines[hyperedgeDistPanel], l)
             xlims!(axes[hyperedgeDistPanel], 0, 100)
         end
         Legend(history_box[hist_plot_count, 2], 
@@ -119,15 +125,17 @@ function Dashboard(model::AbstractModel;
     if plot_active_hyperedges
         hist_plot_count += 1
         push!(panels, activeHyperedgesPanel)
+        obs_lines[activeHyperedgesPanel] = []
         active_hist_box = history_box[hist_plot_count, 1]
         title = "Number of active hyperedges"
         axes[activeHyperedgesPanel] = Axis(active_hist_box[1, 1], title=title)
-        lines!(axes[activeHyperedgesPanel],
-               mo.active_hyperedges_history)
+        l = lines!(axes[activeHyperedgesPanel],
+                   mo.active_hyperedges_history)
+        push!(obs_lines[activeHyperedgesPanel], l)
         xlims!(axes[activeHyperedgesPanel], 0, 100)
     end
 
-    Dashboard(fig, panels, axes, mo, is_interactive)
+    Dashboard(fig, panels, axes, obs_lines, mo, is_interactive)
 end
 
 
@@ -224,6 +232,11 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
                mo.active_hyperedges_history[],
                linewidth = 1,
                color = (:gray, 0.5))
+    end
+
+    # Bring the lines tied to observables in front of the gray lines
+    for line in Iterators.flatten(values(dashboard.lines))
+        translate!(line, 0, 0, 1)
     end
 
     # reset observables
