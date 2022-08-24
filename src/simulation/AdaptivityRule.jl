@@ -9,12 +9,26 @@ Determines how the edges of the graph change with time.
 """
 abstract type AdaptivityRule end
 
+"""
+    RewiringRule <: AdaptivityRule
+
+A randomly chosen node from the hyperedge leaves the hyperedge and connects to 
+either a different randomly chosen node or a different hyperedge. 
+"""
 struct RewiringRule <: AdaptivityRule end
+
+"""
+    ConflictAvoiding <: AdaptivityRule
+
+Similar to the RewiringRule rule, but the selected node only connects to nodes or hyperedges in the same state.
+"""
 struct ConflictAvoiding <: AdaptivityRule end
 
 """
 A randomly chosen node from the hyperedge leaves the hyperedge and connects to 
 either a different randomly chosen node or a different hyperedge. 
+
+Returns a list of modified hyperedges.
 """
 function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge::Integer)
     selected_node = rand(get_nodes(network, hyperedge))
@@ -44,6 +58,8 @@ end
 
 """
 Similar to the RewiringRule rule, but the selected node only connects to nodes or hyperedges in the same state.
+
+Returns a list of modified hyperedges.
 """
 function adapt!(network::HyperNetwork, adaptivity_rule::ConflictAvoiding,
                 hyperedge::Integer)
