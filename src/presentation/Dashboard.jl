@@ -246,7 +246,7 @@ end
 """
     save(dashboard::Dashboard, filename::String)
 
-Saves the data from the last active run 
+Save the data from the last active run 
 """
 function save(dashboard::Dashboard, filename::String)
     # TODO

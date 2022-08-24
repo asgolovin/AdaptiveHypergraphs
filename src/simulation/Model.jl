@@ -16,7 +16,7 @@ end
 """
 Advances the dynamics of the network by one step. 
 
-Returns true if the network has changed, false otherwise. 
+Return true if the network has changed, false otherwise. 
 """
 function step!(model::DiscrModel)
     network = model.network
@@ -226,7 +226,7 @@ end
 """
     _record_neighbor_activity(network::HyperNetwork, hyperedge::Integer)
 
-Returns a dict that maps all neighboring hyperedges of `hyperedge` to a boolean, that 
+Return a dict that maps all neighboring hyperedges of `hyperedge` to a boolean, that 
 indicates whether the hyperedge is active or not. 
 """
 function _record_neighbor_activity(network::HyperNetwork, hyperedge::Integer)
