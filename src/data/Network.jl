@@ -52,7 +52,7 @@ end
 """
     HyperNetwork(n::Integer, node_state::Vector{Union{Nothing, State}})
 
-Create an empty network with n nodes and no hyperedges.
+Create an empty network with `n` nodes and no hyperedges.
 `node_state` denotes the state of each node. 
 """
 function HyperNetwork(n::Integer,
@@ -69,7 +69,7 @@ end
 """
     HyperNetwork(n::Integer)
 
-Create an empty network with n nodes and no hyperedges.
+Create an empty network with `n` nodes and no hyperedges.
 All nodes are suseptible. 
 """
 function HyperNetwork(n::Integer)
@@ -106,6 +106,7 @@ Create a new hyperedge with nodes `nodes` and add it to `network`.
 """
 function add_hyperedge!(network::HyperNetwork, nodes)
     @assert all(nodes .<= get_num_nodes(network))
+    @assert length(nodes) >= 2
 
     vertices = Dict([(n, true) for n in nodes])
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
