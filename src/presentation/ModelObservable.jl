@@ -20,11 +20,11 @@ struct ModelObservable{M<:AbstractModel}
         for size in 2:get_max_hyperedge_size(model.network)
             hyperedge_history[size] = Observable(Vector{Int64}())
         end
-        mo = new(Observable(model),
-                 Observable(model.network),
-                 state_history,
-                 hyperedge_history,
-                 active_hyperedges_history)
+        mo = new{M}(Observable(model),
+                    Observable(model.network),
+                    state_history,
+                    hyperedge_history,
+                    active_hyperedges_history)
         return record_history!(mo)
     end
 end
