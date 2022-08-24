@@ -33,12 +33,12 @@ struct ProportionalVoting <: PropagationRule end
 All nodes within the hyperedge become convinced of the opinion of the majority. 
 In case of a tie, a decision is made randomly. 
 
-Returns a list of modified nodes.
+Return a list of modified nodes.
 """
 function propagate!(network::HyperNetwork, majority_voting::MajorityVoting,
                     hyperedge::Integer)
     nodes = get_nodes(network, hyperedge)
-    node_to_state = get_node_to_state_dict(network, hyperedge)
+    node_to_state = get_state_map(network, hyperedge)
     state_count = countmap(values(node_to_state))
     # number of votes for the majority opinion
     max_count = maximum(values(state_count))
@@ -64,7 +64,7 @@ An opinion is chosen with a probability that is proportional to
 the share of nodes with this opinion. All nodes within the hyperedge
 become convinced of this opinion. 
 
-Returns a list of modified nodes.
+Return a list of modified nodes.
 """
 function propagate!(network::HyperNetwork, proportional_voting::ProportionalVoting,
                     hyperedge::Integer)

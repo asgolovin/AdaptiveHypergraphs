@@ -61,17 +61,17 @@ using Test
 
             @test_throws AssertionError add_hyperedge!(network, (42, 234))
             @test_throws AssertionError add_node!(network, (1919, 2222), S)
-            @test_throws AssertionError remove_hyperedge!(network, 213)
+            @test_throws AssertionError delete_hyperedge!(network, 213)
 
-            add_node_to_hyperedge!(network, 3, 1)
-            add_node_to_hyperedge!(network, 5, 3)
+            include_node!(network, 3, 1)
+            include_node!(network, 5, 3)
             @test all([1, 3] .∈ Ref(get_nodes(network, 1)))
             @test all([2, 3, 5] .∈ Ref(get_nodes(network, 3)))
             hyperedge_dist = get_hyperedge_dist(network)
             @test hyperedge_dist[2] == 2
             @test hyperedge_dist[3] == 2
 
-            remove_hyperedge!(network, 2)
+            delete_hyperedge!(network, 2)
             @test size(network.hg) == (n, 3)
             hyperedge_dist = get_hyperedge_dist(network)
             @test hyperedge_dist[2] == 1

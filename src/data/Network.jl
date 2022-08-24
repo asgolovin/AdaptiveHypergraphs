@@ -16,12 +16,16 @@ A higher-order network where every node can be in a particular state (SIS or SIR
 The topology of the network is represented by a hypergraph: a graph, where every hyperedge can connect multiple vertices, and not just two. 
 
 Other than the hypergraph and the states, the struct keeps track of any statistics related to the system such as the number of infected nodes. 
+
+Important assumptions / modifications to traditional hypergraphs:
+ - Empty hyperedges or hyperedges with just one node can't exist. If a node is removed from a hyperedge of size two, the hyperedge is deleted.
+ - The number of nodes stays constant. Even if a node is not connected to any hyperedeges, it is not deleted. 
 """
 mutable struct HyperNetwork
     # The underlying hypergraph
     hg::Hypergraph{Bool,State}
     # Number of nodes in a particular state
-    state_dist::Dict{State,Integer}
+    state_count::Dict{State,Integer}
     # Number of hyperedges of a particular size
     hyperedge_dist::Dict{Int64,Int64}
     # A bijective map where the vector indices correspond to the indices of the columns 
@@ -50,10 +54,10 @@ function HyperNetwork(n::Integer,
     @assert length(node_state) == n
     matrix = Matrix{Union{Nothing,Bool}}(nothing, (n, 0))
     hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
-    state_dist = countmap(node_state)
+    state_count = countmap(node_state)
     hyperedge_dist = Dict(2 => 0)
     hyperedge_uid = Vector{Int64}()
-    return HyperNetwork(hg, state_dist, hyperedge_dist, hyperedge_uid, 0)
+    return HyperNetwork(hg, state_count, hyperedge_dist, hyperedge_uid, 0)
 end
 
 """
@@ -89,18 +93,28 @@ end
 # ====================================================================================
 # ----------------------------- GRAPH MANIPULATION -----------------------------------
 
+"""
+    add_hyperedge!(network::HyperNetwork, nodes)
+
+Create a new hyperedge with nodes `nodes` and add it to `network`.
+"""
 function add_hyperedge!(network::HyperNetwork, nodes)
     @assert all(nodes .<= get_num_nodes(network))
 
     vertices = Dict([(n, true) for n in nodes])
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
     new_size = length(nodes)
-    _add_to_hyperedge_dist!(network.hyperedge_dist, new_size)
+    _increment!(network.hyperedge_dist, new_size)
     network.max_hyperedge_uid += 1
     push!(network.hyperedge_uid, network.max_hyperedge_uid)
     return network.max_hyperedge_uid
 end
 
+"""
+    add_node!(network::HyperNetwork, hyperedges, state::State)
+
+Create a new node connected to hyperedges `hyperdeges` in state `state` and add it to `network`.
+"""
 function add_node!(network::HyperNetwork, hyperedges, state::State)
     @assert all([h in network.hyperedge_uid for h in hyperedges])
 
@@ -109,18 +123,20 @@ function add_node!(network::HyperNetwork, hyperedges, state::State)
         old_size = get_hyperedge_size(network, h)
         network.hyperedge_dist[old_size] -= 1
         new_size = old_size + 1
-        _add_to_hyperedge_dist!(network.hyperedge_dist, new_size)
+        _increment!(network.hyperedge_dist, new_size)
     end
 
     SH_hyperedges = Dict([(indexin(h, network.hyperedge_uid)[], true) for h in hyperedges])
-    network.state_dist[state] += 1
+    network.state_count[state] += 1
     return SimpleHypergraphs.add_vertex!(network.hg; hyperedges=SH_hyperedges, v_meta=state)
 end
 
 """
+    include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
+
 Add an existing node to an existing hyperedge. 
 """
-function add_node_to_hyperedge!(network::HyperNetwork, node::Integer, hyperedge::Integer)
+function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     @assert 1 <= node <= get_num_nodes(network)
 
@@ -128,14 +144,20 @@ function add_node_to_hyperedge!(network::HyperNetwork, node::Integer, hyperedge:
     old_size = get_hyperedge_size(network, hyperedge)
     network.hyperedge_dist[old_size] -= 1
     new_size = old_size + 1
-    _add_to_hyperedge_dist!(network.hyperedge_dist, new_size)
+    _increment!(network.hyperedge_dist, new_size)
 
     mid = indexin(hyperedge, network.hyperedge_uid)[]
     network.hg[node, mid] = true
     return network
 end
 
-function _add_to_hyperedge_dist!(hyperedge_dist::Dict, new_size::Integer)
+"""
+    _increment!(hyperedge_dist::Dict, new_size::Integer)
+
+Increment the number of hyperedges of size `new_size` by one or add a new key to the dict 
+if it does not exist yet.
+"""
+function _increment!(hyperedge_dist::Dict, new_size::Integer)
     if new_size in keys(hyperedge_dist)
         hyperedge_dist[new_size] += 1
     else
@@ -151,9 +173,11 @@ function _add_to_hyperedge_dist!(hyperedge_dist::Dict, new_size::Integer)
 end
 
 """
-remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
+    delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
+
+Remove `hyperedge` from ̀`network`.
 """
-function remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
+function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     num_hyperedges = get_num_hyperedges(network)
 
@@ -177,28 +201,40 @@ function remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
 end
 
 """
-If the hyperedge is of size two, it is removed completely from the graph. 
+    remove_node!(network::HyperNetwork, node::Integer,
+                        hyperedge::Integer)
+
+Remove `node` from `hyperedge`.
+
+If the hyperedge was of size two, it is deleted completely from the graph (hyperdeges of size one 
+are not allowed). However, the node continues to exist even if it is not attached to any 
+hyperedeges anymore. 
 """
-function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer,
-                                     hyperedge::Integer)
+function remove_node!(network::HyperNetwork, node::Integer,
+                      hyperedge::Integer)
     old_size = get_hyperedge_size(network, hyperedge)
     if old_size == 2
-        remove_hyperedge!(network, hyperedge)
+        delete_hyperedge!(network, hyperedge)
     else
         network.hyperedge_dist[old_size] -= 1
         new_size = old_size - 1
-        _add_to_hyperedge_dist!(network.hyperedge_dist, new_size)
+        _increment!(network.hyperedge_dist, new_size)
         mid = indexin(hyperedge, network.hyperedge_uid)[]
         network.hg[node, mid] = nothing
     end
     return network
 end
 
+"""
+    set_state!(network::HyperNetwork, node::Integer, state::State)
+
+Set the state of `node` to `state`.
+"""
 function set_state!(network::HyperNetwork, node::Integer, state::State)
     old_state = get_state(network, node)
     set_vertex_meta!(network.hg, state, node)
-    network.state_dist[old_state] -= 1
-    network.state_dist[state] += 1
+    network.state_count[old_state] -= 1
+    network.state_count[state] += 1
     return network
 end
 
@@ -230,19 +266,39 @@ function get_state(network::HyperNetwork, node::Integer)
     return SimpleHypergraphs.get_vertex_meta(network.hg, node)
 end
 
-function get_node_to_state_dict(network::HyperNetwork)
+"""
+    get_state_map(network::HyperNetwork)
+
+Return a dict which maps every node to its state.
+"""
+function get_state_map(network::HyperNetwork)
     return Dict(node => get_state(network, node) for node in get_nodes(network))
 end
 
-function get_node_to_state_dict(network::HyperNetwork, hyperedge::Integer)
+"""
+    get_state_map(network::HyperNetwork)
+    
+Return a dict which maps every node in `hyperedge` to its state.
+"""
+function get_state_map(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     return Dict(node => get_state(network, node) for node in get_nodes(network, hyperedge))
 end
 
-function get_state_dist(network::HyperNetwork)
-    return copy(network.state_dist)
+"""
+    get_state_count(network::HyperNetwork)
+
+Return a dict which maps every state to the number of nodes in this state. 
+"""
+function get_state_count(network::HyperNetwork)
+    return copy(network.state_count)
 end
 
+"""
+    get_hyperedge_dist(network::HyperNetwork)
+
+Return a dict which maps the sizes of hyperdeges to the number of hyperedeges of this size in the graph.
+"""
 function get_hyperedge_dist(network::HyperNetwork)
     return copy(network.hyperedge_dist)
 end
@@ -266,6 +322,14 @@ function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
     return sum(values(network.hg.he2v[mid]))
 end
 
+"""
+    get_max_hyperedge_size(network::HyperNetwork)
+
+Return the maximum *historical* hyperedge size. 
+
+The "historical" part is important for example for functions which plot the evolution
+of hyperedge sizes over time. 
+"""
 function get_max_hyperedge_size(network::HyperNetwork)
     return maximum(keys(network.hyperedge_dist))
 end
@@ -273,7 +337,7 @@ end
 """
     is_active(network::HyperNetwork, hyperedge::Integer)
 
-Returns true if the hyperedge contains nodes in different states, false if all states are equal. 
+Return true if the hyperedge contains nodes in different states, false if all states are equal. 
 """
 function is_active(network::HyperNetwork, hyperedge::Integer)
     nodes = get_nodes(network, hyperedge)
@@ -284,7 +348,7 @@ end
 """
     get_twosection_graph(network::HyperNetwork)
 
-Returns the two-section graph of the hypergraph as a SimpleGraph. 
+Return the two-section graph of the hypergraph as a SimpleGraph. 
 
 A two-section of a hypergraph is a graph with the same vertices where two vertices 
 are connected if they belong to the same hyperedge. Information about overlapping or 
@@ -301,7 +365,7 @@ end
 """
     build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
 
-Populates the hypergraph with randomly distributed hyperedges of different dimensions. 
+Populate the hypergraph with randomly distributed hyperedges of different dimensions. 
 
 The number of hyperedges in each dimension is given by `num_hyperedges`, starting with d = 1 (e.g., edge between two nodes). 
 
@@ -333,6 +397,12 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
     return network
 end
 
+"""
+A fancy variant of `build_RSC_hg!` using the combinatorial number system. 
+The effect is the same, only the algorithm is different.
+
+Slower than `build_RSC_hg!`. 
+"""
 function build_RSC_hg_new!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
     max_dim = length(num_hyperedges)
     n = get_num_nodes(network)
@@ -351,7 +421,7 @@ function build_RSC_hg_new!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{I
 end
 
 """
-Finds the combination of size `size` at the given index. 
+Find the combination of size `size` at the given index. 
 
 Each combination is a set of unique numbers greater or equal than zero sorted in *decreasing* order. 
 If all combinations are sorted in a lexographic order, a unique index can be assigned to every combination. 
@@ -379,7 +449,7 @@ end
 """
     build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
 
-Populates the hypergraph with hyperedges such that every node has degrees {d_1, d_2, ...}. 
+Populate the hypergraph with hyperedges such that every node has degrees {d_1, d_2, ...}. 
 """
 function build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
     # TODO

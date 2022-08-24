@@ -43,14 +43,14 @@ end
 """
     record_history!(mo::ModelObservable)
 
-Pushes the current distribution of states from the model into state_history.
+Push the current distribution of states from the model into state_history.
 """
 function record_history!(mo::ModelObservable)
     state_history = mo.state_history
     hyperedge_history = mo.hyperedge_history
     active_hyperedges_history = mo.active_hyperedges_history
     network = mo.network[]
-    state_dist = get_state_dist(network)
+    state_dist = get_state_count(network)
 
     for state in keys(state_dist)
         push!(state_history[state][], state_dist[state])

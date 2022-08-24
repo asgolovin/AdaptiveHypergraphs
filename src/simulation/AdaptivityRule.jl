@@ -28,7 +28,7 @@ struct ConflictAvoiding <: AdaptivityRule end
 A randomly chosen node from the hyperedge leaves the hyperedge and connects to 
 either a different randomly chosen node or a different hyperedge. 
 
-Returns a list of modified hyperedges.
+Return a list of modified hyperedges.
 """
 function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge::Integer)
     selected_node = rand(get_nodes(network, hyperedge))
@@ -59,12 +59,12 @@ end
 """
 Similar to the RewiringRule rule, but the selected node only connects to nodes or hyperedges in the same state.
 
-Returns a list of modified hyperedges.
+Return a list of modified hyperedges.
 """
 function adapt!(network::HyperNetwork, adaptivity_rule::ConflictAvoiding,
                 hyperedge::Integer)
     selected_node = rand(get_nodes(network, hyperedge))
-    state_dict = get_node_to_state_dict(network)
+    state_dict = get_state_map(network)
     required_state = state_dict[selected_node]
 
     # find hyperedges in the same state 
@@ -108,12 +108,12 @@ function _rewire_to_candidate!(network, old_hyperedge, selected_node, hyperedge_
     if candidate_id <= length(hyperedge_candidates)
         new_hyperedge = hyperedge_candidates[candidate_id]
         print("and connected to nodes $(get_nodes(network, new_hyperedge))\n")
-        remove_node_from_hyperedge!(network, selected_node, old_hyperedge)
-        add_node_to_hyperedge!(network, selected_node, new_hyperedge)
+        remove_node!(network, selected_node, old_hyperedge)
+        include_node!(network, selected_node, new_hyperedge)
     else
         new_node = node_candidates[candidate_id - length(hyperedge_candidates)]
         print("and connected to node $new_node\n")
-        remove_node_from_hyperedge!(network, selected_node, old_hyperedge)
+        remove_node!(network, selected_node, old_hyperedge)
         new_hyperedge = add_hyperedge!(network, [selected_node, new_node])
     end
 
