@@ -60,7 +60,6 @@ using Test
             @test hyperedge_dist[3] == 1
 
             @test_throws AssertionError add_hyperedge!(network, (42, 234))
-            @test_throws AssertionError add_node!(network, (1919, 2222), S)
             @test_throws AssertionError delete_hyperedge!(network, 213)
 
             include_node!(network, 3, 1)
