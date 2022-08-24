@@ -132,7 +132,7 @@ function add_node_to_hyperedge!(network::HyperNetwork, node::Integer, hyperedge:
 
     mid = indexin(hyperedge, network.hyperedge_uid)[]
     network.hg[node, mid] = true
-    return nothing
+    return network
 end
 
 function _add_to_hyperedge_dist!(hyperedge_dist::Dict, new_size::Integer)
@@ -147,7 +147,7 @@ function _add_to_hyperedge_dist!(hyperedge_dist::Dict, new_size::Integer)
             end
         end
     end
-    return nothing
+    return hyperedge_dist
 end
 
 """
@@ -173,7 +173,7 @@ function remove_hyperedge!(network::HyperNetwork, hyperedge::Integer)
 
     SimpleHypergraphs.remove_hyperedge!(network.hg, mid)
 
-    return nothing
+    return network
 end
 
 """
@@ -191,7 +191,7 @@ function remove_node_from_hyperedge!(network::HyperNetwork, node::Integer,
         mid = indexin(hyperedge, network.hyperedge_uid)[]
         network.hg[node, mid] = nothing
     end
-    return nothing
+    return network
 end
 
 function set_state!(network::HyperNetwork, node::Integer, state::State)
@@ -199,7 +199,7 @@ function set_state!(network::HyperNetwork, node::Integer, state::State)
     set_vertex_meta!(network.hg, state, node)
     network.state_dist[old_state] -= 1
     network.state_dist[state] += 1
-    return nothing
+    return network
 end
 
 # ====================================================================================
@@ -330,7 +330,7 @@ function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integ
             end
         end
     end
-    return nothing
+    return network
 end
 
 function build_RSC_hg_new!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
@@ -347,7 +347,7 @@ function build_RSC_hg_new!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{I
             add_hyperedge!(network, nodes)
         end
     end
-    return nothing
+    return network
 end
 
 """

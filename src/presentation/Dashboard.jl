@@ -168,14 +168,14 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
             end
         end
     end
-    return nothing
+    return dashboard
 end
 
 function _set_hist_lims!(ax::Axis, xhigh::Real)
     autolimits!(ax)
     xlims!(ax; low=0, high=xhigh)
     ylims!(ax; low=-5)
-    return nothing
+    return ax
 end
 
 """
@@ -194,7 +194,7 @@ function record!(dashboard::Dashboard, filename::String, num_steps::Integer,
     record(dashboard.fig, savepath, 1:num_updates; framerate=framerate, compression=1) do i
         return run!(dashboard, steps_per_update, steps_per_update)
     end
-    return nothing
+    return dashboard
 end
 
 """
@@ -240,7 +240,7 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
 
     # reset observables
     rebind_model!(mo, model)
-    return nothing
+    return dashboard
 end
 
 """

@@ -39,9 +39,10 @@ function step!(mo::ModelObservable)
     network_changed && notify(mo.model)
     record_history!(mo.model[], mo.state_history, mo.hyperedge_history,
                     mo.active_hyperedges_history)
-    return nothing
+    return mo
 end
 
+# TODO: only take model observable as input
 """
     record_history!(model::AbstractModel, state_history::Dict{State, Observable{Vector{Int64}}}, hyperedge_history::Dict{Int64, Observable{Vector{Int64}}})
 
@@ -83,7 +84,7 @@ function rebind_model!(mo::ModelObservable, model::AbstractModel)
     mo.network[] = model.network
     record_history!(model, mo.state_history, mo.hyperedge_history,
                     mo.active_hyperedges_history)
-    return nothing
+    return mo
 end
 
 """
@@ -99,5 +100,5 @@ function clear!(mo::ModelObservable)
     for size in 2:get_max_hyperedge_size(mo.network[])
         mo.hyperedge_history[size][] = Vector{Int64}()
     end
-    return nothing
+    return mo
 end

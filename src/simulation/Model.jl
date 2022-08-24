@@ -151,7 +151,7 @@ function step!(model::ContinuousModel)
 
                 # on -> off
                 if active_before == true && active_after == false
-                    _remove_hyperedge_events!(model.event_queue, neighbor)
+                    _remove_events!(model.event_queue, neighbor)
 
                     # off -> on
                 elseif active_before == false && active_after == true
@@ -184,23 +184,24 @@ function step!(model::ContinuousModel)
     if source_hyperedge in get_hyperedges(network) && is_active(network, source_hyperedge)
         _add_event!(model, source_hyperedge)
     else # if the source hyperedge was switched off, all future events are removed
-        _remove_hyperedge_events!(model.event_queue, source_hyperedge)
+        _remove_events!(model.event_queue, source_hyperedge)
     end
 
     return network_changed
 end
 
 """
-    _remove_hyperedge_events!(queue::PriorityQueue, hyperedge::Integer)
+    _remove_events!(queue::PriorityQueue, hyperedge::Integer)
 
 Remove all events belonging to the hyperedge `hyperedge`
 """
-function _remove_hyperedge_events!(queue::PriorityQueue, hyperedge::Integer)
+function _remove_events!(queue::PriorityQueue, hyperedge::Integer)
     for (event, _) in queue
         if event.hyperedge == hyperedge
             delete!(queue, event)
         end
     end
+    return queue
 end
 
 """
