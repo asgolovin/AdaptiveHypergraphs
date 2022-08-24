@@ -30,6 +30,8 @@ mutable struct HyperNetwork
     hg::Hypergraph{Bool,State}
     # Number of nodes
     num_nodes::Integer
+    # Number of active hyperedges
+    active_hyperedges::Integer
     # Number of nodes in a particular state
     state_count::Dict{State,Integer}
     # Number of hyperedges of a particular size
@@ -63,7 +65,7 @@ function HyperNetwork(n::Integer,
     state_count = countmap(node_state)
     hyperedge_dist = Dict(2 => 0)
     hyperedge_uid = Vector{Int64}()
-    return HyperNetwork(hg, n, state_count, hyperedge_dist, hyperedge_uid, 0)
+    return HyperNetwork(hg, n, 0, state_count, hyperedge_dist, hyperedge_uid, 0)
 end
 
 """
@@ -79,7 +81,7 @@ function HyperNetwork(n::Integer)
     hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
     hyperedge_dist = Dict(2 => 0)
     hyperedge_uid = Vector{Int64}()
-    return HyperNetwork(hg, Dict(S => n, I => 0), hyperedge_dist, hyperedge_uid, 0)
+    return HyperNetwork(hg, n, 0, Dict(S => n, I => 0), hyperedge_dist, hyperedge_uid, 0)
 end
 
 """
@@ -110,10 +112,20 @@ function add_hyperedge!(network::HyperNetwork, nodes)
 
     vertices = Dict([(n, true) for n in nodes])
     SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
+
+    # update hyperedge_dist
     new_size = length(nodes)
     _increment!(network.hyperedge_dist, new_size)
+
+    # update uid
     network.max_hyperedge_uid += 1
     push!(network.hyperedge_uid, network.max_hyperedge_uid)
+
+    # update active_hyperedeges
+    if is_active(network, network.max_hyperedge_uid)
+        network.active_hyperedges += 1
+    end
+
     return network.max_hyperedge_uid
 end
 
@@ -132,8 +144,16 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     new_size = old_size + 1
     _increment!(network.hyperedge_dist, new_size)
 
+    active_before = is_active(network, hyperedge)
+
     mid = indexin(hyperedge, network.hyperedge_uid)[]
     network.hg[node, mid] = true
+
+    # update active_hyperedeges if the hyperedge became active
+    if !active_before && is_active(network, hyperedge)
+        network.active_hyperedges += 1
+    end
+
     return network
 end
 
@@ -171,6 +191,11 @@ function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     old_size = get_hyperedge_size(network, hyperedge)
     network.hyperedge_dist[old_size] -= 1
 
+    # update active_hyperedeges if the hyperedge switched from _inactive to active_
+    if is_active(network, hyperedge)
+        network.active_hyperedges -= 1
+    end
+
     # update hyperedge_uid
     # The function SimpleHypergraphs.remove_hyperedge!() does not preserve the order 
     # of the hyperedges: when a hyperedge is deleted, the last column is moved to 
@@ -202,11 +227,17 @@ function remove_node!(network::HyperNetwork, node::Integer,
     if old_size == 2
         delete_hyperedge!(network, hyperedge)
     else
+        active_before = is_active(network, hyperedge)
         network.hyperedge_dist[old_size] -= 1
         new_size = old_size - 1
         _increment!(network.hyperedge_dist, new_size)
         mid = indexin(hyperedge, network.hyperedge_uid)[]
         network.hg[node, mid] = nothing
+
+        # update active_hyperedeges if the hyperedge switched from _active to inactive_
+        if active_before && !is_active(network, hyperedge)
+            network.active_hyperedges -= 1
+        end
     end
     return network
 end
@@ -217,10 +248,27 @@ end
 Set the state of `node` to `state`.
 """
 function set_state!(network::HyperNetwork, node::Integer, state::State)
+    @assert 1 <= node <= get_num_nodes(network)
+
+    hyperedges = get_hyperedges(network, node)
+    active_before = [is_active(network, h) for h in hyperedges]
+
     old_state = get_state(network, node)
     set_vertex_meta!(network.hg, state, node)
     network.state_count[old_state] -= 1
     network.state_count[state] += 1
+
+    for (i, h) in enumerate(hyperedges)
+        if !active_before[i] && is_active(network, h)
+            # if the edge switched from _inactive to active_
+            network.active_hyperedges += 1
+
+        elseif active_before[i] && !is_active(network, h)
+            # if the edge switched from _active to inactive_
+            network.active_hyperedges -= 1
+        end
+    end
+
     return network
 end
 
@@ -291,6 +339,10 @@ end
 
 function get_num_hyperedges(network::HyperNetwork)
     return nhe(network.hg)
+end
+
+function get_num_active_hyperedges(network::HyperNetwork)
+    return network.active_hyperedges
 end
 
 function get_num_nodes(network::HyperNetwork)

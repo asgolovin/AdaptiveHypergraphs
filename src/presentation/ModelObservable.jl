@@ -61,12 +61,7 @@ function record_history!(mo::ModelObservable)
         push!(hyperedge_history[size][], hyperedge_dist[size])
         notify(hyperedge_history[size])
     end
-    active_count = 0
-    for hyperedge in get_hyperedges(network)
-        if is_active(network, hyperedge)
-            active_count += 1
-        end
-    end
+    active_count = get_num_active_hyperedges(network)
     push!(active_hyperedges_history[], active_count)
     notify(active_hyperedges_history)
     return mo
