@@ -33,10 +33,10 @@ function step!(model::DiscrModel)
 
     p = rand()
     if p < model.propagation_prob
-        println("Executing propagation rule")
+        # println("Executing propagation rule")
         propagate!(network, propagation_rule, hyperedge)
     else
-        println("Executing adaptivity rule")
+        # println("Executing adaptivity rule")
         adapt!(network, adaptivity_rule, hyperedge)
     end
 
@@ -139,7 +139,7 @@ function step!(model::ContinuousModel)
         # record whether the neighbors are active or not
         neighboring_hyperedges = _record_neighbor_activity(network, source_hyperedge)
 
-        println("Executing propagation rule")
+        # println("Executing propagation rule")
         affected_nodes = propagate!(network, propagation_rule, source_hyperedge)
 
         # Add events for the neighboring hyperedges
@@ -165,7 +165,7 @@ function step!(model::ContinuousModel)
         end
 
     elseif event.action == adapt
-        println("Executing adaptivity rule")
+        # println("Executing adaptivity rule")
         affected_hyperedges = adapt!(network, adaptivity_rule, source_hyperedge)
 
         for h in affected_hyperedges

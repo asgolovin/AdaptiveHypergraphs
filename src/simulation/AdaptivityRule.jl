@@ -103,16 +103,16 @@ function _rewire_to_candidate!(network, old_hyperedge, selected_node, hyperedge_
 
     candidate_id = rand(1:num_candidates)
 
-    print("Node $selected_node was disconnected from nodes $(get_nodes(network, old_hyperedge)) ")
+    #print("Node $selected_node was disconnected from nodes $(get_nodes(network, old_hyperedge)) ")
 
     if candidate_id <= length(hyperedge_candidates)
         new_hyperedge = hyperedge_candidates[candidate_id]
-        print("and connected to nodes $(get_nodes(network, new_hyperedge))\n")
+        # print("and connected to nodes $(get_nodes(network, new_hyperedge))\n")
         remove_node!(network, selected_node, old_hyperedge)
         include_node!(network, selected_node, new_hyperedge)
     else
         new_node = node_candidates[candidate_id - length(hyperedge_candidates)]
-        print("and connected to node $new_node\n")
+        # print("and connected to node $new_node\n")
         remove_node!(network, selected_node, old_hyperedge)
         new_hyperedge = add_hyperedge!(network, [selected_node, new_node])
     end

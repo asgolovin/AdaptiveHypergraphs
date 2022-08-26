@@ -89,6 +89,6 @@ function _convince!(network::HyperNetwork, hyperedge::Integer, state::State)
             set_state!(network, node, state)
         end
     end
-    println("Nodes $affected_nodes in hyperedge $hyperedge were set to $state")
+    # println("Nodes $affected_nodes in hyperedge $hyperedge were set to $state")
     return affected_nodes
 end
