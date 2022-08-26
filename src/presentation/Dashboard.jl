@@ -157,6 +157,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
         for i in 1:num_steps
             step!(mo)
             if i % steps_per_update == 0
+                flush_buffers!(mo)
                 notify(mo.network)
                 for panel in dashboard.panels
                     if panel != hypergraphPanel
