@@ -44,6 +44,8 @@ mutable struct HyperNetwork
     # This mapping is important because the native hyperedge indices from 
     # SimpleHypergraphs are not preserved when a hyperedge is deleted. 
     hyperedge_uid::Vector{Int64}
+    # A reverse map of UIDs to MIDs.
+    uid_to_mid::Dict{Int64,Int64}
     # current highest hyperedge UID
     max_hyperedge_uid::Integer
 end
@@ -65,7 +67,8 @@ function HyperNetwork(n::Integer,
     state_count = countmap(node_state)
     hyperedge_dist = Dict(2 => 0)
     hyperedge_uid = Vector{Int64}()
-    return HyperNetwork(hg, n, 0, state_count, hyperedge_dist, hyperedge_uid, 0)
+    uid_to_mid = Dict{Int64,Int64}()
+    return HyperNetwork(hg, n, 0, state_count, hyperedge_dist, hyperedge_uid, uid_to_mid, 0)
 end
 
 """
@@ -81,7 +84,9 @@ function HyperNetwork(n::Integer)
     hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
     hyperedge_dist = Dict(2 => 0)
     hyperedge_uid = Vector{Int64}()
-    return HyperNetwork(hg, n, 0, Dict(S => n, I => 0), hyperedge_dist, hyperedge_uid, 0)
+    uid_to_mid = Dict{Int64,Int64}()
+    return HyperNetwork(hg, n, 0, Dict(S => n, I => 0), hyperedge_dist, hyperedge_uid,
+                        uid_to_mid, 0)
 end
 
 """
@@ -111,7 +116,7 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     @assert length(nodes) >= 2
 
     vertices = Dict([(n, true) for n in nodes])
-    SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
+    mid = SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
 
     # update hyperedge_dist
     new_size = length(nodes)
@@ -120,6 +125,7 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     # update uid
     network.max_hyperedge_uid += 1
     push!(network.hyperedge_uid, network.max_hyperedge_uid)
+    network.uid_to_mid[network.max_hyperedge_uid] = mid
 
     # update active_hyperedeges
     if is_active(network, network.max_hyperedge_uid)
@@ -146,7 +152,7 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
 
     active_before = is_active(network, hyperedge)
 
-    mid = indexin(hyperedge, network.hyperedge_uid)[]
+    mid = network.uid_to_mid[hyperedge]
     network.hg[node, mid] = true
 
     # update active_hyperedeges if the hyperedge became active
@@ -200,10 +206,12 @@ function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     # The function SimpleHypergraphs.remove_hyperedge!() does not preserve the order 
     # of the hyperedges: when a hyperedge is deleted, the last column is moved to 
     # the posititon where the previous hyperedge was. 
-    mid = indexin(hyperedge, network.hyperedge_uid)[]
+    mid = network.uid_to_mid[hyperedge]
+    delete!(network.uid_to_mid, hyperedge)
     new_uid = pop!(network.hyperedge_uid)
     if mid != num_hyperedges
         network.hyperedge_uid[mid] = new_uid
+        network.uid_to_mid[new_uid] = mid
     end
 
     SimpleHypergraphs.remove_hyperedge!(network.hg, mid)
@@ -231,7 +239,7 @@ function remove_node!(network::HyperNetwork, node::Integer,
         network.hyperedge_dist[old_size] -= 1
         new_size = old_size - 1
         _increment!(network.hyperedge_dist, new_size)
-        mid = indexin(hyperedge, network.hyperedge_uid)[]
+        mid = network.uid_to_mid[hyperedge]
         network.hg[node, mid] = nothing
 
         # update active_hyperedeges if the hyperedge switched from _active to inactive_
@@ -281,7 +289,7 @@ end
 
 function get_nodes(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
-    mid = indexin(hyperedge, network.hyperedge_uid)[]
+    mid = network.uid_to_mid[hyperedge]
     return collect(keys(filter(d -> d.second, getvertices(network.hg, mid))))
 end
 
@@ -356,7 +364,7 @@ end
 
 function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
-    mid = indexin(hyperedge, network.hyperedge_uid)[]
+    mid = network.uid_to_mid[hyperedge]
     return sum(values(network.hg.he2v[mid]))
 end
 
