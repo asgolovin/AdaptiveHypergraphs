@@ -4,3 +4,4 @@ plots
 results
 input/*
 !input/InputParams.jl
+*.pb.gz
