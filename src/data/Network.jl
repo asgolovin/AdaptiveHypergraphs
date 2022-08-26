@@ -36,6 +36,8 @@ mutable struct HyperNetwork
     state_count::Dict{State,Integer}
     # Number of hyperedges of a particular size
     hyperedge_dist::Dict{Int64,Int64}
+    # A map of UIDs to the size of the hyperedege
+    hyperedge_size::Dict{Int64,Int64}
     # A bijective map where the vector indices correspond to the indices of the columns 
     # in the incidence matrix of the hypergraph (matrix IDs or MIDs) and the values 
     # to unique IDs (UIDs). The UIDs start with 1. 
@@ -66,9 +68,11 @@ function HyperNetwork(n::Integer,
     hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
     state_count = countmap(node_state)
     hyperedge_dist = Dict(2 => 0)
+    hyperedge_size = Dict{Int64,Int64}()
     hyperedge_uid = Vector{Int64}()
     uid_to_mid = Dict{Int64,Int64}()
-    return HyperNetwork(hg, n, 0, state_count, hyperedge_dist, hyperedge_uid, uid_to_mid, 0)
+    return HyperNetwork(hg, n, 0, state_count, hyperedge_dist, hyperedge_size,
+                        hyperedge_uid, uid_to_mid, 0)
 end
 
 """
@@ -83,10 +87,11 @@ function HyperNetwork(n::Integer)
     matrix = Matrix{Union{Nothing,Bool}}(nothing, (n, 0))
     hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
     hyperedge_dist = Dict(2 => 0)
+    hyperedge_size = Dict{Int64,Int64}()
     hyperedge_uid = Vector{Int64}()
     uid_to_mid = Dict{Int64,Int64}()
-    return HyperNetwork(hg, n, 0, Dict(S => n, I => 0), hyperedge_dist, hyperedge_uid,
-                        uid_to_mid, 0)
+    return HyperNetwork(hg, n, 0, Dict(S => n, I => 0), hyperedge_dist, hyperedge_size,
+                        hyperedge_uid, uid_to_mid, 0)
 end
 
 """
@@ -124,8 +129,10 @@ function add_hyperedge!(network::HyperNetwork, nodes)
 
     # update uid
     network.max_hyperedge_uid += 1
-    push!(network.hyperedge_uid, network.max_hyperedge_uid)
-    network.uid_to_mid[network.max_hyperedge_uid] = mid
+    uid = network.max_hyperedge_uid
+    push!(network.hyperedge_uid, uid)
+    network.uid_to_mid[uid] = mid
+    network.hyperedge_size[uid] = length(nodes)
 
     # update active_hyperedeges
     if is_active(network, network.max_hyperedge_uid)
@@ -149,6 +156,7 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     network.hyperedge_dist[old_size] -= 1
     new_size = old_size + 1
     _increment!(network.hyperedge_dist, new_size)
+    network.hyperedge_size[hyperedge] += 1
 
     active_before = is_active(network, hyperedge)
 
@@ -208,6 +216,7 @@ function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     # the posititon where the previous hyperedge was. 
     mid = network.uid_to_mid[hyperedge]
     delete!(network.uid_to_mid, hyperedge)
+    delete!(network.hyperedge_size, hyperedge)
     new_uid = pop!(network.hyperedge_uid)
     if mid != num_hyperedges
         network.hyperedge_uid[mid] = new_uid
@@ -237,6 +246,7 @@ function remove_node!(network::HyperNetwork, node::Integer,
     else
         active_before = is_active(network, hyperedge)
         network.hyperedge_dist[old_size] -= 1
+        network.hyperedge_size[hyperedge] -= 1
         new_size = old_size - 1
         _increment!(network.hyperedge_dist, new_size)
         mid = network.uid_to_mid[hyperedge]
@@ -363,9 +373,8 @@ function get_node_degree(network::HyperNetwork, node::Integer)
 end
 
 function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
-    @assert hyperedge in network.hyperedge_uid
-    mid = network.uid_to_mid[hyperedge]
-    return sum(values(network.hg.he2v[mid]))
+    # @assert hyperedge in network.hyperedge_uid
+    return network.hyperedge_size[hyperedge]
 end
 
 """
