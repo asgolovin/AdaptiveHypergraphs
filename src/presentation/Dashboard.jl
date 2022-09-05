@@ -1,20 +1,133 @@
 export Panel, Dashboard, run!, record!, reset!
 
 """
-Types of data that can be visualized in the dashboard.
+    AbstractPanel
+
+A subfigure in the dashboard that visualizes specific data.
 """
-@enum Panel begin
-    hypergraphPanel
-    stateDistPanel
-    hyperedgeDistPanel
-    activeHyperedgesPanel
+abstract type AbstractPanel end
+
+struct HypergraphPanel <: AbstractPanel
+    mo::ModelObservable
+    network::HyperNetwork
+    axes::Axis
+end
+
+# TODO: add hg_kwards
+function HypergraphPanel(box::GridSubposition, mo::ModelObservable, node_colormap,
+                         hyperedge_colormap)
+    ax, _ = hypergraphplot(box, mo.network; node_colormap,
+                           hyperedge_colormap)
+    ax.title = "Visualization of the hypergraph"
+    return HypergraphPanel(mo, network, ax)
+end
+
+struct StateDistPanel <: AbstractPanel
+    time_series::Vector{StateCount}
+    axes::Axis
+    lines::Vector{Lines}
+end
+
+function StateDistPanel(box::GridSubposition, mo::ModelObservable, node_colormap)
+    lines = []
+    title = "Distribution of states"
+    ax = Axis(box; title=title)
+    num_states = length(instances(State))
+    linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
+    for (i, series) in enumerate(mo.state_series)
+        l = lines!(ax,
+                   series.observable;
+                   label="# of $(series.state) nodes",
+                   color=linecolors[i])
+        push!(lines, l)
+        xlims!(ax, 0, 100)
+        ylims!(ax, 0, get_num_nodes(mo.network[]))
+    end
+    # TODO
+    #Legend(history_box[hist_plot_count, 2],
+    # Legend(ax;
+    #        framevisible=false,
+    #        halign=:left,
+    #        labelsize=12)
+
+    return StateDistPanel(mo.state_series, ax, lines)
+end
+
+struct HyperedgeDistPanel <: AbstractPanel
+    time_series::Vector{HyperedgeCount}
+    axes::Axis
+    lines::Vector{Lines}
+end
+
+function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable, hyperedge_colormap)
+    lines = []
+    title = "Distribution of hyperdeges"
+    ax = Axis(box; title=title)
+    max_size = get_max_hyperedge_size(mo.network[])
+    linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
+    for (i, series) in enumerate(mo.hyperedge_series)
+        l = lines!(ax,
+                   series.observable;
+                   label="hyperedges of size $(series.size)",
+                   color=linecolors[series.size - 1])
+        push!(lines, l)
+        xlims!(ax, 0, 100)
+    end
+    # Legend(history_box[hist_plot_count, 2],
+    # Legend(ax;
+    #        framevisible=false,
+    #        halign=:left,
+    #        labelsize=12)
+    return HyperedgeDistPanel(mo.hyperedge_series, ax, lines)
+end
+
+struct ActiveHyperedgesPanel <: AbstractPanel
+    time_series::Vector{ActiveHyperedgeCount}
+    axes::Axis
+    lines::Vector{Lines}
+end
+
+function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable)
+    lines = []
+    title = "Number of active hyperedges"
+    ax = Axis(box[1, 1]; title=title)
+    l = lines!(ax,
+               mo.active_hyperedges_series.observable)
+    push!(lines, l)
+    xlims!(ax, 0, 100)
+    return ActiveHyperedgesPanel([mo.active_hyperedges_series], ax, lines)
+end
+
+function deactivate_lines!(panel::AbstractPanel)
+    for series in panel.time_series
+        lines!(panel.axes,
+               series.observable[];
+               linewidth=1,
+               color=(:gray, 0.5))
+    end
+    # Bring the lines tied to observables in front of the gray lines
+    for line in panel.lines
+        translate!(line, 0, 0, 1)
+    end
+    return panel
+end
+
+# TODO: remove xhigh
+function set_lims!(panel::HypergraphPanel, xhigh::Real)
+    autolimits!(panel.axes)
+    return panel
+end
+
+function set_lims!(panel::AbstractPanel, xhigh::Real)
+    autolimits!(panel.axes)
+    xlims!(panel.axes; low=0, high=xhigh)
+    ylims!(panel.axes; low=-5)
+    return panel
 end
 
 struct Dashboard
     fig::Figure
-    panels::Vector{Panel}
-    axes::Dict{Panel,Axis}
-    lines::Dict{Panel,Any}
+    panels::Vector{AbstractPanel}
     mo::ModelObservable
     is_interactive::Bool
 end
@@ -41,9 +154,7 @@ function Dashboard(model::AbstractModel;
                    hyperedge_colormap=:thermal)
     fig = Figure(; resolution=(1000, 600))
     display(fig)
-    axes = Dict{Panel,Axis}()
-    panels = Panel[]
-    obs_lines = Dict{Panel,Any}()
+    panels = []
 
     mo = ModelObservable{typeof(model)}(model)
 
@@ -57,11 +168,8 @@ function Dashboard(model::AbstractModel;
     if plot_hypergraph
         plot_count += 1
         hg_box = plot_box[1, plot_count]
-        hgax, _ = hypergraphplot(hg_box[1, 1], mo.network; node_colormap,
-                                 hyperedge_colormap)
-        push!(panels, hypergraphPanel)
-        hgax.title = "Visualization of the hypergraph"
-        axes[hypergraphPanel] = hgax
+        hg_panel = HypergraphPanel(hg_box, network, node_colormap, hyperedge_colormap)
+        push!(panels, hg_panel)
     end
 
     if plot_states || plot_hyperedges || plot_active_hyperedges
@@ -73,67 +181,26 @@ function Dashboard(model::AbstractModel;
 
     if plot_states
         hist_plot_count += 1
-        push!(panels, stateDistPanel)
-        obs_lines[stateDistPanel] = []
         state_hist_box = history_box[hist_plot_count, 1]
-        title = "Distribution of states"
-        axes[stateDistPanel] = Axis(state_hist_box; title=title)
-        num_states = length(instances(State))
-        linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
-        for (i, state) in enumerate(instances(State))
-            l = lines!(axes[stateDistPanel],
-                       mo.state_history[state];
-                       label="# of $state nodes",
-                       color=linecolors[i])
-            push!(obs_lines[stateDistPanel], l)
-            xlims!(axes[stateDistPanel], 0, 100)
-            ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
-        end
-        Legend(history_box[hist_plot_count, 2],
-               axes[stateDistPanel];
-               framevisible=false,
-               halign=:left,
-               labelsize=12)
+        state_dist_panel = StateDistPanel(state_hist_box, mo, node_colormap)
+        push!(panels, state_dist_panel)
     end
 
     if plot_hyperedges
         hist_plot_count += 1
-        push!(panels, hyperedgeDistPanel)
-        obs_lines[hyperedgeDistPanel] = []
         hyperedge_hist_box = history_box[hist_plot_count, 1]
-        title = "Distribution of hyperdeges"
-        axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box; title=title)
-        max_size = get_max_hyperedge_size(mo.network[])
-        linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
-        for size in 2:max_size
-            l = lines!(axes[hyperedgeDistPanel],
-                       mo.hyperedge_history[size];
-                       label="hyperedges of size $size",
-                       color=linecolors[size - 1])
-            push!(obs_lines[hyperedgeDistPanel], l)
-            xlims!(axes[hyperedgeDistPanel], 0, 100)
-        end
-        Legend(history_box[hist_plot_count, 2],
-               axes[hyperedgeDistPanel];
-               framevisible=false,
-               halign=:left,
-               labelsize=12)
+        he_dist_panel = HyperedgeDistPanel(hyperedge_hist_box, mo, hyperedge_colormap)
+        push!(panels, he_dist_panel)
     end
 
     if plot_active_hyperedges
         hist_plot_count += 1
-        push!(panels, activeHyperedgesPanel)
-        obs_lines[activeHyperedgesPanel] = []
         active_hist_box = history_box[hist_plot_count, 1]
-        title = "Number of active hyperedges"
-        axes[activeHyperedgesPanel] = Axis(active_hist_box[1, 1]; title=title)
-        l = lines!(axes[activeHyperedgesPanel],
-                   mo.active_hyperedges_history)
-        push!(obs_lines[activeHyperedgesPanel], l)
-        xlims!(axes[activeHyperedgesPanel], 0, 100)
+        active_panel = ActiveHyperedgesPanel(active_hist_box, mo)
+        push!(panels, active_panel)
     end
 
-    return Dashboard(fig, panels, axes, obs_lines, mo, is_interactive)
+    return Dashboard(fig, panels, mo, is_interactive)
 end
 
 """
@@ -144,15 +211,12 @@ once every number of steps given by `steps_per_update`.
 """
 function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
     mo = dashboard.mo
-    axes = dashboard.axes
 
     if dashboard.is_interactive
         # TODO: something should happen here
     else
         for panel in dashboard.panels
-            if panel != hypergraphPanel
-                _set_hist_lims!(axes[panel], num_steps)
-            end
+            set_lims!(panel, num_steps)
         end
         for i in 1:num_steps
             step!(mo)
@@ -161,23 +225,12 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 sleep(0.01)
                 notify(mo.network)
                 for panel in dashboard.panels
-                    if panel != hypergraphPanel
-                        _set_hist_lims!(axes[panel], num_steps)
-                    else
-                        autolimits!(axes[panel])
-                    end
+                    set_lims!(panel, num_steps)
                 end
             end
         end
     end
     return dashboard
-end
-
-function _set_hist_lims!(ax::Axis, xhigh::Real)
-    autolimits!(ax)
-    xlims!(ax; low=0, high=xhigh)
-    ylims!(ax; low=-5)
-    return ax
 end
 
 """
@@ -208,40 +261,16 @@ The old history plot lines are made inactive and are grayed out.
 The observables in the ModelObservable are reset to track the new data from `model`.
 """
 function reset!(dashboard::Dashboard, model::AbstractModel)
-    mo = dashboard.mo
-    axes = dashboard.axes
-    # gray out the history plot lines
-    if stateDistPanel in dashboard.panels
-        for (i, state) in enumerate(instances(State))
-            lines!(axes[stateDistPanel],
-                   mo.state_history[state][];
-                   linewidth=1,
-                   color=(:gray, 0.5))
-        end
-    end
-    if hyperedgeDistPanel in dashboard.panels
-        max_size = get_max_hyperedge_size(mo.network[])
-        for size in 2:max_size
-            lines!(axes[hyperedgeDistPanel],
-                   mo.hyperedge_history[size][];
-                   linewidth=1,
-                   color=(:gray, 0.5))
-        end
-    end
-    if activeHyperedgesPanel in dashboard.panels
-        lines!(axes[activeHyperedgesPanel],
-               mo.active_hyperedges_history[];
-               linewidth=1,
-               color=(:gray, 0.5))
-    end
 
-    # Bring the lines tied to observables in front of the gray lines
-    for line in Iterators.flatten(values(dashboard.lines))
-        translate!(line, 0, 0, 1)
+    # gray out the history plot lines
+    for panel in dashboard.panels
+        if typeof(panel) != HypergraphPanel
+            deactivate_lines!(panel)
+        end
     end
 
     # reset observables
-    rebind_model!(mo, model)
+    rebind_model!(dashboard.mo, model)
     return dashboard
 end
 
