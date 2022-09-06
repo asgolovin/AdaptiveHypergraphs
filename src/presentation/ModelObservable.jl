@@ -15,19 +15,22 @@ struct ModelObservable{M<:AbstractModel}
     state_series::Vector{StateCount}
     hyperedge_series::Vector{HyperedgeCount}
     active_hyperedges_series::ActiveHyperedgeCount
+    active_lifetime::ActiveLifetime
 
     function ModelObservable{M}(model::M) where {M<:AbstractModel}
         state_series = [StateCount(model.network, state) for state in instances(State)]
         max_size = get_max_hyperedge_size(model.network)
         hyperedge_series = [HyperedgeCount(model.network, size) for size in 2:max_size]
         active_hyperedges_series = ActiveHyperedgeCount(model.network)
+        active_lifetime = ActiveLifetime()
 
         mo = new{M}(Observable(model),
                     Observable(model.network),
                     state_series,
                     hyperedge_series,
-                    active_hyperedges_series)
-        return record_history!(mo)
+                    active_hyperedges_series,
+                    active_lifetime)
+        return record_time_series!(mo)
     end
 end
 
@@ -43,17 +46,17 @@ Progress the model one time step forward and update the history.
 function step!(mo::ModelObservable)
     network_changed = step!(mo.model[])
     network_changed && notify(mo.model)
-    return record_history!(mo)
+    return record_time_series!(mo)
 end
 
 """
-    record_history!(mo::ModelObservable)
+    record_time_series!(mo::ModelObservable)
 
 Push the current distribution of states from the model into the history buffer vectors. 
 """
-function record_history!(mo::ModelObservable)
+function record_time_series!(mo::ModelObservable)
     for series in _get_all_series(mo)
-        record_history!(series)
+        record_measurement!(series)
     end
     return mo
 end
@@ -65,6 +68,11 @@ function flush_buffers!(mo::ModelObservable)
     for series in _get_all_series(mo)
         notify(series.observable)
     end
+    return mo
+end
+
+function record_active_lifetime!(mo::ModelObservable, time)
+    record_measurement!(mo.active_lifetime, time)
     return mo
 end
 
@@ -80,7 +88,7 @@ function rebind_model!(mo::ModelObservable, model::AbstractModel)
     for series in _get_all_series(mo)
         series.network = model.network
     end
-    return record_history!(mo)
+    return record_time_series!(mo)
 end
 
 """

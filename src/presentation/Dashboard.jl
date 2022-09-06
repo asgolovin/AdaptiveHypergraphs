@@ -113,6 +113,8 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
             end
             set_lims!(panel)
         end
+
+        active_lifetime = num_steps
         for i in 1:num_steps
             step!(mo)
             num_active_hyperedges = get_num_active_hyperedges(mo.network[])
@@ -127,9 +129,11 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
 
             # stop the simulation early if we run out of active hyperdeges
             if num_active_hyperedges == 0
+                active_lifetime = i
                 break
             end
         end
+        record_active_lifetime!(mo, active_lifetime)
     end
     return dashboard
 end
