@@ -7,27 +7,44 @@ A subfigure in the dashboard that visualizes specific data.
 """
 abstract type AbstractPanel end
 
-struct HypergraphPanel <: AbstractPanel
+"""
+    AbstractTimeSeriesPanel <: AbstractPanel
+
+A subtype of panel that has the time on the x-axis.
+"""
+abstract type AbstractTimeSeriesPanel <: AbstractPanel end
+
+mutable struct HypergraphPanel <: AbstractPanel
     mo::ModelObservable
     network::HyperNetwork
     axes::Axis
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
 end
 
-function HypergraphPanel(box::GridSubposition, mo::ModelObservable, node_colormap,
-                         hyperedge_colormap)
+function HypergraphPanel(box::GridSubposition, mo::ModelObservable; node_colormap=:RdYlGn_6,
+                         hyperedge_colormap=:thermal, xlow=nothing, xhigh=nothing,
+                         ylow=nothing, yhigh=nothing)
     ax, _ = hypergraphplot(box, mo.network; node_colormap,
                            hyperedge_colormap)
     ax.title = "Visualization of the hypergraph"
-    return HypergraphPanel(mo, network, ax)
+    return HypergraphPanel(mo, network, ax, xlow, xhigh, ylow, yhigh)
 end
 
-struct StateDistPanel <: AbstractPanel
+mutable struct StateDistPanel <: AbstractTimeSeriesPanel
     time_series::Vector{StateCount}
     axes::Axis
     lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
 end
 
-function StateDistPanel(box::GridSubposition, mo::ModelObservable, node_colormap)
+function StateDistPanel(box::GridSubposition, mo::ModelObservable; node_colormap=:RdYlGn_6,
+                        xlow=0, xhigh=nothing, ylow=-10, yhigh=nothing)
     lines = []
     title = "Distribution of states"
     ax = Axis(box; title=title)
@@ -39,23 +56,28 @@ function StateDistPanel(box::GridSubposition, mo::ModelObservable, node_colormap
                    label="# of $(series.state) nodes",
                    color=linecolors[i])
         push!(lines, l)
-        xlims!(ax, 0, 100)
-        ylims!(ax, 0, get_num_nodes(mo.network[]))
     end
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
 
     axislegend(ax; labelsize=12)
 
-    return StateDistPanel(mo.state_series, ax, lines)
+    return StateDistPanel(mo.state_series, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
-struct HyperedgeDistPanel <: AbstractPanel
+mutable struct HyperedgeDistPanel <: AbstractTimeSeriesPanel
     time_series::Vector{HyperedgeCount}
     axes::Axis
     lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
 end
 
-# TODO: some clearer way for legend_box
-function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable, hyperedge_colormap)
+function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
+                            hyperedge_colormap=:thermal,
+                            xlow=0, xhigh=nothing, ylow=-10, yhigh=nothing)
     lines = []
     title = "Distribution of hyperdeges"
     ax = Axis(box; title=title)
@@ -67,45 +89,61 @@ function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable, hyperedge
                    label="hyperedges of size $(series.size)",
                    color=linecolors[series.size - 1])
         push!(lines, l)
-        xlims!(ax, 0, 100)
     end
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
     axislegend(ax; labelsize=12)
 
-    return HyperedgeDistPanel(mo.hyperedge_series, ax, lines)
+    return HyperedgeDistPanel(mo.hyperedge_series, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
-struct ActiveHyperedgesPanel <: AbstractPanel
+mutable struct ActiveHyperedgesPanel <: AbstractTimeSeriesPanel
     time_series::Vector{ActiveHyperedgeCount}
     axes::Axis
     lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
 end
 
-function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable)
+function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable; xlow=0,
+                               xhigh=nothing, ylow=-10, yhigh=nothing)
     lines = []
     title = "Number of active hyperedges"
     ax = Axis(box[1, 1]; title=title)
     l = lines!(ax,
                mo.active_hyperedges_series.observable)
     push!(lines, l)
-    xlims!(ax, 0, 100)
-    return ActiveHyperedgesPanel([mo.active_hyperedges_series], ax, lines)
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
+    return ActiveHyperedgesPanel([mo.active_hyperedges_series], ax, lines, xlow, xhigh,
+                                 ylow, yhigh)
 end
 
-struct SlowManifoldPanel <: AbstractPanel
+mutable struct SlowManifoldPanel <: AbstractPanel
     time_series::Vector{AbstractTimeSeries}
     axes::Axis
     lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
 end
 
-function SlowManifoldPanel(box::GridPosition, mo::ModelObservable)
+function SlowManifoldPanel(box::GridPosition, mo::ModelObservable; xlow=nothing,
+                           xhigh=nothing, ylow=nothing, yhigh=nothing)
     lines = []
     title = "Slow manifold plot"
     ax = Axis(box[1, 1]; title=title)
     l = lines!(ax,
                mo.state_series[1].observable,
                mo.active_hyperedges_series.observable)
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
     push!(lines, l)
-    return SlowManifoldPanel([mo.state_series[1], mo.active_hyperedges_series], ax, lines)
+    return SlowManifoldPanel([mo.state_series[1], mo.active_hyperedges_series], ax, lines,
+                             xlow, xhigh, ylow, yhigh)
 end
 
 function deactivate_lines!(panel::SlowManifoldPanel)
@@ -135,21 +173,9 @@ function deactivate_lines!(panel::AbstractPanel)
     return panel
 end
 
-function set_lims!(panel::SlowManifoldPanel, xhigh::Real)
-    autolimits!(panel.axes)
-    return panel
-end
-
-# TODO: remove xhigh
-function set_lims!(panel::HypergraphPanel, xhigh::Real)
-    autolimits!(panel.axes)
-    return panel
-end
-
-function set_lims!(panel::AbstractPanel, xhigh::Real)
-    autolimits!(panel.axes)
-    xlims!(panel.axes; low=0, high=xhigh)
-    ylims!(panel.axes; low=-5)
+function set_lims!(panel::AbstractPanel)
+    xlims!(panel.axes; low=panel.xlow, high=panel.xhigh)
+    ylims!(panel.axes; low=panel.ylow, high=panel.yhigh)
     return panel
 end
 
@@ -197,7 +223,7 @@ function Dashboard(model::AbstractModel;
     if plot_hypergraph
         plot_count += 1
         hg_box = plot_box[1, plot_count]
-        panel = HypergraphPanel(hg_box, network, node_colormap, hyperedge_colormap)
+        panel = HypergraphPanel(hg_box, network; node_colormap, hyperedge_colormap)
         push!(panels, panel)
     end
 
@@ -211,28 +237,36 @@ function Dashboard(model::AbstractModel;
     if plot_states
         hist_plot_count += 1
         state_hist_box = history_box[hist_plot_count, 1]
-        panel = StateDistPanel(state_hist_box, mo, node_colormap)
+        panel = StateDistPanel(state_hist_box, mo; node_colormap,
+                               ylow=-0.05get_num_nodes(mo.network[]),
+                               yhigh=1.05get_num_nodes(mo.network[]))
         push!(panels, panel)
     end
 
     if plot_hyperedges
         hist_plot_count += 1
         hyperedge_hist_box = history_box[hist_plot_count, 1]
-        panel = HyperedgeDistPanel(hyperedge_hist_box, mo, hyperedge_colormap)
+        panel = HyperedgeDistPanel(hyperedge_hist_box, mo; hyperedge_colormap,
+                                   ylow=-0.05get_num_hyperedges(mo.network[]))
         push!(panels, panel)
     end
 
     if plot_active_hyperedges
         hist_plot_count += 1
         active_hist_box = history_box[hist_plot_count, 1]
-        active_panel = ActiveHyperedgesPanel(active_hist_box, mo)
+        active_panel = ActiveHyperedgesPanel(active_hist_box, mo;
+                                             ylow=-0.05get_num_active_hyperedges(mo.network[]))
         push!(panels, active_panel)
     end
 
     if plot_slow_manifold
         plot_count += 1
         slow_manifold_box = plot_box[1, plot_count]
-        panel = SlowManifoldPanel(slow_manifold_box, mo)
+        max_mag = get_num_nodes(mo.network[])
+        panel = SlowManifoldPanel(slow_manifold_box, mo;
+                                  xlow=-0.05max_mag,
+                                  xhigh=1.05max_mag,
+                                  ylow=-0.01get_num_hyperedges(mo.network[]))
         push!(panels, panel)
     end
 
@@ -253,7 +287,10 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
         # TODO: something should happen here
     else
         for panel in dashboard.panels
-            set_lims!(panel, num_steps)
+            if typeof(panel) <: AbstractTimeSeriesPanel
+                panel.xhigh = num_steps
+            end
+            set_lims!(panel)
         end
         for i in 1:num_steps
             step!(mo)
@@ -263,7 +300,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 sleep(0.01)
                 notify(mo.network)
                 for panel in dashboard.panels
-                    set_lims!(panel, num_steps)
+                    set_lims!(panel)
                 end
             end
 
