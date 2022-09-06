@@ -1,5 +1,5 @@
 using AdaptiveHypergraphs
 
-include("../input/small_network.jl")
+include("../input/large_network.jl")
 
 start_simulation(params)
