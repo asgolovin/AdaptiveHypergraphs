@@ -8,6 +8,7 @@ include("simulation/Model.jl")
 
 include("presentation/HypergraphPlot.jl")
 include("presentation/ModelObservable.jl")
+include("presentation/Panels.jl")
 include("presentation/Dashboard.jl")
 include("presentation/InputParams.jl")
 include("presentation/SimulationBatch.jl")
