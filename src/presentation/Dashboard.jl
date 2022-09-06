@@ -59,6 +59,7 @@ struct HyperedgeDistPanel <: AbstractPanel
     lines::Vector{Lines}
 end
 
+# TODO: some clearer way for legend_box
 function HyperedgeDistPanel(plot_box::GridSubposition, legend_box::GridSubposition,
                             mo::ModelObservable, hyperedge_colormap)
     lines = []
@@ -99,6 +100,36 @@ function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable)
     return ActiveHyperedgesPanel([mo.active_hyperedges_series], ax, lines)
 end
 
+struct SlowManifoldPanel <: AbstractPanel
+    time_series::Vector{AbstractTimeSeries}
+    axes::Axis
+    lines::Vector{Lines}
+end
+
+function SlowManifoldPanel(box::GridPosition, mo::ModelObservable)
+    lines = []
+    title = "Slow manifold plot"
+    ax = Axis(box[1, 1]; title=title)
+    l = lines!(ax,
+               mo.state_series[1].observable,
+               mo.active_hyperedges_series.observable)
+    push!(lines, l)
+    return SlowManifoldPanel([mo.state_series[1], mo.active_hyperedges_series], ax, lines)
+end
+
+function deactivate_lines!(panel::SlowManifoldPanel)
+    lines!(panel.axes,
+           panel.time_series[1].observable[],
+           panel.time_series[2].observable[];
+           linewidth=1,
+           color=(:gray, 0.5))
+    # Bring the lines tied to observables in front of the gray lines
+    for line in panel.lines
+        translate!(line, 0, 0, 1)
+    end
+    return panel
+end
+
 function deactivate_lines!(panel::AbstractPanel)
     for series in panel.time_series
         lines!(panel.axes,
@@ -110,6 +141,11 @@ function deactivate_lines!(panel::AbstractPanel)
     for line in panel.lines
         translate!(line, 0, 0, 1)
     end
+    return panel
+end
+
+function set_lims!(panel::SlowManifoldPanel, xhigh::Real)
+    autolimits!(panel.axes)
     return panel
 end
 
@@ -150,6 +186,7 @@ function Dashboard(model::AbstractModel;
                    plot_states::Bool=true,
                    plot_hyperedges::Bool=true,
                    plot_active_hyperedges::Bool=true,
+                   plot_slow_manifold::Bool=true,
                    is_interactive::Bool=false,
                    node_colormap=:RdYlGn_6,
                    hyperedge_colormap=:thermal)
@@ -169,8 +206,8 @@ function Dashboard(model::AbstractModel;
     if plot_hypergraph
         plot_count += 1
         hg_box = plot_box[1, plot_count]
-        hg_panel = HypergraphPanel(hg_box, network, node_colormap, hyperedge_colormap)
-        push!(panels, hg_panel)
+        panel = HypergraphPanel(hg_box, network, node_colormap, hyperedge_colormap)
+        push!(panels, panel)
     end
 
     if plot_states || plot_hyperedges || plot_active_hyperedges
@@ -184,17 +221,17 @@ function Dashboard(model::AbstractModel;
         hist_plot_count += 1
         state_hist_box = history_box[hist_plot_count, 1]
         legend_box = history_box[hist_plot_count, 2]
-        state_dist_panel = StateDistPanel(state_hist_box, legend_box, mo, node_colormap)
-        push!(panels, state_dist_panel)
+        panel = StateDistPanel(state_hist_box, legend_box, mo, node_colormap)
+        push!(panels, panel)
     end
 
     if plot_hyperedges
         hist_plot_count += 1
         hyperedge_hist_box = history_box[hist_plot_count, 1]
         legend_box = history_box[hist_plot_count, 2]
-        he_dist_panel = HyperedgeDistPanel(hyperedge_hist_box, legend_box, mo,
-                                           hyperedge_colormap)
-        push!(panels, he_dist_panel)
+        panel = HyperedgeDistPanel(hyperedge_hist_box, legend_box, mo,
+                                   hyperedge_colormap)
+        push!(panels, panel)
     end
 
     if plot_active_hyperedges
@@ -202,6 +239,13 @@ function Dashboard(model::AbstractModel;
         active_hist_box = history_box[hist_plot_count, 1]
         active_panel = ActiveHyperedgesPanel(active_hist_box, mo)
         push!(panels, active_panel)
+    end
+
+    if plot_slow_manifold
+        plot_count += 1
+        slow_manifold_box = plot_box[1, plot_count]
+        panel = SlowManifoldPanel(slow_manifold_box, mo)
+        push!(panels, panel)
     end
 
     return Dashboard(fig, panels, mo, is_interactive)

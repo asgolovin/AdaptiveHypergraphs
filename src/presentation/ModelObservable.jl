@@ -72,7 +72,6 @@ end
 function flush_buffers!(series::AbstractTimeSeries)
     append!(series.observable[], series.buffer)
     empty!(series.buffer)
-    notify(series.observable)
     return series
 end
 
@@ -143,6 +142,9 @@ end
 function flush_buffers!(mo::ModelObservable)
     for series in _get_all_series(mo)
         flush_buffers!(series)
+    end
+    for series in _get_all_series(mo)
+        notify(series.observable)
     end
     return mo
 end
