@@ -115,6 +115,5 @@ end
 function record_measurement!(active_lifetime::ActiveLifetime, value::Int64)
     push!(active_lifetime.observable[], value)
     notify(active_lifetime.observable)
-    @show active_lifetime.observable
     return active_lifetime
 end

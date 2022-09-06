@@ -25,6 +25,7 @@ function Dashboard(model::AbstractModel;
                    plot_hyperedges::Bool=true,
                    plot_active_hyperedges::Bool=true,
                    plot_slow_manifold::Bool=true,
+                   plot_active_lifetime::Bool=true,
                    is_interactive::Bool=false,
                    node_colormap=:RdYlGn_6,
                    hyperedge_colormap=:thermal)
@@ -91,6 +92,13 @@ function Dashboard(model::AbstractModel;
         push!(panels, panel)
     end
 
+    if plot_active_lifetime
+        plot_count += 1
+        active_lifetime_box = plot_box[1, plot_count]
+        panel = ActiveLifetimePanel(active_lifetime_box, mo)
+        push!(panels, panel)
+    end
+
     return Dashboard(fig, panels, mo, is_interactive)
 end
 
@@ -108,8 +116,11 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
         # TODO: something should happen here
     else
         for panel in dashboard.panels
-            if typeof(panel) <: AbstractTimeSeriesPanel
+            if typeof(panel) <: AbstractTimeSeriesPanel &&
+               typeof(panel) != SlowManifoldPanel
                 panel.xhigh = num_steps
+            elseif typeof(panel) <: ActiveLifetimePanel
+                panel.yhigh = num_steps^1.05
             end
             set_lims!(panel)
         end
@@ -123,7 +134,9 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
                 sleep(0.01)
                 notify(mo.network)
                 for panel in dashboard.panels
-                    set_lims!(panel)
+                    if !(typeof(panel) <: ActiveLifetimePanel)
+                        set_lims!(panel)
+                    end
                 end
             end
 
@@ -169,7 +182,7 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
 
     # gray out the history plot lines
     for panel in dashboard.panels
-        if typeof(panel) != HypergraphPanel
+        if typeof(panel) <: AbstractTimeSeriesPanel
             deactivate_lines!(panel)
         end
     end

@@ -135,7 +135,7 @@ function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable;
                                  ylow, yhigh)
 end
 
-mutable struct SlowManifoldPanel <: AbstractPanel
+mutable struct SlowManifoldPanel <: AbstractTimeSeriesPanel
     time_series::Vector{AbstractTimeSeries}
     axes::Axis
     lines::Vector{Lines}
@@ -161,6 +161,30 @@ function SlowManifoldPanel(box::GridPosition, mo::ModelObservable;
                              xlow, xhigh, ylow, yhigh)
 end
 
+mutable struct ActiveLifetimePanel <: AbstractPanel
+    run_series::ActiveLifetime
+    axes::Axis
+    lines::Vector{Scatter}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function ActiveLifetimePanel(box::GridPosition, mo::ModelObservable;
+                             xlow=-0.2, xhigh=nothing,
+                             ylow=10, yhigh=nothing)
+    lines = []
+    title = "Time to depletion of active hyperdeges"
+    ax = Axis(box[1, 1]; title=title, yscale=log10)
+    l = scatter!(ax,
+                 mo.active_lifetime.observable)
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
+    push!(lines, l)
+    return ActiveLifetimePanel(mo.active_lifetime, ax, lines, xlow, xhigh, ylow, yhigh)
+end
+
 function deactivate_lines!(panel::SlowManifoldPanel)
     lines!(panel.axes,
            panel.time_series[1].observable[],
@@ -174,7 +198,7 @@ function deactivate_lines!(panel::SlowManifoldPanel)
     return panel
 end
 
-function deactivate_lines!(panel::AbstractPanel)
+function deactivate_lines!(panel::AbstractTimeSeriesPanel)
     for series in panel.time_series
         lines!(panel.axes,
                series.observable[];
