@@ -1,6 +1,6 @@
 using Random
 
-export AdaptivityRule, RewiringRule, ConflictAvoiding, adapt!
+export AdaptivityRule, RewireToRandom, RewireToSame, adapt!
 
 """
     AdaptivityRule
@@ -10,19 +10,19 @@ Determines how the edges of the graph change with time.
 abstract type AdaptivityRule end
 
 """
-    RewiringRule <: AdaptivityRule
+    RewireToRandom <: AdaptivityRule
 
 A randomly chosen node from the hyperedge leaves the hyperedge and connects to 
 either a different randomly chosen node or a different hyperedge. 
 """
-struct RewiringRule <: AdaptivityRule end
+struct RewireToRandom <: AdaptivityRule end
 
 """
     ConflictAvoiding <: AdaptivityRule
 
-Similar to the RewiringRule rule, but the selected node only connects to nodes or hyperedges in the same state.
+Similar to the RewireToRandom rule, but the selected node only connects to nodes or hyperedges in the same state.
 """
-struct ConflictAvoiding <: AdaptivityRule end
+struct RewireToSame <: AdaptivityRule end
 
 """
 A randomly chosen node from the hyperedge leaves the hyperedge and connects to 
@@ -30,7 +30,7 @@ either a different randomly chosen node or a different hyperedge.
 
 Return a list of modified hyperedges.
 """
-function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge::Integer)
+function adapt!(network::HyperNetwork, adaptivity_rule::RewireToRandom, hyperedge::Integer)
     selected_node = rand(get_nodes(network, hyperedge))
 
     # find hyperedges in the same state 
@@ -57,11 +57,11 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewiringRule, hyperedge:
 end
 
 """
-Similar to the RewiringRule rule, but the selected node only connects to nodes or hyperedges in the same state.
+Similar to the RewireToRandom rule, but the selected node only connects to nodes or hyperedges in the same state.
 
 Return a list of modified hyperedges.
 """
-function adapt!(network::HyperNetwork, adaptivity_rule::ConflictAvoiding,
+function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
                 hyperedge::Integer)
     selected_node = rand(get_nodes(network, hyperedge))
     state_dict = get_state_map(network)

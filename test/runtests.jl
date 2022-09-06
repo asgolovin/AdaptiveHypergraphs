@@ -110,17 +110,17 @@ using Test
             build_RSC_hg!(network[], (3, 4, 5))
 
             majority_voting = MajorityVoting()
-            rewiring_rule = ConflictAvoiding()
+            rewiring_rule = RewireToSame()
             propagation_prob = 0.5
 
-            model = DiscrModel{MajorityVoting,ConflictAvoiding}(network[],
-                                                                majority_voting,
-                                                                rewiring_rule,
-                                                                propagation_prob)
+            model = DiscrModel{MajorityVoting,RewireToSame}(network[],
+                                                            majority_voting,
+                                                            rewiring_rule,
+                                                            propagation_prob)
 
             mo = ModelObservable{typeof(model)}(model)
             @test typeof(mo.model) <:
-                  Observable{DiscrModel{MajorityVoting,ConflictAvoiding}}
+                  Observable{DiscrModel{MajorityVoting,RewireToSame}}
             @test mo.state_history[S][] == [n - 2]
             @test mo.state_history[I][] == [2]
             @test mo.hyperedge_history[2][] == [3]
