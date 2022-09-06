@@ -27,11 +27,10 @@ struct StateDistPanel <: AbstractPanel
     lines::Vector{Lines}
 end
 
-function StateDistPanel(plot_box::GridSubposition, legend_box::GridSubposition,
-                        mo::ModelObservable, node_colormap)
+function StateDistPanel(box::GridSubposition, mo::ModelObservable, node_colormap)
     lines = []
     title = "Distribution of states"
-    ax = Axis(plot_box; title=title)
+    ax = Axis(box; title=title)
     num_states = length(instances(State))
     linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
     for (i, series) in enumerate(mo.state_series)
@@ -44,11 +43,7 @@ function StateDistPanel(plot_box::GridSubposition, legend_box::GridSubposition,
         ylims!(ax, 0, get_num_nodes(mo.network[]))
     end
 
-    Legend(legend_box,
-           ax;
-           framevisible=false,
-           halign=:left,
-           labelsize=12)
+    axislegend(ax; labelsize=12)
 
     return StateDistPanel(mo.state_series, ax, lines)
 end
@@ -60,11 +55,10 @@ struct HyperedgeDistPanel <: AbstractPanel
 end
 
 # TODO: some clearer way for legend_box
-function HyperedgeDistPanel(plot_box::GridSubposition, legend_box::GridSubposition,
-                            mo::ModelObservable, hyperedge_colormap)
+function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable, hyperedge_colormap)
     lines = []
     title = "Distribution of hyperdeges"
-    ax = Axis(plot_box; title=title)
+    ax = Axis(box; title=title)
     max_size = get_max_hyperedge_size(mo.network[])
     linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
     for (i, series) in enumerate(mo.hyperedge_series)
@@ -75,11 +69,8 @@ function HyperedgeDistPanel(plot_box::GridSubposition, legend_box::GridSubpositi
         push!(lines, l)
         xlims!(ax, 0, 100)
     end
-    Legend(legend_box,
-           ax;
-           framevisible=false,
-           halign=:left,
-           labelsize=12)
+    axislegend(ax; labelsize=12)
+
     return HyperedgeDistPanel(mo.hyperedge_series, ax, lines)
 end
 
@@ -220,17 +211,14 @@ function Dashboard(model::AbstractModel;
     if plot_states
         hist_plot_count += 1
         state_hist_box = history_box[hist_plot_count, 1]
-        legend_box = history_box[hist_plot_count, 2]
-        panel = StateDistPanel(state_hist_box, legend_box, mo, node_colormap)
+        panel = StateDistPanel(state_hist_box, mo, node_colormap)
         push!(panels, panel)
     end
 
     if plot_hyperedges
         hist_plot_count += 1
         hyperedge_hist_box = history_box[hist_plot_count, 1]
-        legend_box = history_box[hist_plot_count, 2]
-        panel = HyperedgeDistPanel(hyperedge_hist_box, legend_box, mo,
-                                   hyperedge_colormap)
+        panel = HyperedgeDistPanel(hyperedge_hist_box, mo, hyperedge_colormap)
         push!(panels, panel)
     end
 
