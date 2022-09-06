@@ -24,8 +24,9 @@ mutable struct HypergraphPanel <: AbstractPanel
     yhigh::Union{Real,Nothing}
 end
 
-function HypergraphPanel(box::GridSubposition, mo::ModelObservable; node_colormap=:RdYlGn_6,
-                         hyperedge_colormap=:thermal, xlow=nothing, xhigh=nothing,
+function HypergraphPanel(box::GridSubposition, mo::ModelObservable;
+                         node_colormap=:RdYlGn_6, hyperedge_colormap=:thermal,
+                         xlow=nothing, xhigh=nothing,
                          ylow=nothing, yhigh=nothing)
     ax, _ = hypergraphplot(box, mo.network; node_colormap,
                            hyperedge_colormap)
@@ -43,8 +44,10 @@ mutable struct StateDistPanel <: AbstractTimeSeriesPanel
     yhigh::Union{Real,Nothing}
 end
 
-function StateDistPanel(box::GridSubposition, mo::ModelObservable; node_colormap=:RdYlGn_6,
-                        xlow=0, xhigh=nothing, ylow=-10, yhigh=nothing)
+function StateDistPanel(box::GridSubposition, mo::ModelObservable;
+                        node_colormap=:RdYlGn_6,
+                        xlow=0, xhigh=nothing,
+                        ylow=-10, yhigh=nothing)
     lines = []
     title = "Distribution of states"
     ax = Axis(box; title=title)
@@ -77,7 +80,8 @@ end
 
 function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
                             hyperedge_colormap=:thermal,
-                            xlow=0, xhigh=nothing, ylow=-10, yhigh=nothing)
+                            xlow=0, xhigh=nothing,
+                            ylow=-10, yhigh=nothing)
     lines = []
     title = "Distribution of hyperdeges"
     ax = Axis(box; title=title)
@@ -107,8 +111,9 @@ mutable struct ActiveHyperedgesPanel <: AbstractTimeSeriesPanel
     yhigh::Union{Real,Nothing}
 end
 
-function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable; xlow=0,
-                               xhigh=nothing, ylow=-10, yhigh=nothing)
+function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable;
+                               xlow=0, xhigh=nothing,
+                               ylow=-10, yhigh=nothing)
     lines = []
     title = "Number of active hyperedges"
     ax = Axis(box[1, 1]; title=title)
@@ -131,8 +136,9 @@ mutable struct SlowManifoldPanel <: AbstractPanel
     yhigh::Union{Real,Nothing}
 end
 
-function SlowManifoldPanel(box::GridPosition, mo::ModelObservable; xlow=nothing,
-                           xhigh=nothing, ylow=nothing, yhigh=nothing)
+function SlowManifoldPanel(box::GridPosition, mo::ModelObservable;
+                           xlow=nothing, xhigh=nothing,
+                           ylow=nothing, yhigh=nothing)
     lines = []
     title = "Slow manifold plot"
     ax = Axis(box[1, 1]; title=title)
