@@ -254,8 +254,9 @@ end
 """
     run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
 
-Run the simulation for `num_steps` time steps. The visualization is updated only 
-once every number of steps given by `steps_per_update`.
+Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges. 
+    
+The visualization is updated only once every number of steps given by `steps_per_update`.
 """
 function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
     mo = dashboard.mo
@@ -268,13 +269,19 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
         end
         for i in 1:num_steps
             step!(mo)
-            if i % steps_per_update == 0
+            num_active_hyperedges = get_num_active_hyperedges(mo.network[])
+            if i % steps_per_update == 0 || num_active_hyperedges == 0
                 flush_buffers!(mo)
                 sleep(0.01)
                 notify(mo.network)
                 for panel in dashboard.panels
                     set_lims!(panel, num_steps)
                 end
+            end
+
+            # stop the simulation early if we run out of active hyperdeges
+            if num_active_hyperedges == 0
+                break
             end
         end
     end
