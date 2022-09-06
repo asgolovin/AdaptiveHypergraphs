@@ -33,19 +33,20 @@ Return a list of modified hyperedges.
 function adapt!(network::HyperNetwork, adaptivity_rule::RewireToRandom, hyperedge::Integer)
     selected_node = rand(get_nodes(network, hyperedge))
 
-    # find hyperedges in the same state 
-    hyperedge_candidates = get_hyperedges(network)
-    function conditions(h)
+    function hyperedge_conditions(h)
         size = get_hyperedge_size(network, h)
         max_size = get_max_hyperedge_size(network)
         return h != hyperedge && # has to be a different hyperedge
                size < max_size # the size should not exceed the limit
     end
-    filter!(conditions, hyperedge_candidates)
 
-    # find nodes in the same state
-    node_candidates = get_nodes(network)
-    filter!(node -> node != selected_node, node_candidates)
+    function node_conditions(node)
+        return node != selected_node
+    end
+
+    hyperedge_candidates, node_candidates = _rejection_sampling(network,
+                                                                hyperedge_conditions,
+                                                                node_conditions)
 
     affected_hyperedges = _rewire_to_candidate!(network,
                                                 hyperedge,
@@ -67,9 +68,7 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
     state_dict = get_state_map(network)
     required_state = state_dict[selected_node]
 
-    # find hyperedges in the same state 
-    hyperedge_candidates = get_hyperedges(network)
-    function conditions(h)
+    function hyperedge_conditions(h)
         size = get_hyperedge_size(network, h)
         max_size = get_max_hyperedge_size(network)
         nodes = get_nodes(network, h)
@@ -77,12 +76,14 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
                state_dict[nodes[1]] == required_state && # the state has to be equal to the state of the node
                size < max_size # the size should not exceed the limit
     end
-    filter!(conditions, hyperedge_candidates)
 
-    # find nodes in the same state
-    node_candidates = get_nodes(network)
-    filter!(node -> (state_dict[node] == required_state) && (node != selected_node),
-            node_candidates)
+    function node_conditions(node)
+        return node != selected_node
+    end
+
+    hyperedge_candidates, node_candidates = _rejection_sampling(network,
+                                                                hyperedge_conditions,
+                                                                node_conditions)
 
     affected_hyperedges = _rewire_to_candidate!(network,
                                                 hyperedge,
@@ -90,6 +91,31 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
                                                 hyperedge_candidates,
                                                 node_candidates)
     return affected_hyperedges
+end
+
+function _rejection_sampling(network, hyperedge_conditions, node_conditions)
+    candidate_found = false
+    hyperedge_candidates = []
+    node_candidates = []
+    while !candidate_found
+        r = rand(1:(get_num_hyperedges(network) + get_num_nodes(network)))
+        if r <= get_num_hyperedges(network)
+            new_hyperedge = get_hyperedges(network)[r]
+            if hyperedge_conditions(new_hyperedge)
+                candidate_found = true
+                hyperedge_candidates = [new_hyperedge]
+                node_candidates = []
+            end
+        else
+            node = r - get_num_hyperedges(network)
+            if node_conditions(node)
+                candidate_found = true
+                hyperedge_candidates = []
+                node_candidates = [node]
+            end
+        end
+    end
+    return hyperedge_candidates, node_candidates
 end
 
 function _rewire_to_candidate!(network, old_hyperedge, selected_node, hyperedge_candidates,
