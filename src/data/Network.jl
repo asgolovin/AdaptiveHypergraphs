@@ -4,7 +4,12 @@ using Random
 using Graphs
 using Combinatorics
 
-export State, HyperNetwork, build_regular_hg!, build_RSC_hg!
+export State, HyperNetwork,
+       add_hyperedge!, include_node!, delete_hyperedge!, remove_node!, set_state!,
+       get_nodes, get_hyperedges, get_state, get_state_map, get_state_count,
+       get_hyperedge_dist, get_num_hyperedges, get_num_active_hyperedges,
+       get_num_nodes, get_node_degree, get_hyperedge_size, get_max_hyperedge_size,
+       is_active, get_twosection_graph, build_regular_hg!, build_RSC_hg!
 
 @enum State::Bool I = false S = true
 

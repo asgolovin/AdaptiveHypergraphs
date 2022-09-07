@@ -1,3 +1,6 @@
+export ModelObservable, step!, flush_buffers!, record_time_series, record_active_lifetime!,
+       rebind_model!, clear!
+
 """
     ModelObservable{M <: AbstarctModel}
 
@@ -49,6 +52,16 @@ function step!(mo::ModelObservable)
     return record_time_series!(mo)
 end
 
+function flush_buffers!(mo::ModelObservable)
+    for series in _get_all_series(mo)
+        flush_buffers!(series)
+    end
+    for series in _get_all_series(mo)
+        notify(series.observable)
+    end
+    return mo
+end
+
 """
     record_time_series!(mo::ModelObservable)
 
@@ -57,16 +70,6 @@ Push the current distribution of states from the model into the history buffer v
 function record_time_series!(mo::ModelObservable)
     for series in _get_all_series(mo)
         record_measurement!(series)
-    end
-    return mo
-end
-
-function flush_buffers!(mo::ModelObservable)
-    for series in _get_all_series(mo)
-        flush_buffers!(series)
-    end
-    for series in _get_all_series(mo)
-        notify(series.observable)
     end
     return mo
 end

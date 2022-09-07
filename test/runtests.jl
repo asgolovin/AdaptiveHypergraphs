@@ -1,52 +1,39 @@
-# using AdaptiveHypergraphs
+using AdaptiveHypergraphs
 using Test
+using Random
+using StatsBase
 
 @testset "AdaptiveHypergraphs.jl" begin
-    include("../src/data/Network.jl")
-
-    include("../src/simulation/AdaptivityRule.jl")
-    include("../src/simulation/PropagationRule.jl")
-    include("../src/simulation/Model.jl")
-
-    include("../src/presentation/HypergraphPlot.jl")
-    include("../src/presentation/Measurements.jl")
-    include("../src/presentation/ModelObservable.jl")
-    include("../src/presentation/Panels.jl")
-    include("../src/presentation/Dashboard.jl")
-    include("../src/presentation/InputParams.jl")
-    include("../src/presentation/SimulationBatch.jl")
-
     @testset "HyperNetwork" begin
         @testset "HyperNetwork: constructors" begin
             # create an empty network with all suseptible nodes
             n = 5
             network = HyperNetwork(n)
-            @test typeof(network.hg) <: Hypergraph
-            @test size(network.hg) == (n, 0)
-            @test network.hg == HyperNetwork(n).hg
+            @test get_num_nodes(network) == n
+            @test get_num_hyperedges(network) == 0
 
             # an empty network with a given distribution of infected nodes
             node_state = Vector{Union{Nothing,State}}(nothing, n)
-            fill!(node_state, S)
-            node_state[2] = I
-            node_state[5] = I
+            fill!(node_state, AdaptiveHypergraphs.S)
+            node_state[2] = AdaptiveHypergraphs.I
+            node_state[5] = AdaptiveHypergraphs.I
             network = HyperNetwork(n, node_state)
-            @test network.state_count[S] == n - 2
-            @test network.state_count[I] == 2
+            @test get_state_count(network)[AdaptiveHypergraphs.S] == n - 2
+            @test get_state_count(network)[AdaptiveHypergraphs.I] == 2
 
             # an empty network with a certain probability of infection
             Random.seed!(42)
             network = HyperNetwork(n, 0.5)
-            @test network.state_count[S] == 3
-            @test network.state_count[I] == 2
+            @test get_state_count(network)[AdaptiveHypergraphs.S] == 3
+            @test get_state_count(network)[AdaptiveHypergraphs.I] == 2
         end
 
         @testset "Hypernetwork: graph manipulation" begin
             n = 5
             node_state = Vector{Union{Nothing,State}}(nothing, n)
-            fill!(node_state, S)
-            node_state[1] = I
-            node_state[3] = I
+            fill!(node_state, AdaptiveHypergraphs.S)
+            node_state[1] = AdaptiveHypergraphs.I
+            node_state[3] = AdaptiveHypergraphs.I
             network = HyperNetwork(n, node_state)
 
             add_hyperedge!(network, (1, 2))
@@ -54,7 +41,7 @@ using Test
             add_hyperedge!(network, (1, 3, 4))
             # hyperedge 1: [1, 2], hyperedge 2: [2, 3], hyperedge 3: [1, 3, 4]
 
-            @test size(network.hg) == (n, 3)
+            @test get_num_nodes(network) == n
             @test get_num_hyperedges(network) == 3
             @test get_node_degree(network, 1) == 2
             @test get_node_degree(network, 5) == 0
@@ -80,7 +67,7 @@ using Test
 
             delete_hyperedge!(network, 3)
             # hyperedge 1: [1, 2, 3], hyperedge 2: [2, 3]
-            @test size(network.hg) == (n, 2)
+            @test get_num_hyperedges(network) == 2
             hyperedge_dist = get_hyperedge_dist(network)
             @test hyperedge_dist[4] == 0
             # get_max_hyperedge_size still returns the historical max value
@@ -114,16 +101,23 @@ using Test
             # test that all nodes are in the same state S (i.e., the hyperedge is not active)
             @test is_active(network, 1) == false
             @test get_num_active_hyperedges(network) == 0
-            @test get_state_count(network) == Dict(S => 5, I => 0)
+            @test get_state_count(network) ==
+                  Dict(AdaptiveHypergraphs.S => 5, AdaptiveHypergraphs.I => 0)
 
-            set_state!(network, 3, I)
+            set_state!(network, 3, AdaptiveHypergraphs.I)
             # now this is no longer the case
             @test is_active(network, 1) == true
             @test get_num_active_hyperedges(network) == 1
 
-            @test get_state_map(network) == Dict(1 => S, 2 => S, 3 => I, 4 => S, 5 => S)
-            @test get_state_map(network, 1) == Dict(1 => S, 3 => I, 4 => S)
-            @test get_state_count(network) == Dict(S => 4, I => 1)
+            @test get_state_map(network) ==
+                  Dict(1 => AdaptiveHypergraphs.S, 2 => AdaptiveHypergraphs.S,
+                       3 => AdaptiveHypergraphs.I, 4 => AdaptiveHypergraphs.S,
+                       5 => AdaptiveHypergraphs.S)
+            @test get_state_map(network, 1) ==
+                  Dict(1 => AdaptiveHypergraphs.S, 3 => AdaptiveHypergraphs.I,
+                       4 => AdaptiveHypergraphs.S)
+            @test get_state_count(network) ==
+                  Dict(AdaptiveHypergraphs.S => 4, AdaptiveHypergraphs.I => 1)
         end
 
         @testset "Hypernetwork: graph construction" begin
@@ -154,27 +148,25 @@ using Test
         @testset "ModelObservable" begin
             n = 10
             node_state = Vector{Union{Nothing,State}}(nothing, n)
-            fill!(node_state, S)
-            node_state[2] = I
-            node_state[5] = I
-            network = Observable(HyperNetwork(n, node_state))
-            build_RSC_hg!(network[], (3, 4, 5))
+            fill!(node_state, AdaptiveHypergraphs.S)
+            node_state[2] = AdaptiveHypergraphs.I
+            node_state[5] = AdaptiveHypergraphs.I
+            network = HyperNetwork(n, node_state)
+            build_RSC_hg!(network, (3, 4, 5))
 
             majority_voting = MajorityVoting()
             rewiring_rule = RewireToSame()
             propagation_prob = 0.5
 
-            model = DiscrModel{MajorityVoting,RewireToSame}(network[],
+            model = DiscrModel{MajorityVoting,RewireToSame}(network,
                                                             majority_voting,
                                                             rewiring_rule,
                                                             propagation_prob)
 
             mo = ModelObservable{typeof(model)}(model)
             flush_buffers!(mo)
-            @test typeof(mo.model) <:
-                  Observable{DiscrModel{MajorityVoting,RewireToSame}}
             for series in mo.state_series
-                if series.state == S
+                if series.state == AdaptiveHypergraphs.S
                     @test series.observable[] == [n - 2]
                 else
                     @test series.observable[] == [2]
@@ -189,7 +181,7 @@ using Test
                     @test series.observable[] == [5]
                 end
             end
-            num_active = get_num_active_hyperedges(network[])
+            num_active = get_num_active_hyperedges(network)
             @test mo.active_hyperedges_series.observable[] == [num_active]
         end
     end
