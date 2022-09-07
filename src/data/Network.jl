@@ -119,6 +119,7 @@ Create a new hyperedge with nodes `nodes` and add it to `network`.
 function add_hyperedge!(network::HyperNetwork, nodes)
     @assert all(nodes .<= get_num_nodes(network))
     @assert length(nodes) >= 2
+    @assert allunique(nodes)
 
     vertices = Dict([(n, true) for n in nodes])
     mid = SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
