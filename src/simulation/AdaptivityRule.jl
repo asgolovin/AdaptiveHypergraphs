@@ -65,15 +65,14 @@ Return a list of modified hyperedges.
 function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
                 hyperedge::Integer)
     selected_node = rand(get_nodes(network, hyperedge))
-    state_dict = get_state_map(network)
-    required_state = state_dict[selected_node]
+    required_state = get_state(network, selected_node)
 
     function hyperedge_conditions(h)
         size = get_hyperedge_size(network, h)
         max_size = get_max_hyperedge_size(network)
         nodes = get_nodes(network, h)
         return !is_active(network, h) &&  # all nodes of the hyperedge have to be in the same state
-               state_dict[nodes[1]] == required_state && # the state has to be equal to the state of the node
+               get_state(network, nodes[1]) == required_state && # the state has to be equal to the state of the node
                size < max_size # the size should not exceed the limit
     end
 
