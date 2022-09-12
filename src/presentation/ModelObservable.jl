@@ -19,6 +19,7 @@ struct ModelObservable{M<:AbstractModel}
     hyperedge_series::Vector{HyperedgeCount}
     active_hyperedges_series::ActiveHyperedgeCount
     active_lifetime::ActiveLifetime
+    final_magnetization::FinalMagnetization
 
     function ModelObservable{M}(model::M) where {M<:AbstractModel}
         state_series = [StateCount(model.network, state) for state in instances(State)]
@@ -26,13 +27,15 @@ struct ModelObservable{M<:AbstractModel}
         hyperedge_series = [HyperedgeCount(model.network, size) for size in 2:max_size]
         active_hyperedges_series = ActiveHyperedgeCount(model.network)
         active_lifetime = ActiveLifetime()
+        final_magnetization = FinalMagnetization()
 
         mo = new{M}(Observable(model),
                     Observable(model.network),
                     state_series,
                     hyperedge_series,
                     active_hyperedges_series,
-                    active_lifetime)
+                    active_lifetime,
+                    final_magnetization)
         return record_time_series!(mo)
     end
 end

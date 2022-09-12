@@ -185,6 +185,31 @@ function ActiveLifetimePanel(box::GridPosition, mo::ModelObservable;
     return ActiveLifetimePanel(mo.active_lifetime, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
+
+mutable struct FinalMagnetizationPanel <: AbstractPanel
+    run_series::FinalMagnetization
+    axes::Axis
+    lines::Vector{Scatter}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function FinalMagnetizationPanel(box::GridPosition, mo::ModelObservable;
+                                 xlow=-0.2, xhigh=nothing,
+                                 ylow=10, yhigh=nothing)
+    lines = []
+    title = "Final magnetization after a simulation"
+    ax = Axis(box[1, 1]; title=title, yscale=log10)
+    l = scatter!(ax,
+                 mo.final_magnetization.observable)
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
+    push!(lines, l)
+    return ActiveLifetimePanel(mo.final_magnetization, ax, lines, xlow, xhigh, ylow, yhigh)
+end
+
 function deactivate_lines!(panel::SlowManifoldPanel)
     lines!(panel.axes,
            panel.time_series[1].observable[],

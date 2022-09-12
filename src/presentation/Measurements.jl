@@ -117,3 +117,20 @@ function record_measurement!(active_lifetime::ActiveLifetime, value::Int64)
     notify(active_lifetime.observable)
     return active_lifetime
 end
+
+struct FinalMagnetization <: AbstractRunMeasurement
+    observable::Observable{Vector{Int64}}
+    has_converged::Observable{Vector{Bool}}
+end
+
+function FinalMagnetization()
+    return FinalMagnetization(Observable(Int64[]), Observable(Bool[]))
+end
+
+function record_measurement!(final_magnetization::FinalMagnetization, value::Int64,
+                             has_converged::Bool)
+    push!(final_magnetization.observable[], value)
+    push!(final_magnetization.has_converged[], has_converged)
+    notify(final_magnetization.observable)
+    return final_magnetization
+end
