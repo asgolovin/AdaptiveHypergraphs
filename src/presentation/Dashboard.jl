@@ -116,8 +116,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
         # TODO: something should happen here
     else
         for panel in dashboard.panels
-            if typeof(panel) <: AbstractTimeSeriesPanel &&
-               typeof(panel) != SlowManifoldPanel
+            if typeof(panel) <: AbstractTimeSeriesPanel
                 panel.xhigh = num_steps
             elseif typeof(panel) <: ActiveLifetimePanel
                 panel.yhigh = num_steps^1.05
@@ -182,7 +181,8 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
 
     # gray out the history plot lines
     for panel in dashboard.panels
-        if typeof(panel) <: AbstractTimeSeriesPanel
+        if typeof(panel) <: AbstractTimeSeriesPanel ||
+           typeof(panel) <: SlowManifoldPanel
             deactivate_lines!(panel)
         end
     end

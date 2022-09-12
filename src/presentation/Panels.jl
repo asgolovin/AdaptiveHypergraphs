@@ -10,8 +10,8 @@ A subfigure in the dashboard that visualizes specific data.
 In contrast to standard subfigures, each Panel type represents only one specific plot. 
 This makes it easier to tweak some plot-specific parameters like axis limits.
 
-Panels often visualize AbstractTimeSeries (see ModelObservable.jl), but there is not a one-to-one 
-correspondence: a Panel can visualize multiple AbstractTimeSeries and the same AbstractTimeSeries can 
+Panels often visualize Measurements (see Measurements.jl), but there is not a one-to-one 
+correspondence: a Panel can visualize multiple Measurements and the same Measurement can 
 be used in multiple Panels. 
 """
 abstract type AbstractPanel end
@@ -135,7 +135,7 @@ function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable;
                                  ylow, yhigh)
 end
 
-mutable struct SlowManifoldPanel <: AbstractTimeSeriesPanel
+mutable struct SlowManifoldPanel <: AbstractPanel
     time_series::Vector{AbstractTimeSeries}
     axes::Axis
     lines::Vector{Lines}
