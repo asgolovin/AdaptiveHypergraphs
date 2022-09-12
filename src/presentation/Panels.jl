@@ -145,7 +145,7 @@ mutable struct SlowManifoldPanel <: AbstractPanel
     yhigh::Union{Real,Nothing}
 end
 
-function SlowManifoldPanel(box::GridPosition, mo::ModelObservable;
+function SlowManifoldPanel(box::GridSubposition, mo::ModelObservable;
                            xlow=nothing, xhigh=nothing,
                            ylow=nothing, yhigh=nothing)
     lines = []
@@ -171,7 +171,7 @@ mutable struct ActiveLifetimePanel <: AbstractPanel
     yhigh::Union{Real,Nothing}
 end
 
-function ActiveLifetimePanel(box::GridPosition, mo::ModelObservable;
+function ActiveLifetimePanel(box::GridSubposition, mo::ModelObservable;
                              xlow=-0.2, xhigh=nothing,
                              ylow=10, yhigh=nothing)
     lines = []
@@ -185,7 +185,6 @@ function ActiveLifetimePanel(box::GridPosition, mo::ModelObservable;
     return ActiveLifetimePanel(mo.active_lifetime, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
-
 mutable struct FinalMagnetizationPanel <: AbstractPanel
     run_series::FinalMagnetization
     axes::Axis
@@ -196,18 +195,19 @@ mutable struct FinalMagnetizationPanel <: AbstractPanel
     yhigh::Union{Real,Nothing}
 end
 
-function FinalMagnetizationPanel(box::GridPosition, mo::ModelObservable;
-                                 xlow=-0.2, xhigh=nothing,
-                                 ylow=10, yhigh=nothing)
+function FinalMagnetizationPanel(box::GridSubposition, mo::ModelObservable;
+                                 xlow=0, xhigh=nothing,
+                                 ylow=0, yhigh=nothing)
     lines = []
     title = "Final magnetization after a simulation"
-    ax = Axis(box[1, 1]; title=title, yscale=log10)
+    ax = Axis(box[1, 1]; title=title)
     l = scatter!(ax,
                  mo.final_magnetization.observable)
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
     push!(lines, l)
-    return ActiveLifetimePanel(mo.final_magnetization, ax, lines, xlow, xhigh, ylow, yhigh)
+    return FinalMagnetizationPanel(mo.final_magnetization, ax, lines, xlow, xhigh, ylow,
+                                   yhigh)
 end
 
 function deactivate_lines!(panel::SlowManifoldPanel)

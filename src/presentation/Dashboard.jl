@@ -26,6 +26,7 @@ function Dashboard(model::AbstractModel;
                    plot_active_hyperedges::Bool=true,
                    plot_slow_manifold::Bool=true,
                    plot_active_lifetime::Bool=true,
+                   plot_final_magnetization::Bool=true,
                    is_interactive::Bool=false,
                    node_colormap=:RdYlGn_6,
                    hyperedge_colormap=:thermal)
@@ -40,52 +41,39 @@ function Dashboard(model::AbstractModel;
         controls_box = fig[2, 1] = GridLayout()
     end
 
-    plot_count = 0
+    # create columns for different panel types
+    hg_box = plot_box[1, 1]
+    history_box = plot_box[1, 2]
+    slow_manifold_box = plot_box[1, 3]
+    run_box = plot_box[1, 4]
 
     if plot_hypergraph
-        plot_count += 1
-        hg_box = plot_box[1, plot_count]
-        panel = HypergraphPanel(hg_box, network; node_colormap, hyperedge_colormap)
+        panel = HypergraphPanel(hg_box[1, 1], network; node_colormap, hyperedge_colormap)
         push!(panels, panel)
     end
 
-    if plot_states || plot_hyperedges || plot_active_hyperedges
-        plot_count += 1
-        history_box = plot_box[1, plot_count:(plot_count + 1)]
-        plot_count += 1
-        hist_plot_count = 0
-    end
-
     if plot_states
-        hist_plot_count += 1
-        state_hist_box = history_box[hist_plot_count, 1]
-        panel = StateDistPanel(state_hist_box, mo; node_colormap,
+        panel = StateDistPanel(history_box[1, 1], mo; node_colormap,
                                ylow=-0.05get_num_nodes(mo.network[]),
                                yhigh=1.05get_num_nodes(mo.network[]))
         push!(panels, panel)
     end
 
     if plot_hyperedges
-        hist_plot_count += 1
-        hyperedge_hist_box = history_box[hist_plot_count, 1]
-        panel = HyperedgeDistPanel(hyperedge_hist_box, mo; hyperedge_colormap,
+        panel = HyperedgeDistPanel(history_box[2, 1], mo; hyperedge_colormap,
                                    ylow=-0.05get_num_hyperedges(mo.network[]))
         push!(panels, panel)
     end
 
     if plot_active_hyperedges
-        hist_plot_count += 1
-        active_hist_box = history_box[hist_plot_count, 1]
-        active_panel = ActiveHyperedgesPanel(active_hist_box, mo;
+        active_panel = ActiveHyperedgesPanel(history_box[3, 1], mo;
                                              ylow=-0.05get_num_active_hyperedges(mo.network[]))
         push!(panels, active_panel)
     end
 
     if plot_slow_manifold
-        plot_count += 1
-        slow_manifold_box = plot_box[1, plot_count]
         max_mag = get_num_nodes(mo.network[])
-        panel = SlowManifoldPanel(slow_manifold_box, mo;
+        panel = SlowManifoldPanel(slow_manifold_box[1, 1], mo;
                                   xlow=-0.05max_mag,
                                   xhigh=1.05max_mag,
                                   ylow=-0.01get_num_hyperedges(mo.network[]))
@@ -93,9 +81,12 @@ function Dashboard(model::AbstractModel;
     end
 
     if plot_active_lifetime
-        plot_count += 1
-        active_lifetime_box = plot_box[1, plot_count]
-        panel = ActiveLifetimePanel(active_lifetime_box, mo)
+        panel = ActiveLifetimePanel(run_box[1, 1], mo)
+        push!(panels, panel)
+    end
+
+    if plot_final_magnetization
+        panel = FinalMagnetizationPanel(run_box[2, 1], mo)
         push!(panels, panel)
     end
 
@@ -146,6 +137,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
             end
         end
         record_active_lifetime!(mo, active_lifetime)
+        record_final_magnetization!(mo)
     end
     return dashboard
 end
