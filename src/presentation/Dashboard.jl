@@ -42,10 +42,23 @@ function Dashboard(model::AbstractModel;
     end
 
     # create columns for different panel types
-    hg_box = plot_box[1, 1]
-    history_box = plot_box[1, 2]
-    slow_manifold_box = plot_box[1, 3]
-    run_box = plot_box[1, 4]
+    col_count = 0
+    if plot_hypergraph
+        col_count += 1
+        hg_box = plot_box[1, col_count]
+    end
+    if plot_states || plot_hyperedges || plot_active_hyperedges
+        col_count += 1
+        history_box = plot_box[1, col_count]
+    end
+    if plot_slow_manifold
+        col_count += 1
+        slow_manifold_box = plot_box[1, col_count]
+    end
+    if plot_active_lifetime || plot_final_magnetization
+        col_count += 1
+        run_box = plot_box[1, col_count]
+    end
 
     if plot_hypergraph
         panel = HypergraphPanel(hg_box[1, 1], network; node_colormap, hyperedge_colormap)
@@ -86,7 +99,9 @@ function Dashboard(model::AbstractModel;
     end
 
     if plot_final_magnetization
-        panel = FinalMagnetizationPanel(run_box[2, 1], mo)
+        panel = FinalMagnetizationPanel(run_box[2, 1], mo;
+                                        ylow=-1.05get_num_nodes(mo.network[]),
+                                        yhigh=1.05get_num_nodes(mo.network[]))
         push!(panels, panel)
     end
 

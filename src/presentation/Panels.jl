@@ -197,7 +197,7 @@ end
 
 function FinalMagnetizationPanel(box::GridSubposition, mo::ModelObservable;
                                  xlow=0, xhigh=nothing,
-                                 ylow=0, yhigh=nothing)
+                                 ylow=nothing, yhigh=nothing)
     lines = []
     title = "Final magnetization after a simulation"
     ax = Axis(box[1, 1]; title=title)
