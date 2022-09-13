@@ -85,7 +85,8 @@ end
 function record_final_magnetization!(mo::ModelObservable)
     state_count = get_state_count(mo.network[])
     magnetization = abs(state_count[S] - state_count[I])
-    has_converged = get_num_active_hyperedges(mo.network[]) == 0
+    #has_converged = get_num_active_hyperedges(mo.network[]) == 0
+    has_converged = rand() > 0.5
     record_measurement!(mo.final_magnetization, magnetization, has_converged)
     return mo
 end

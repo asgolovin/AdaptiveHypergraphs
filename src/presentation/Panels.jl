@@ -202,7 +202,8 @@ function FinalMagnetizationPanel(box::GridSubposition, mo::ModelObservable;
     title = "Final magnetization after a simulation"
     ax = Axis(box[1, 1]; title=title)
     l = scatter!(ax,
-                 mo.final_magnetization.observable)
+                 mo.final_magnetization.observable;
+                 color=mo.final_magnetization.has_converged)
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
     push!(lines, l)
