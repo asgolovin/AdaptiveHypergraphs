@@ -30,7 +30,7 @@ function Dashboard(model::AbstractModel;
                    is_interactive::Bool=false,
                    node_colormap=:RdYlGn_6,
                    hyperedge_colormap=:thermal)
-    fig = Figure(; resolution=(1000, 600))
+    fig = Figure(; resolution=(1200, 800))
     display(fig)
     panels = []
 
