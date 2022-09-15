@@ -2,6 +2,7 @@ using JSON3
 using StructTypes
 using DrWatson
 using Dates
+using GLMakie
 
 export start_simulation
 
@@ -30,6 +31,10 @@ function start_simulation(params::InputParams)
         build_RSC_hg!(network, nparams.num_hyperedges)
         model = _create_model(network, mparams)
     end
+
+    rules = "$(typeof(mparams.propagation_rule))_$(typeof(mparams.adaptivity_rule))"
+    GLMakie.save(joinpath(output_folder, "$rules.png"), dashboard.fig)
+    return nothing
 end
 
 function _create_model(network, mparams)
@@ -63,5 +68,5 @@ function _create_batch_folder()
     dir_name = joinpath(projectdir(), "results", "run_$timestamp")
     @assert !ispath(dir_name) "The directory already exists"
     mkpath(dir_name)
-    return dir_name
+    return dir_name, timestamp
 end
