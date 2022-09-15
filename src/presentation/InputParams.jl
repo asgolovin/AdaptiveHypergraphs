@@ -28,6 +28,9 @@ end
 @with_kw struct BatchParams
     record_video::Bool = false
     batch_size::Integer = 10
+    # turns on a prompt if the data should be saved. The prompt is a bit annoying, 
+    # so it can be turned off completely with this option. 
+    prompt_for_save::Bool = false
 end
 
 struct InputParams
