@@ -21,8 +21,9 @@ end
 end
 
 @with_kw struct VisualizationParams
-    dashboard_params::NamedTuple = ()
-    steps_per_update::Integer = 10
+    dashboard_params::NamedTuple = (skip_points=1,)
+    # Number of time steps before the visualization is updated. Increase to improve performance. 
+    buffer_size::Integer = 100
 end
 
 @with_kw struct BatchParams

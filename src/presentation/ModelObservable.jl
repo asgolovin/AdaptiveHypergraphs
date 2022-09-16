@@ -21,11 +21,13 @@ struct ModelObservable{M<:AbstractModel}
     active_lifetime::ActiveLifetime
     final_magnetization::FinalMagnetization
 
-    function ModelObservable{M}(model::M) where {M<:AbstractModel}
-        state_series = [StateCount(model.network, state) for state in instances(State)]
+    function ModelObservable{M}(model::M, skip_points=1) where {M<:AbstractModel}
+        state_series = [StateCount(model.network, state, skip_points)
+                        for state in instances(State)]
         max_size = get_max_hyperedge_size(model.network)
-        hyperedge_series = [HyperedgeCount(model.network, size) for size in 2:max_size]
-        active_hyperedges_series = [ActiveHyperedgeCount(model.network, size)
+        hyperedge_series = [HyperedgeCount(model.network, size, skip_points)
+                            for size in 2:max_size]
+        active_hyperedges_series = [ActiveHyperedgeCount(model.network, size, skip_points)
                                     for size in 2:max_size]
         active_lifetime = ActiveLifetime()
         final_magnetization = FinalMagnetization()
@@ -61,7 +63,7 @@ function flush_buffers!(mo::ModelObservable)
         flush_buffers!(series)
     end
     for series in _get_all_series(mo)
-        notify(series.observable)
+        notify(series.values)
     end
     return mo
 end

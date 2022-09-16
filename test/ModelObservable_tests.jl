@@ -19,16 +19,16 @@ mo = ModelObservable{typeof(model)}(model)
 flush_buffers!(mo)
 for series in mo.state_series
     if series.state == AdaptiveHypergraphs.S
-        @test series.observable[] == [n - 2]
+        @test series.values[] == [n - 2]
     else
-        @test series.observable[] == [2]
+        @test series.values[] == [2]
     end
 end
 
 true_size_dist = [3, 4, 5]
 for (i, series) in enumerate(mo.hyperedge_series)
-    @test series.observable[] == [true_size_dist[i]]
+    @test series.values[] == [true_size_dist[i]]
 end
 for (i, series) in enumerate(mo.active_hyperedges_series)
-    @test series.observable[] == [get_num_active_hyperedges(network, i + 1)]
+    @test series.values[] == [get_num_active_hyperedges(network, i + 1)]
 end

@@ -18,6 +18,12 @@ end
               hyperedge_colormap = :thermal)
 
 A visualization of the evolution of the hypergraph during the simulation.
+
+# Arguments
+- `skip_points::Int64=1`: if this parameter is set to a value greater than one, then 
+not all datapoints are shown in the plot. Instead, the points are selected with a stride 
+equal to `skip_points`: `1:step_points:end`. This helps to improve perofrmance when the 
+number of time steps is very large. 
 """
 function Dashboard(model::AbstractModel;
                    plot_hypergraph::Bool=false,
@@ -28,13 +34,14 @@ function Dashboard(model::AbstractModel;
                    plot_active_lifetime::Bool=true,
                    plot_final_magnetization::Bool=true,
                    is_interactive::Bool=false,
+                   skip_points::Int64=1,
                    node_colormap=:RdYlGn_6,
                    hyperedge_colormap=:thermal)
     fig = Figure(; resolution=(1200, 800))
     display(fig)
     panels = []
 
-    mo = ModelObservable{typeof(model)}(model)
+    mo = ModelObservable{typeof(model)}(model, skip_points)
 
     plot_box = fig[1, 1] = GridLayout()
     if is_interactive
@@ -109,13 +116,13 @@ function Dashboard(model::AbstractModel;
 end
 
 """
-    run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
+    run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
 
 Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges. 
     
-The visualization is updated only once every number of steps given by `steps_per_update`.
+The visualization is updated only once every number of steps given by `buffer_size`.
 """
-function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
+function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
     mo = dashboard.mo
 
     if dashboard.is_interactive
@@ -134,7 +141,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
         for i in 1:num_steps
             step!(mo)
             num_active_hyperedges = get_num_active_hyperedges(mo.network[])
-            if i % steps_per_update == 0 || num_active_hyperedges == 0
+            if i % buffer_size == 0 || num_active_hyperedges == 0
                 flush_buffers!(mo)
                 sleep(0.01)
                 notify(mo.network)
@@ -158,7 +165,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Intege
 end
 
 """
-    record!(dashboard::Dashboard, filename::String, num_steps::Integer, steps_per_update::Integer, framerate::Integer)
+    record!(dashboard::Dashboard, filename::String, num_steps::Integer, buffer_size::Integer, framerate::Integer)
 
 Run the simulation for `num_steps` time steps and record a video of the dashboard. 
 
@@ -166,12 +173,12 @@ The video is saved to ./videos in a .mp4 format. `filename` should only contain 
 of the file without the extension.
 """
 function record!(dashboard::Dashboard, filename::String, num_steps::Integer,
-                 steps_per_update::Integer, framerate::Integer)
+                 buffer_size::Integer, framerate::Integer)
     savepath = joinpath("videos", filename * ".mp4")
 
-    num_updates = num_steps ÷ steps_per_update
+    num_updates = num_steps ÷ buffer_size
     record(dashboard.fig, savepath, 1:num_updates; framerate=framerate, compression=1) do i
-        return run!(dashboard, steps_per_update, steps_per_update)
+        return run!(dashboard, buffer_size, buffer_size)
     end
     return dashboard
 end

@@ -62,9 +62,10 @@ function StateDistPanel(box::GridSubposition, mo::ModelObservable;
     ax = Axis(box; title=title)
     num_states = length(instances(State))
     linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
+
     for (i, series) in enumerate(mo.state_series)
         l = lines!(ax,
-                   series.observable;
+                   series.time_steps, series.values;
                    label="# of $(series.state) nodes",
                    color=linecolors[i])
         push!(lines, l)
@@ -98,7 +99,7 @@ function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
     linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
     for (i, series) in enumerate(mo.hyperedge_series)
         l = lines!(ax,
-                   series.observable;
+                   series.time_steps, series.values;
                    label="hyperedges of size $(series.size)",
                    color=linecolors[series.size - 1])
         push!(lines, l)
@@ -131,7 +132,7 @@ function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable;
     linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
     for (i, series) in enumerate(mo.active_hyperedges_series)
         l = lines!(ax,
-                   series.observable;
+                   series.time_steps, series.values;
                    label="hyperedges of size $(series.size)",
                    color=linecolors[series.size - 1])
         push!(lines, l)
@@ -169,8 +170,8 @@ function SlowManifoldPanel(box::GridSubposition, mo::ModelObservable;
         row = (i - 1) ÷ num_cols + 1
         ax = Axis(box[row, col]; title=title)
         l = lines!(ax,
-                   mo.state_series[1].observable,
-                   mo.active_hyperedges_series[i].observable)
+                   mo.state_series[1].values,
+                   mo.active_hyperedges_series[i].values)
         xlims!(ax; low=xlow, high=xhigh)
         ylims!(ax; low=ylow, high=yhigh)
         push!(lines, l)
@@ -201,7 +202,7 @@ function ActiveLifetimePanel(box::GridSubposition, mo::ModelObservable;
     title = "Time to depletion of active hyperdeges"
     ax = Axis(box[1, 1]; title=title, yscale=log10)
     l = scatter!(ax,
-                 mo.active_lifetime.observable)
+                 mo.active_lifetime.values)
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
     push!(lines, l)
@@ -225,7 +226,7 @@ function FinalMagnetizationPanel(box::GridSubposition, mo::ModelObservable;
     title = "Final magnetization after a simulation"
     ax = Axis(box[1, 1]; title=title)
     l = scatter!(ax,
-                 mo.final_magnetization.observable;
+                 mo.final_magnetization.values;
                  color=mo.final_magnetization.has_converged)
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
@@ -237,8 +238,8 @@ end
 function deactivate_lines!(panel::SlowManifoldPanel)
     for i in 1:(panel.num_subplots)
         lines!(panel.axes[i],
-               panel.time_series[1].observable[],
-               panel.time_series[i + 1].observable[];
+               panel.time_series[1].values[],
+               panel.time_series[i + 1].values[];
                linewidth=1,
                color=(:gray, 0.5))
     end
@@ -252,7 +253,8 @@ end
 function deactivate_lines!(panel::AbstractTimeSeriesPanel)
     for series in panel.time_series
         lines!(panel.axes,
-               series.observable[];
+               series.time_steps[],
+               series.values[];
                linewidth=1,
                color=(:gray, 0.5))
     end
