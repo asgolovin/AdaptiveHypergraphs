@@ -163,7 +163,7 @@ function SlowManifoldPanel(box::GridSubposition, mo::ModelObservable;
     axes = []
     title = "Slow manifold plot"
     num_subplots = get_max_hyperedge_size(mo.network[]) - 1
-    num_cols = 2
+    num_cols = num_subplots <= 3 ? 1 : 2
     num_rows = Int64(ceil(num_subplots / num_cols))
     for i in 1:num_subplots
         col = mod1(i, num_cols)
