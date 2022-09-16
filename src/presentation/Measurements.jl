@@ -64,12 +64,13 @@ in different states).
 """
 mutable struct ActiveHyperedgeCount <: AbstractTimeSeries
     network::HyperNetwork
+    size::Int64
     observable::Observable{Vector{Int64}}
     buffer::Vector{Int64}
 end
 
-function ActiveHyperedgeCount(network::HyperNetwork)
-    return ActiveHyperedgeCount(network, Observable(Int64[]), Int64[])
+function ActiveHyperedgeCount(network::HyperNetwork, size::Int64)
+    return ActiveHyperedgeCount(network, size, Observable(Int64[]), Int64[])
 end
 
 function record_measurement!(state_series::StateCount)
@@ -83,7 +84,8 @@ function record_measurement!(hyperedge_series::HyperedgeCount)
 end
 
 function record_measurement!(active_hyperedges::ActiveHyperedgeCount)
-    active_count = get_num_active_hyperedges(active_hyperedges.network)
+    active_count = get_num_active_hyperedges(active_hyperedges.network,
+                                             active_hyperedges.size)
     return push!(active_hyperedges.buffer, active_count)
 end
 

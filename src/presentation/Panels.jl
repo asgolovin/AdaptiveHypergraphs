@@ -121,17 +121,24 @@ mutable struct ActiveHyperedgesPanel <: AbstractTimeSeriesPanel
 end
 
 function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable;
+                               hyperedge_colormap=:thermal,
                                xlow=0, xhigh=nothing,
                                ylow=-10, yhigh=nothing)
     lines = []
     title = "Number of active hyperedges"
     ax = Axis(box[1, 1]; title=title)
-    l = lines!(ax,
-               mo.active_hyperedges_series.observable)
-    push!(lines, l)
+    max_size = get_max_hyperedge_size(mo.network[])
+    linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
+    for (i, series) in enumerate(mo.active_hyperedges_series)
+        l = lines!(ax,
+                   series.observable;
+                   label="hyperedges of size $(series.size)",
+                   color=linecolors[series.size - 1])
+        push!(lines, l)
+    end
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
-    return ActiveHyperedgesPanel([mo.active_hyperedges_series], ax, lines, xlow, xhigh,
+    return ActiveHyperedgesPanel(mo.active_hyperedges_series, ax, lines, xlow, xhigh,
                                  ylow, yhigh)
 end
 

@@ -79,7 +79,7 @@ function Dashboard(model::AbstractModel;
     end
 
     if plot_active_hyperedges
-        active_panel = ActiveHyperedgesPanel(history_box[3, 1], mo;
+        active_panel = ActiveHyperedgesPanel(history_box[3, 1], mo; hyperedge_colormap,
                                              ylow=-0.05get_num_active_hyperedges(mo.network[]))
         push!(panels, active_panel)
     end
