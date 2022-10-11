@@ -3,6 +3,7 @@ using StructTypes
 using DrWatson
 using Dates
 using GLMakie
+using PCRE
 
 export start_simulation
 
@@ -11,9 +12,11 @@ function start_simulation(params::InputParams)
                                          params.model_params,
                                          params.visualization_params,
                                          params.batch_params
-
-    output_folder = _create_batch_folder()
-    _save_params(params, output_folder)
+    save_to_file = _prompt_for_save()
+    if save_to_file
+        output_folder = _create_batch_folder()
+        _save_params(params, output_folder)
+    end
 
     n = nparams.num_nodes
     network = HyperNetwork(n, nparams.infected_prob)
@@ -32,8 +35,10 @@ function start_simulation(params::InputParams)
         model = _create_model(network, mparams)
     end
 
-    rules = "$(typeof(mparams.propagation_rule))_$(typeof(mparams.adaptivity_rule))"
-    GLMakie.save(joinpath(output_folder, "$rules.png"), dashboard.fig)
+    if save_to_file
+        rules = "$(typeof(mparams.propagation_rule))_$(typeof(mparams.adaptivity_rule))"
+        save(dashboard, output_folder, "$rules.png")
+    end
     return nothing
 end
 
@@ -64,9 +69,25 @@ function _save_params(params::InputParams, folder)
 end
 
 function _create_batch_folder()
+    println("Enter a tag to name the data folder: ")
+    tag = readline()
+    filter
     timestamp = Dates.format(now(), "YYYY-mm-dd_HH-MM-SS")
     dir_name = joinpath(projectdir(), "results", "run_$timestamp")
     @assert !ispath(dir_name) "The directory already exists"
     mkpath(dir_name)
-    return dir_name, timestamp
+    return dir_name
+end
+
+function _prompt_for_save()
+    println("Save the input parameters and the results of the simulation to a file? [y/n] ")
+    s = readline()
+    if s == "y"
+        dirname = _create_batch_folder()
+        println("Ok, saving the input parameters.")
+        return true
+    else
+        println("Ok, the results will not be saved.")
+        return false
+    end
 end

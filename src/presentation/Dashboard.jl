@@ -200,10 +200,11 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
 end
 
 """
-    save(dashboard::Dashboard, filename::String)
+    save(dashboard::Dashboard, folder::String, filename::String)
 
-Save the data from the last active run 
+Save the state of the dashboard as a figure.
+The filename should be given with an extension, for example, dash.png. 
 """
-function save(dashboard::Dashboard, filename::String)
-    # TODO
+function save(dashboard::Dashboard, folder::String, filename::String)
+    return GLMakie.save(joinpath(folder, filename), dashboard.fig)
 end
