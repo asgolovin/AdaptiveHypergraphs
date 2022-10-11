@@ -157,6 +157,7 @@ mutable struct SlowManifoldPanel <: AbstractPanel
 end
 
 function SlowManifoldPanel(box::GridSubposition, mo::ModelObservable;
+                           hyperedge_colormap=:thermal,
                            xlow=nothing, xhigh=nothing,
                            ylow=nothing, yhigh=nothing)
     lines = []
@@ -165,13 +166,16 @@ function SlowManifoldPanel(box::GridSubposition, mo::ModelObservable;
     num_subplots = get_max_hyperedge_size(mo.network[]) - 1
     num_cols = num_subplots <= 3 ? 1 : 2
     num_rows = Int64(ceil(num_subplots / num_cols))
+    linecolors = get(colorschemes[hyperedge_colormap],
+                     1:(num_subplots + 1), (1, num_subplots + 1))
     for i in 1:num_subplots
         col = mod1(i, num_cols)
         row = (i - 1) ÷ num_cols + 1
         ax = Axis(box[row, col]; title=title)
         l = lines!(ax,
                    mo.state_series[1].values,
-                   mo.active_hyperedges_series[i].values)
+                   mo.active_hyperedges_series[i].values;
+                   color=linecolors[i])
         xlims!(ax; low=xlow, high=xhigh)
         ylims!(ax; low=ylow, high=yhigh)
         push!(lines, l)
