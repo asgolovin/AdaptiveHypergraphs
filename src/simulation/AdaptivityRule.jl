@@ -77,7 +77,8 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
     end
 
     function node_conditions(node)
-        return node != selected_node
+        return node != selected_node &&
+               get_state(network, node) == required_state
     end
 
     hyperedge_candidates, node_candidates = _rejection_sampling(network,

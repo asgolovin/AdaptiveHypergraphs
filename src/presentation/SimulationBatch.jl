@@ -2,8 +2,7 @@ using JSON3
 using StructTypes
 using DrWatson
 using Dates
-using GLMakie
-using PCRE
+using REPL.TerminalMenus
 
 export start_simulation
 
@@ -12,10 +11,15 @@ function start_simulation(params::InputParams)
                                          params.model_params,
                                          params.visualization_params,
                                          params.batch_params
-    save_to_file = _prompt_for_save()
-    if save_to_file
-        output_folder = _create_batch_folder()
-        _save_params(params, output_folder)
+    # turns on a prompt if the data should be saved. 
+    if bparams.prompt_for_save
+        save_to_file = _prompt_for_save()
+        if save_to_file
+            output_folder = _create_batch_folder()
+            _save_params(params, output_folder)
+        end
+    else
+        save_to_file = false
     end
 
     n = nparams.num_nodes
@@ -28,7 +32,7 @@ function start_simulation(params::InputParams)
 
     for t in 1:(bparams.batch_size)
         reset!(dashboard, model)
-        run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
+        run!(dashboard, mparams.num_time_steps, vparams.buffer_size)
         sleep(1)
         network = HyperNetwork(n, nparams.infected_prob)
         build_RSC_hg!(network, nparams.num_hyperedges)
@@ -71,20 +75,24 @@ end
 function _create_batch_folder()
     println("Enter a tag to name the data folder: ")
     tag = readline()
-    filter
+    # replace all spaces by underscores and throw out all non-alphanumeric characters
+    tag = replace(tag, " " => "_", r"[^\p{L}\p{N},_]" => "")
     timestamp = Dates.format(now(), "YYYY-mm-dd_HH-MM-SS")
-    dir_name = joinpath(projectdir(), "results", "run_$timestamp")
+    dir_name = joinpath(projectdir(), "results", "run_$(timestamp)_$(tag)")
     @assert !ispath(dir_name) "The directory already exists"
     mkpath(dir_name)
+    local_dir = joinpath("..", "results", "run_$(timestamp)_$(tag)")
+    println("""The results will be saved to the folder "$local_dir".""")
     return dir_name
 end
 
 function _prompt_for_save()
-    println("Save the input parameters and the results of the simulation to a file? [y/n] ")
-    s = readline()
-    if s == "y"
-        dirname = _create_batch_folder()
-        println("Ok, saving the input parameters.")
+    ans = Base.prompt("Press space and then twice Enter")
+    options = ["no", "yes"]
+    menu = RadioMenu(options)
+    choice = request("Save the input parameters and the results of the simulation to a file?",
+                     menu)
+    if choice == 2
         return true
     else
         println("Ok, the results will not be saved.")
