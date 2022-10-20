@@ -15,7 +15,7 @@ end
     adaptivity_rule::AdaptivityRule = RewireToRandom()
     propagation_rule::PropagationRule = MajorityVoting()
     num_time_steps::Integer = 500
-    propagation_prob::Real = 0.5
+    adaptivity_prob::Real = 0.5
     propagation_rate::Real = 1.0
     adaptivity_rate::Real = 1.0
 end

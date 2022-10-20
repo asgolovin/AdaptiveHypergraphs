@@ -54,7 +54,7 @@ function _create_model(network, mparams)
                            typeof(adaptivity_rule)}(network,
                                                     propagation_rule,
                                                     adaptivity_rule,
-                                                    mparams.propagation_prob)
+                                                    mparams.adaptivity_prob)
     else
         model = ContinuousModel{typeof(propagation_rule),
                                 typeof(adaptivity_rule)}(network,

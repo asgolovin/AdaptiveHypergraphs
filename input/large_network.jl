@@ -10,8 +10,8 @@ params = InputParams(
     ModelParams(
         num_time_steps = 1e6,
         adaptivity_rule = RewireToRandom(),
-        propagation_rule = MajorityVoting(),
-        propagation_prob = 0.3
+        propagation_rule = ProportionalVoting(),
+        adaptivity_prob = 0.3
     ),
     VisualizationParams(
         dashboard_params = (skip_points = 100, ),

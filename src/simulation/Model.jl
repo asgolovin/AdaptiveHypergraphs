@@ -10,7 +10,7 @@ struct DiscrModel{P<:PropagationRule,A<:AdaptivityRule} <: AbstractModel{P,A}
     network::HyperNetwork
     propagation_rule::P
     adaptivity_rule::A
-    propagation_prob::Real
+    adaptivity_prob::Real
 end
 
 """
@@ -32,12 +32,12 @@ function step!(model::DiscrModel)
     end
 
     p = rand()
-    if p < model.propagation_prob
-        # println("Executing propagation rule")
-        propagate!(network, propagation_rule, hyperedge)
-    else
+    if p < model.adaptivity_prob
         # println("Executing adaptivity rule")
         adapt!(network, adaptivity_rule, hyperedge)
+    else
+        # println("Executing propagation rule")
+        propagate!(network, propagation_rule, hyperedge)
     end
 
     return true

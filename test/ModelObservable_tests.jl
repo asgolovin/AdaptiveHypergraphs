@@ -8,12 +8,12 @@ build_RSC_hg!(network, (3, 4, 5))
 
 majority_voting = MajorityVoting()
 rewiring_rule = RewireToSame()
-propagation_prob = 0.5
+adaptivity_prob = 0.5
 
 model = DiscrModel{MajorityVoting,RewireToSame}(network,
                                                 majority_voting,
                                                 rewiring_rule,
-                                                propagation_prob)
+                                                adaptivity_prob)
 
 mo = ModelObservable{typeof(model)}(model)
 flush_buffers!(mo)
