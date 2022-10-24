@@ -33,6 +33,7 @@ function Dashboard(model::AbstractModel;
                    plot_slow_manifold::Bool=true,
                    plot_active_lifetime::Bool=true,
                    plot_final_magnetization::Bool=true,
+                   plot_final_hyperedge_dist::Bool=true,
                    is_interactive::Bool=false,
                    skip_points::Int64=1,
                    node_colormap=:RdYlGn_6,
@@ -81,7 +82,8 @@ function Dashboard(model::AbstractModel;
 
     if plot_hyperedges
         panel = HyperedgeDistPanel(history_box[2, 1], mo; hyperedge_colormap,
-                                   ylow=-0.05get_num_hyperedges(mo.network[]))
+                                    ylow = 1)
+                                   #ylow=-0.05get_num_hyperedges(mo.network[]))
         push!(panels, panel)
     end
 
@@ -112,6 +114,11 @@ function Dashboard(model::AbstractModel;
         push!(panels, panel)
     end
 
+    if plot_final_hyperedge_dist
+        panel = FinalHyperedgeDistPanel(run_box[3, 1], mo, xhigh = nothing)
+        push!(panels, panel)
+    end
+
     return Dashboard(fig, panels, mo, is_interactive)
 end
 
@@ -129,7 +136,9 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
         # TODO: something should happen here
     else
         for panel in dashboard.panels
-            if typeof(panel) <: AbstractTimeSeriesPanel
+            if typeof(panel) <: FinalHyperedgeDistPanel
+                panel.xhigh = nothing
+            elseif typeof(panel) <: AbstractTimeSeriesPanel
                 panel.xhigh = num_steps
             elseif typeof(panel) <: ActiveLifetimePanel
                 panel.yhigh = num_steps^1.05
@@ -160,6 +169,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
         end
         record_active_lifetime!(mo, active_lifetime)
         record_final_magnetization!(mo)
+        record_final_hyperedge_dist!(mo)
     end
     return dashboard
 end

@@ -151,3 +151,24 @@ function record_measurement!(final_magnetization::FinalMagnetization, value::Int
     notify(final_magnetization.values)
     return final_magnetization
 end
+
+struct FinalHyperedgeDist <: AbstractRunMeasurement
+    values::Vector{Observable{Vector{Real}}}
+end
+
+function FinalHyperedgeDist(max_size::Int64)
+    values = []
+    for i in 2:max_size
+        push!(values, Observable(Real[]))
+    end
+    return FinalHyperedgeDist(values)
+end
+
+function record_measurement!(final_hyperedge_dist::FinalHyperedgeDist, dist) # ::Vector{Int64})
+    for i in 1:size(dist)[1]
+        final_hyperedge_dist.values[i][] = dist[i]
+    end
+    #push!(final_hyperedge_dist.values[], dist)
+    #notify(final_hyperedge_dist.values)
+    return final_hyperedge_dist
+end

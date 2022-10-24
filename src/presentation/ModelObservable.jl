@@ -1,3 +1,5 @@
+using Statistics
+
 export ModelObservable, step!, flush_buffers!, record_time_series, record_active_lifetime!,
        rebind_model!, clear!
 
@@ -20,6 +22,7 @@ struct ModelObservable{M<:AbstractModel}
     active_hyperedges_series::Vector{ActiveHyperedgeCount}
     active_lifetime::ActiveLifetime
     final_magnetization::FinalMagnetization
+    final_hyperedge_dist::FinalHyperedgeDist
 
     function ModelObservable{M}(model::M, skip_points=1) where {M<:AbstractModel}
         state_series = [StateCount(model.network, state, skip_points)
@@ -31,6 +34,7 @@ struct ModelObservable{M<:AbstractModel}
                                     for size in 2:max_size]
         active_lifetime = ActiveLifetime()
         final_magnetization = FinalMagnetization()
+        final_hyperedge_dist = FinalHyperedgeDist(max_size)
 
         mo = new{M}(Observable(model),
                     Observable(model.network),
@@ -38,7 +42,8 @@ struct ModelObservable{M<:AbstractModel}
                     hyperedge_series,
                     active_hyperedges_series,
                     active_lifetime,
-                    final_magnetization)
+                    final_magnetization,
+                    final_hyperedge_dist)
         return record_time_series!(mo)
     end
 end
@@ -90,6 +95,21 @@ function record_final_magnetization!(mo::ModelObservable)
     magnetization = state_count[S] - state_count[I]
     has_converged = get_num_active_hyperedges(mo.network[]) == 0
     record_measurement!(mo.final_magnetization, magnetization, has_converged)
+    return mo
+end
+
+function record_final_hyperedge_dist!(mo::ModelObservable)
+    # We want to calculate the average value of the hyperdeges after the system has stabilized. 
+    # Idea: compute the std of the time series starting from t to the end of the simulation 
+    std_series = Dict{Int64, Vector{Real}}()
+    for hyperedge_count in mo.hyperedge_series
+        size = hyperedge_count.size
+        std_series[size] = []
+        for t in 1:length(hyperedge_count.values[]) - 1
+            push!(std_series[size], Statistics.std(hyperedge_count.values[][t:end]))
+        end
+    end
+    record_measurement!(mo.final_hyperedge_dist, collect(values(std_series)))
     return mo
 end
 

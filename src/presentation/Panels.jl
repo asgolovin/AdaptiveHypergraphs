@@ -94,7 +94,7 @@ function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
                             ylow=-10, yhigh=nothing)
     lines = []
     title = "Distribution of hyperdeges"
-    ax = Axis(box; title=title)
+    ax = Axis(box; title=title, yscale = log10)
     max_size = get_max_hyperedge_size(mo.network[])
     linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
     for (i, series) in enumerate(mo.hyperedge_series)
@@ -110,6 +110,40 @@ function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
 
     return HyperedgeDistPanel(mo.hyperedge_series, ax, lines, xlow, xhigh, ylow, yhigh)
 end
+
+
+mutable struct FinalHyperedgeDistPanel <: AbstractTimeSeriesPanel
+    time_series::FinalHyperedgeDist
+    axes::Axis
+    lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function FinalHyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
+                            hyperedge_colormap=:thermal,
+                            xlow=0, xhigh=nothing,
+                            ylow=-10, yhigh=nothing)
+    lines = []
+    title = "Final distribution of hyperdeges"
+    ax = Axis(box; title=title)
+    max_size = get_max_hyperedge_size(mo.network[])
+    linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
+    for i in 1:max_size - 1
+        l = lines!(ax,
+                   mo.final_hyperedge_dist.values[i];
+                   color=linecolors[i])
+        push!(lines, l)
+    end
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
+
+    return FinalHyperedgeDistPanel(mo.final_hyperedge_dist, ax, lines, xlow, xhigh, ylow, yhigh)
+end
+
+
 
 mutable struct ActiveHyperedgesPanel <: AbstractTimeSeriesPanel
     time_series::Vector{ActiveHyperedgeCount}
@@ -251,6 +285,10 @@ function deactivate_lines!(panel::SlowManifoldPanel)
     for line in panel.lines
         translate!(line, 0, 0, 1)
     end
+    return panel
+end
+
+function deactivate_lines!(panel::FinalHyperedgeDistPanel)
     return panel
 end
 
