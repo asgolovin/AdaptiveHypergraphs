@@ -82,8 +82,8 @@ function Dashboard(model::AbstractModel;
 
     if plot_hyperedges
         panel = HyperedgeDistPanel(history_box[2, 1], mo; hyperedge_colormap,
-                                    ylow = 1)
-                                   #ylow=-0.05get_num_hyperedges(mo.network[]))
+                                   ylow=1)
+        #ylow=-0.05get_num_hyperedges(mo.network[]))
         push!(panels, panel)
     end
 
@@ -115,7 +115,7 @@ function Dashboard(model::AbstractModel;
     end
 
     if plot_final_hyperedge_dist
-        panel = FinalHyperedgeDistPanel(run_box[3, 1], mo, xhigh = nothing)
+        panel = FinalHyperedgeDistPanel(run_box[3, 1], mo; xhigh=nothing)
         push!(panels, panel)
     end
 
@@ -167,9 +167,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
                 break
             end
         end
-        record_active_lifetime!(mo, active_lifetime)
-        record_final_magnetization!(mo)
-        record_final_hyperedge_dist!(mo)
+        record_measurements!(mo, :run)
     end
     return dashboard
 end

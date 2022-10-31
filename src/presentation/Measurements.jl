@@ -1,174 +1,165 @@
-"""
-    AbstractMeasurement
+using GLMakie
 
-An abstract type for any measurements of the model.
 """
+A data structure for an indexed series of measurements, where both the indices and the values are Makie observables. 
+
+This is basically a table which maps some indices (time stamps, indices, hashes, ...) to values. 
+The main feature of the Log is that it can buffer values before updating the observables, since 
+updating the values at every time step can be quite expensive. 
+"""
+mutable struct MeasurementLog{IndexType,ValueType} # TODO: rename?
+    indices::Observable{Vector{IndexType}}
+    values::Observable{Vector{ValueType}}
+    buffered_indices::Vector{IndexType}
+    buffered_values::Vector{ValueType}
+    skip_points::Int64
+    buffer_size::Int64
+    remainder::Int64
+    num_points::Int64
+end
+
+function MeasurementLog{IndexType,ValueType}(; skip_points=1,
+                                             buffer_size=1) where {IndexType,ValueType}
+    indices = Observable(IndexType[])
+    values = Observable(ValueType[])
+    buffered_indices = IndexType[]
+    buffered_values = ValueType[]
+    remainder = 0
+    num_points = 0
+    return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
+                          buffer_size, remainder, num_points)
+end
+
+function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
+                 value::ValueType) where {IndexType,ValueType}
+    if log.buffer_size > 1
+        # write the values to the buffer
+        push!(log.buffered_indices, index)
+        push!(log.buffered_values, value)
+
+        # if the buffer is full, flush it 
+        if length(log.buffered_indices) >= log.buffer_size
+            # crazy mod magic to account for the fact that skip_points might not divide buffer_size
+            skip = log.skip_points
+            start = mod1(skip - log.remainder + 1, skip)
+            log.remainder = mod(log.buffer_size - start + 1, skip)
+            append!(log.indices[], log.buffered_indices[start:skip:end])
+            append!(log.values[], log.buffered_values[start:skip:end])
+            empty!(log.buffered_indices)
+            empty!(log.buffered_values)
+            notify(log.values)
+        end
+    else
+        # update the observables directly
+        push!(log.indices[], index)
+        push!(log.values[], value)
+        notify(log.values)
+    end
+    log.num_points += 1
+    return log
+end
+
+function record!(log::MeasurementLog{IndexType,ValueType},
+                 value::ValueType) where {IndexType,ValueType}
+    index = log.num_points
+    return record!(log, index, value)
+end
+
+function save(io::IO, log::MeasurementLog)
+    indices = log.indices[]
+    values = log.values[]
+    for (index, value) in zip(indices, values)
+        println(io, "$index, $value")
+    end
+    return nothing
+end
+
+function clear!(log::MeasurementLog)
+    empty!(log.indices[])
+    empty!(log.values[])
+    empty!(log.buffered_indices)
+    empty!(log.buffered_values)
+    return log
+end
+
+# ====================================================================================
+# ------------------------------- MEASUREMENTS ----------------------------------------
+
 abstract type AbstractMeasurement end
 
-"""
-    AbstractTimeSeries
+abstract type AbstractStepMeasurement end
 
-A time series of the evolution of some observable (as in physical observable) of the model.
-"""
-abstract type AbstractTimeSeries <: AbstractMeasurement end
-
-"""
-    AbstractRunMeasurement <: AbstractMeasurement
-
-A measurement which quantifies one run of the simulation. Here, the number of 
-data points is equal not to the number of time steps, but to the number of simulations 
-in the batch. 
-"""
-abstract type AbstractRunMeasurement <: AbstractMeasurement end
+abstract type AbstractRunMeasurement end
 
 # ====================================================================================
 # ------------------------------- TIME SERIES ----------------------------------------
 
 """
-    StateCount <: AbstractTimeSeries
+    StateCount <: AbstractStepMeasurement
 
 Tracks the absolute number of nodes in state `state`. 
 """
-mutable struct StateCount <: AbstractTimeSeries
-    network::HyperNetwork
-    state::State
-    time_steps::Observable{Vector{Int64}}
-    values::Observable{Vector{Int64}}
-    buffer::Vector{Int64}
-    skip_points::Int64
+struct StateCount <: AbstractStepMeasurement
+    log::Dict{State,MeasurementLog{Int64,Int64}}
 end
 
-function StateCount(network::HyperNetwork, state::State, skip_points::Int64)
-    return StateCount(network, state, Observable(Int64[]), Observable(Int64[]),
-                      Int64[], skip_points)
+function StateCount(skip_points::Int64, buffer_size::Int64)
+    log = Dict(state => MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+               for state in instances(State))
+    return StateCount(log)
 end
 
 """
-    HyperedgeCount <: AbstractTimeSeries
+    HyperedgeCount <: AbstractStepMeasurement
 
 Tracks the number of hyperedges of size `size`. 
 """
-mutable struct HyperedgeCount <: AbstractTimeSeries
-    network::HyperNetwork
-    size::Int64
-    time_steps::Observable{Vector{Int64}}
-    values::Observable{Vector{Int64}}
-    buffer::Vector{Int64}
-    skip_points::Int64
+mutable struct HyperedgeCount <: AbstractStepMeasurement
+    log::Dict{Int64,MeasurementLog{Int64,Int64}}
 end
 
-function HyperedgeCount(network::HyperNetwork, size::Int64, skip_points::Int64)
-    return HyperedgeCount(network, size, Observable(Int64[]), Observable(Int64[]),
-                          Int64[], skip_points)
+function HyperedgeCount(max_size::Int64, skip_points::Int64, buffer_size::Int64)
+    log = Dict(size => MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+               for size in 2:max_size)
+    return HyperedgeCount(log)
 end
 
 """
-    ActiveHyperedgeCount <: AbstractTimeSeries
+    ActiveHyperedgeCount <: AbstractStepMeasurement
 
 Tracks the number of active hyperdeges (i.e., hyperedges with at least two nodes
 in different states).
 """
-mutable struct ActiveHyperedgeCount <: AbstractTimeSeries
-    network::HyperNetwork
-    size::Int64
-    time_steps::Observable{Vector{Int64}}
-    values::Observable{Vector{Int64}}
-    buffer::Vector{Int64}
-    skip_points::Int64
+mutable struct ActiveHyperedgeCount <: AbstractStepMeasurement
+    log::Dict{Int64,MeasurementLog{Int64,Int64}}
 end
 
-function ActiveHyperedgeCount(network::HyperNetwork, size::Int64, skip_points::Int64)
-    return ActiveHyperedgeCount(network, size, Observable(Int64[]), Observable(Int64[]),
-                                Int64[], skip_points)
-end
-
-function record_measurement!(state_series::StateCount)
-    state_dist = get_state_count(state_series.network)
-    return push!(state_series.buffer, state_dist[state_series.state])
-end
-
-function record_measurement!(hyperedge_series::HyperedgeCount)
-    hyperedge_dist = get_hyperedge_dist(hyperedge_series.network)
-    return push!(hyperedge_series.buffer, hyperedge_dist[hyperedge_series.size])
-end
-
-function record_measurement!(active_hyperedges::ActiveHyperedgeCount)
-    active_count = get_num_active_hyperedges(active_hyperedges.network,
-                                             active_hyperedges.size)
-    return push!(active_hyperedges.buffer, active_count)
-end
-
-function flush_buffers!(series::AbstractTimeSeries)
-    skip = series.skip_points
-    append!(series.values[], series.buffer[1:skip:end])
-    start_time = length(series.time_steps[]) == 0 ? 1 : series.time_steps[][end] + skip
-    end_time = start_time + length(series.buffer) - 1
-    append!(series.time_steps[], start_time:skip:end_time)
-    empty!(series.buffer)
-    return series
-end
-
-function clear!(measurement::AbstractMeasurement)
-    empty!(measurement.values[])
-    empty!(measurement.time_steps[])
-    return measurement
+function ActiveHyperedgeCount(max_size::Int64, skip_points::Int64, buffer_size::Int64)
+    log = Dict(size => MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+               for size in 2:max_size)
+    return ActiveHyperedgeCount(log)
 end
 
 # ====================================================================================
 # ------------------------------- RUN MEASUREMENTS------------------------------------
 
 """
-
 Measures the time that the system needs to deplete all active hyperedges. 
 """
 struct ActiveLifetime <: AbstractRunMeasurement
-    values::Observable{Vector{Int64}}
+    log::MeasurementLog{Int64,Int64}
 end
 
-function ActiveLifetime()
-    return ActiveLifetime(Observable(Int64[]))
-end
-
-function record_measurement!(active_lifetime::ActiveLifetime, value::Int64)
-    push!(active_lifetime.values[], value)
-    notify(active_lifetime.values)
-    return active_lifetime
-end
+ActiveLifetime() = ActiveLifetime(MeasurementLog{Int64,Int64}())
 
 struct FinalMagnetization <: AbstractRunMeasurement
-    values::Observable{Vector{Int64}}
-    has_converged::Observable{Vector{Bool}}
+    log::MeasurementLog{Int64,Int64}
 end
 
-function FinalMagnetization()
-    return FinalMagnetization(Observable(Int64[]), Observable(Bool[]))
-end
-
-function record_measurement!(final_magnetization::FinalMagnetization, value::Int64,
-                             has_converged::Bool)
-    push!(final_magnetization.values[], value)
-    push!(final_magnetization.has_converged[], has_converged)
-    notify(final_magnetization.values)
-    return final_magnetization
-end
+FinalMagnetization() = FinalMagnetization(MeasurementLog{Int64,Int64}())
 
 struct FinalHyperedgeDist <: AbstractRunMeasurement
-    values::Vector{Observable{Vector{Real}}}
+    log::MeasurementLog{Int64,Int64}
 end
 
-function FinalHyperedgeDist(max_size::Int64)
-    values = []
-    for i in 2:max_size
-        push!(values, Observable(Real[]))
-    end
-    return FinalHyperedgeDist(values)
-end
-
-function record_measurement!(final_hyperedge_dist::FinalHyperedgeDist, dist) # ::Vector{Int64})
-    for i in 1:size(dist)[1]
-        final_hyperedge_dist.values[i][] = dist[i]
-    end
-    #push!(final_hyperedge_dist.values[], dist)
-    #notify(final_hyperedge_dist.values)
-    return final_hyperedge_dist
-end
+FinalHyperedgeDist() = FinalHyperedgeDist(MeasurementLog{Int64,Int64}())

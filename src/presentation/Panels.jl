@@ -94,7 +94,7 @@ function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
                             ylow=-10, yhigh=nothing)
     lines = []
     title = "Distribution of hyperdeges"
-    ax = Axis(box; title=title, yscale = log10)
+    ax = Axis(box; title=title, yscale=log10)
     max_size = get_max_hyperedge_size(mo.network[])
     linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
     for (i, series) in enumerate(mo.hyperedge_series)
@@ -111,7 +111,6 @@ function HyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
     return HyperedgeDistPanel(mo.hyperedge_series, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
-
 mutable struct FinalHyperedgeDistPanel <: AbstractTimeSeriesPanel
     time_series::FinalHyperedgeDist
     axes::Axis
@@ -123,15 +122,15 @@ mutable struct FinalHyperedgeDistPanel <: AbstractTimeSeriesPanel
 end
 
 function FinalHyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
-                            hyperedge_colormap=:thermal,
-                            xlow=0, xhigh=nothing,
-                            ylow=-10, yhigh=nothing)
+                                 hyperedge_colormap=:thermal,
+                                 xlow=0, xhigh=nothing,
+                                 ylow=-10, yhigh=nothing)
     lines = []
     title = "Final distribution of hyperdeges"
     ax = Axis(box; title=title)
     max_size = get_max_hyperedge_size(mo.network[])
     linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
-    for i in 1:max_size - 1
+    for i in 1:(max_size - 1)
         l = lines!(ax,
                    mo.final_hyperedge_dist.values[i];
                    color=linecolors[i])
@@ -140,10 +139,9 @@ function FinalHyperedgeDistPanel(box::GridSubposition, mo::ModelObservable;
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
 
-    return FinalHyperedgeDistPanel(mo.final_hyperedge_dist, ax, lines, xlow, xhigh, ylow, yhigh)
+    return FinalHyperedgeDistPanel(mo.final_hyperedge_dist, ax, lines, xlow, xhigh, ylow,
+                                   yhigh)
 end
-
-
 
 mutable struct ActiveHyperedgesPanel <: AbstractTimeSeriesPanel
     time_series::Vector{ActiveHyperedgeCount}
@@ -178,7 +176,7 @@ function ActiveHyperedgesPanel(box::GridSubposition, mo::ModelObservable;
 end
 
 mutable struct SlowManifoldPanel <: AbstractPanel
-    time_series::Vector{AbstractTimeSeries}
+    time_series::Vector{AbstractStepMeasurement}
     axes::Vector{Axis}
     lines::Vector{Lines}
     num_subplots::Int64
