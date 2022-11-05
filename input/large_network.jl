@@ -14,8 +14,8 @@ params = InputParams(
         adaptivity_prob = 0.3
     ),
     VisualizationParams(
-        dashboard_params = (skip_points = 100, ),
-        buffer_size = 1e5
+        skip_points = 100,
+        buffer_size = 100000
     ),
     BatchParams(
         batch_size = 20
