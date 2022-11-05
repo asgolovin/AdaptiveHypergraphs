@@ -1,5 +1,19 @@
 export Dashboard, run!, record!, reset!
 
+using DrWatson
+
+#! format: off
+PANEL_DEPENDENCIES = Dict{DataType,
+                          Vector{DataType}}(
+        HypergraphPanel             => [],
+        StateDistPanel              => [StateCount],
+        HyperedgeDistPanel          => [HyperedgeCount],
+        ActiveHyperedgeDistPanel    => [ActiveHyperedgeCount],
+        SlowManifoldPanel           => [StateCount, ActiveHyperedgeCount],
+        ActiveLifetimePanel         => [ActiveLifetime],
+        FinalMagnetizationPanel     => [FinalMagnetization])
+#! format: on
+
 struct Dashboard
     fig::Figure
     panels::Vector{AbstractPanel}
@@ -25,97 +39,67 @@ not all datapoints are shown in the plot. Instead, the points are selected with 
 equal to `skip_points`: `1:step_points:end`. This helps to improve perofrmance when the 
 number of time steps is very large. 
 """
+#! format: off
 function Dashboard(model::AbstractModel;
-                   plot_hypergraph::Bool=false,
-                   plot_states::Bool=true,
-                   plot_hyperedges::Bool=true,
-                   plot_active_hyperedges::Bool=true,
-                   plot_slow_manifold::Bool=true,
-                   plot_active_lifetime::Bool=true,
-                   plot_final_magnetization::Bool=true,
-                   plot_final_hyperedge_dist::Bool=true,
-                   is_interactive::Bool=false,
-                   skip_points::Int64=1,
-                   node_colormap=:RdYlGn_6,
-                   hyperedge_colormap=:thermal)
+                   panel_types=[StateDistPanel,
+                                HyperedgeDistPanel,
+                                ActiveHyperedgeDistPanel,
+                                SlowManifoldPanel,
+                                ActiveLifetimePanel,
+                                FinalMagnetizationPanel],
+                   vparams::VisualizationParams,
+                   is_interactive::Bool=false)
+    #! format: on
     fig = Figure(; resolution=(1200, 800))
     display(fig)
-    panels = []
 
-    mo = ModelObservable{typeof(model)}(model, skip_points)
+    # collect a list of the measurements on which the panels depend on
+    measurements = Vector{DataType}()
+    for panel in panel_types
+        append!(measurements, PANEL_DEPENDENCIES[panel])
+    end
+    measurement_types = unique(measurements)
 
+    mo = ModelObservable{typeof(model)}(model, measurement_types;
+                                        skip_points=vparams.skip_points,
+                                        buffer_size=vparams.buffer_size)
+
+    # the plots are in the left half of the figure, the interactive controlls on the right
     plot_box = fig[1, 1] = GridLayout()
     if is_interactive
         controls_box = fig[2, 1] = GridLayout()
     end
 
-    # create columns for different panel types
-    col_count = 0
-    if plot_hypergraph
-        col_count += 1
-        hg_box = plot_box[1, col_count]
-    end
-    if plot_states || plot_hyperedges || plot_active_hyperedges
-        col_count += 1
-        history_box = plot_box[1, col_count]
-    end
-    if plot_slow_manifold
-        col_count += 1
-        slow_manifold_box = plot_box[1, col_count]
-    end
-    if plot_active_lifetime || plot_final_magnetization
-        col_count += 1
-        run_box = plot_box[1, col_count]
-    end
+    # determine the number of rows and columns 
+    num_panels = length(panel_types)
+    nrows = Int64(floor(sqrt(num_panels)))
+    ncols = Int64(ceil(sqrt(num_panels)))
 
-    if plot_hypergraph
-        panel = HypergraphPanel(hg_box[1, 1], network; node_colormap, hyperedge_colormap)
-        push!(panels, panel)
-    end
+    panels = []
+    graph_properties = Dict(:num_nodes => get_num_nodes(mo.network[]),
+                            :max_hyperedge_size => get_max_hyperedge_size(mo.network[]),
+                            :num_hyperedges => get_num_hyperedges(mo.network[]))
 
-    if plot_states
-        panel = StateDistPanel(history_box[1, 1], mo; node_colormap,
-                               ylow=-0.05get_num_nodes(mo.network[]),
-                               yhigh=1.05get_num_nodes(mo.network[]))
-        push!(panels, panel)
-    end
+    for (i, type) in enumerate(panel_types)
+        col = mod1(i, ncols)
+        row = (i - 1) ÷ ncols + 1
 
-    if plot_hyperedges
-        panel = HyperedgeDistPanel(history_box[2, 1], mo; hyperedge_colormap,
-                                   ylow=1)
-        #ylow=-0.05get_num_hyperedges(mo.network[]))
-        push!(panels, panel)
-    end
-
-    if plot_active_hyperedges
-        active_panel = ActiveHyperedgesPanel(history_box[3, 1], mo; hyperedge_colormap,
-                                             ylow=-0.05get_num_active_hyperedges(mo.network[]))
-        push!(panels, active_panel)
-    end
-
-    if plot_slow_manifold
-        max_mag = get_num_nodes(mo.network[])
-        panel = SlowManifoldPanel(slow_manifold_box[1, 1], mo;
-                                  xlow=-0.05max_mag,
-                                  xhigh=1.05max_mag,
-                                  ylow=-0.01get_num_hyperedges(mo.network[]))
-        push!(panels, panel)
-    end
-
-    if plot_active_lifetime
-        panel = ActiveLifetimePanel(run_box[1, 1], mo)
-        push!(panels, panel)
-    end
-
-    if plot_final_magnetization
-        panel = FinalMagnetizationPanel(run_box[2, 1], mo;
-                                        ylow=-1.05get_num_nodes(mo.network[]),
-                                        yhigh=1.05get_num_nodes(mo.network[]))
-        push!(panels, panel)
-    end
-
-    if plot_final_hyperedge_dist
-        panel = FinalHyperedgeDistPanel(run_box[3, 1], mo; xhigh=nothing)
+        # HypergraphPanel doesn't take a Measurement and instead needs the network, so 
+        # we treat it separately
+        if type <: HypergraphPanel
+            panel = HypergraphPanel(plot_box[col, row], mo.network,
+                                    graph_properties,
+                                    vparams)
+        else
+            # add the dependent measurements to the arg list
+            measurement_types = PANEL_DEPENDENCIES[type]
+            measurements = Dict()
+            for type in measurement_types
+                sym = Symbol(_to_snake_case("$type"))
+                measurements[sym] = getfield(mo, sym)
+            end
+            panel = type(plot_box[col, row], measurements, graph_properties, vparams)
+        end
         push!(panels, panel)
     end
 
@@ -136,9 +120,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
         # TODO: something should happen here
     else
         for panel in dashboard.panels
-            if typeof(panel) <: FinalHyperedgeDistPanel
-                panel.xhigh = nothing
-            elseif typeof(panel) <: AbstractTimeSeriesPanel
+            if typeof(panel) <: AbstractTimeSeriesPanel
                 panel.xhigh = num_steps
             elseif typeof(panel) <: ActiveLifetimePanel
                 panel.yhigh = num_steps^1.05
@@ -151,7 +133,6 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
             step!(mo)
             num_active_hyperedges = get_num_active_hyperedges(mo.network[])
             if i % buffer_size == 0 || num_active_hyperedges == 0
-                flush_buffers!(mo)
                 sleep(0.01)
                 notify(mo.network)
                 for panel in dashboard.panels
@@ -163,6 +144,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
 
             # stop the simulation early if we run out of active hyperdeges
             if num_active_hyperedges == 0
+                flush_buffers!(mo)
                 active_lifetime = i
                 break
             end

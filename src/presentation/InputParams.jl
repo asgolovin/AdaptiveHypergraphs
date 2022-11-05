@@ -21,9 +21,10 @@ end
 end
 
 @with_kw struct VisualizationParams
-    dashboard_params::NamedTuple = (skip_points=1,)
-    # Number of time steps before the visualization is updated. Increase to improve performance. 
-    buffer_size::Integer = 100
+    skip_points::Int64 = 1
+    buffer_size::Int64 = 100
+    node_colormap::Symbol = :RdYlGn_6
+    hyperedge_colormap::Symbol = :thermal
 end
 
 @with_kw struct BatchParams

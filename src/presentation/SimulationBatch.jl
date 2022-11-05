@@ -28,7 +28,7 @@ function start_simulation(params::InputParams)
 
     model = _create_model(network, mparams)
 
-    dashboard = Dashboard(model; vparams.dashboard_params...)
+    dashboard = Dashboard(model; vparams)
 
     for t in 1:(bparams.batch_size)
         reset!(dashboard, model)

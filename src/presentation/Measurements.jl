@@ -1,3 +1,5 @@
+export ActiveHyperedgeCount, StateCount, FinalMagnetization, HyperedgeCount, ActiveLifetime
+
 using GLMakie
 
 """
@@ -39,15 +41,7 @@ function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
 
         # if the buffer is full, flush it 
         if length(log.buffered_indices) >= log.buffer_size
-            # crazy mod magic to account for the fact that skip_points might not divide buffer_size
-            skip = log.skip_points
-            start = mod1(skip - log.remainder + 1, skip)
-            log.remainder = mod(log.buffer_size - start + 1, skip)
-            append!(log.indices[], log.buffered_indices[start:skip:end])
-            append!(log.values[], log.buffered_values[start:skip:end])
-            empty!(log.buffered_indices)
-            empty!(log.buffered_values)
-            notify(log.values)
+            flush_buffers!(log)
         end
     else
         # update the observables directly
@@ -65,6 +59,19 @@ function record!(log::MeasurementLog{IndexType,ValueType},
     return record!(log, index, value)
 end
 
+function flush_buffers!(log::MeasurementLog)
+    # crazy mod magic to account for the fact that skip_points might not divide buffer_size
+    skip = log.skip_points
+    start = mod1(skip - log.remainder + 1, skip)
+    log.remainder = mod(log.buffer_size - start + 1, skip)
+    append!(log.indices[], log.buffered_indices[start:skip:end])
+    append!(log.values[], log.buffered_values[start:skip:end])
+    empty!(log.buffered_indices)
+    empty!(log.buffered_values)
+    notify(log.indices)
+    return log
+end
+
 function save(io::IO, log::MeasurementLog)
     indices = log.indices[]
     values = log.values[]
@@ -79,6 +86,8 @@ function clear!(log::MeasurementLog)
     empty!(log.values[])
     empty!(log.buffered_indices)
     empty!(log.buffered_values)
+    log.remainder = 0
+    log.num_points = 0
     return log
 end
 
@@ -87,41 +96,41 @@ end
 
 abstract type AbstractMeasurement end
 
-abstract type AbstractStepMeasurement end
+abstract type AbstractStepMeasurement <: AbstractMeasurement end
 
-abstract type AbstractRunMeasurement end
+abstract type AbstractRunMeasurement <: AbstractMeasurement end
 
 # ====================================================================================
-# ------------------------------- TIME SERIES ----------------------------------------
+# ------------------------------- Step Measurements ----------------------------------
 
 """
     StateCount <: AbstractStepMeasurement
 
-Tracks the absolute number of nodes in state `state`. 
+Tracks the absolute number of nodes in every state.
 """
 struct StateCount <: AbstractStepMeasurement
-    log::Dict{State,MeasurementLog{Int64,Int64}}
+    log::MeasurementLog{Int64,Int64}
+    label::State
 end
 
-function StateCount(skip_points::Int64, buffer_size::Int64)
-    log = Dict(state => MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
-               for state in instances(State))
-    return StateCount(log)
+function StateCount(state::State; skip_points::Int64, buffer_size::Int64)
+    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+    return StateCount(log, state)
 end
 
 """
     HyperedgeCount <: AbstractStepMeasurement
 
-Tracks the number of hyperedges of size `size`. 
+Tracks the number of hyperedges of every size.
 """
 mutable struct HyperedgeCount <: AbstractStepMeasurement
-    log::Dict{Int64,MeasurementLog{Int64,Int64}}
+    log::MeasurementLog{Int64,Int64}
+    label::Int64
 end
 
-function HyperedgeCount(max_size::Int64, skip_points::Int64, buffer_size::Int64)
-    log = Dict(size => MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
-               for size in 2:max_size)
-    return HyperedgeCount(log)
+function HyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
+    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+    return HyperedgeCount(log, size)
 end
 
 """
@@ -131,17 +140,17 @@ Tracks the number of active hyperdeges (i.e., hyperedges with at least two nodes
 in different states).
 """
 mutable struct ActiveHyperedgeCount <: AbstractStepMeasurement
-    log::Dict{Int64,MeasurementLog{Int64,Int64}}
+    log::MeasurementLog{Int64,Int64}
+    label::Int64
 end
 
-function ActiveHyperedgeCount(max_size::Int64, skip_points::Int64, buffer_size::Int64)
-    log = Dict(size => MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
-               for size in 2:max_size)
-    return ActiveHyperedgeCount(log)
+function ActiveHyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
+    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+    return ActiveHyperedgeCount(log, size)
 end
 
 # ====================================================================================
-# ------------------------------- RUN MEASUREMENTS------------------------------------
+# ------------------------------- Run Measurements -----------------------------------
 
 """
 Measures the time that the system needs to deplete all active hyperedges. 

@@ -1,4 +1,4 @@
-using Statistics
+using Statistics, Parameters
 
 export ModelObservable, step!, flush_buffers!, record_time_series, record_active_lifetime!,
        rebind_model!, clear!
@@ -13,42 +13,83 @@ This class be methaphorically thought of as a scientist who runs some experiment
 (i.e., pushes a button to evolve the model one step forward), observes the results 
 and puts a new marker into a plot. ModelObservable provides its own interface to the 
 step! function which evolves the model and records the results. 
+
+ModelObservable gets a list of required measurements from Dashboard and collects data
+on those measurements only. 
+
+To add a new measurement:
+    1. create a new struct in Measuremnts.jl either of type AbstractStepMeasurement or AbstractRunMeasurement
+    2. add a `record_measurement!(mo::ModelObservable, measurement::YourNewMeasurement)` function.
+    3. make the measurement a property of ModelObservable. The name of the field should be the name of the struct converted to snake_case as returned by _to_snake_case(YourNewMeasurement)
+    4. if the constructor of the measurement requires any special arguments, add them to the `arguments` Dict in the ModelObservable constructor. 
 """
-mutable struct ModelObservable{M<:AbstractModel}
+@with_kw mutable struct ModelObservable{M<:AbstractModel}
     time::Int64
     model::Observable{M}
     network::Observable{HyperNetwork}
-    measurements::Vector
+    state_count::Vector{StateCount} = StateCount[]
+    hyperedge_count::Vector{HyperedgeCount} = HyperedgeCount[]
+    active_hyperedge_count::Vector{ActiveHyperedgeCount} = ActiveHyperedgeCount[]
+    final_hyperedge_dist::Vector{FinalHyperedgeDist} = FinalHyperedgeDist[]
+    active_lifetime::Vector{ActiveLifetime} = ActiveLifetime[]
+    final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
+end
 
-    function ModelObservable{M}(model::M, skip_points=1,
-                                buffer_size=1) where {M<:AbstractModel}
-        time = 0
-        measurements = []
-        state_series = StateCount(skip_points, buffer_size)
-        push!(measurements, state_series)
+function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
+                            skip_points=1,
+                            buffer_size=1) where {M<:AbstractModel}
+    time = 0
 
-        max_size = get_max_hyperedge_size(model.network)
-        hyperedge_series = HyperedgeCount(max_size, skip_points, buffer_size)
-        push!(measurements, hyperedge_series)
-
-        active_hyperedges_series = ActiveHyperedgeCount(max_size, skip_points, buffer_size)
-        push!(measurements, active_hyperedges_series)
-
-        final_hyperedge_dist = FinalHyperedgeDist()
-        push!(measurements, final_hyperedge_dist)
-
-        active_lifetime = ActiveLifetime()
-        push!(measurements, active_lifetime)
-
-        final_magnetization = FinalMagnetization()
-        push!(measurements, final_magnetization)
-
-        mo = new{M}(time,
-                    Observable(model),
-                    Observable(model.network),
-                    measurements)
-        return record_measurements!(mo, :step)
+    max_size = get_max_hyperedge_size(model.network)
+    # instantiate only the required measurements
+    measurements = Dict()
+    log_params = Dict(:skip_points => skip_points,
+                      :buffer_size => buffer_size)
+    for type in measurement_types
+        sym = Symbol(_to_snake_case("$type"))
+        if type <: StateCount
+            measurements[sym] = [StateCount(state; log_params...)
+                                 for state in instances(State)]
+        elseif type <: HyperedgeCount || type <: ActiveHyperedgeCount
+            measurements[sym] = [type(size; log_params...) for size in 2:max_size]
+        else
+            measurements[sym] = [type()]
+        end
     end
+
+    return ModelObservable(; time=time,
+                           model=Observable(model),
+                           network=Observable(model.network),
+                           measurements...)
+    #mo = new{M}(time,
+    #            Observable(model),
+    #            Observable(model.network);
+    #            measurements...)
+    #return record_measurements!(mo, :step)
+end
+
+function Base.getproperty(obj::ModelObservable, sym::Symbol)
+    if sym === :measurements
+        names = fieldnames(ModelObservable)
+        values = [getproperty(obj, name) for name in names]
+        filter!(x -> typeof(x) <: Vector{<:AbstractMeasurement}, values)
+        return vcat(values...)
+    elseif sym === :step_measurements
+        return filter(x -> typeof(x) <: AbstractStepMeasurement, obj.measurements)
+    elseif sym === :run_measurements
+        return filter(x -> typeof(x) <: AbstractRunMeasurement, obj.measurements)
+    else
+        return getfield(obj, sym)
+    end
+end
+
+"""
+Helper function to convert type names in CamelCase to property names in snake_case.
+"""
+function _to_snake_case(str::String)
+    patt = Regex("[A-Z][a-z]*")
+    indices = findall(patt, str)
+    return join([lowercase(str[i]) for i in indices], "_")
 end
 
 """
@@ -64,6 +105,13 @@ function step!(mo::ModelObservable)
     return mo
 end
 
+function flush_buffers!(mo::ModelObservable)
+    for measurement in mo.step_measurements
+        flush_buffers!(measurement.log)
+    end
+    return mo
+end
+
 """
 record_measurements!(mo::ModelObservable)
 
@@ -73,17 +121,15 @@ context can be either :step or :run
 """
 function record_measurements!(mo::ModelObservable, context::Symbol)
     if context == :step
-        measurement_type = AbstractStepMeasurement
+        measurements = mo.step_measurements
     elseif context == :run
-        measurement_type = AbstractRunMeasurement
+        measurements = mo.run_measurements
     else
         raise(ArgumentError("context should be either :step or :run."))
     end
 
-    for measurement in mo.measurements
-        if typeof(measurement) <: measurement_type
-            record_measurement!(mo, measurement)
-        end
+    for measurement in measurements
+        record_measurement!(mo, measurement)
     end
     return mo
 end
@@ -107,33 +153,30 @@ end
     Clear the history buffers in the ModelObservable.
 """
 function clear!(mo::ModelObservable)
-    for series in _get_all_series(mo)
-        clear!(series)
+    for measurement in mo.step_measurements
+        clear!(measurement.log)
     end
     return mo
 end
 
 function record_measurement!(mo::ModelObservable, measurement::StateCount)
     state_count = get_state_count(mo.network[])
-    for state in instances(State)
-        record!(measurement.log[state], mo.time, state_count[state])
-    end
+    state = measurement.label
+    record!(measurement.log, mo.time, state_count[state])
     return measurement
 end
 
 function record_measurement!(mo::ModelObservable, measurement::HyperedgeCount)
     hyperedge_count = get_hyperedge_dist(mo.network[])
-    for size in 2:get_max_hyperedge_size(mo.network[])
-        record!(measurement.log[size], mo.time, hyperedge_count[size])
-    end
+    size = measurement.label
+    record!(measurement.log, mo.time, hyperedge_count[size])
     return measurement
 end
 
 function record_measurement!(mo::ModelObservable, measurement::ActiveHyperedgeCount)
-    for size in 2:get_max_hyperedge_size(mo.network[])
-        count = get_num_active_hyperedges(mo.network[], size)
-        record!(measurement.log[size], mo.time, count)
-    end
+    size = measurement.label
+    count = get_num_active_hyperedges(mo.network[], size)
+    record!(measurement.log, mo.time, count)
     return measurement
 end
 
@@ -145,21 +188,21 @@ end
 function record_measurement!(mo::ModelObservable, measurement::FinalMagnetization)
     state_count = get_state_count(mo.network[])
     magnetization = state_count[S] - state_count[I]
-    record!(measurement, magnetization)
+    record!(measurement.log, magnetization)
     return measurement
 end
 
-function record_measurement!(mo::ModelObservable, measurement::FinalHyperedgeDist)
-    # We want to calculate the average value of the hyperdeges after the system has stabilized. 
-    # Idea: compute the std of the time series starting from t to the end of the simulation 
-    std_series = Dict{Int64,Vector{Real}}()
-    for hyperedge_count in mo.hyperedge_series
-        size = hyperedge_count.size
-        std_series[size] = []
-        for t in 1:(length(hyperedge_count.values[]) - 1)
-            push!(std_series[size], Statistics.std(hyperedge_count.values[][t:end]))
-        end
-    end
-    record!(measurement, collect(values(std_series)))
-    return measurement
-end
+# function record_measurement!(mo::ModelObservable, measurement::FinalHyperedgeDist)
+#     # We want to calculate the average value of the hyperdeges after the system has stabilized. 
+#     # Idea: compute the std of the time series starting from t to the end of the simulation 
+#     std_series = Dict{Int64,Vector{Real}}()
+#     for hyperedge_count in mo.hyperedge_series
+#         size = hyperedge_count.size
+#         std_series[size] = []
+#         for t in 1:(length(hyperedge_count.values[]) - 1)
+#             push!(std_series[size], Statistics.std(hyperedge_count.values[][t:end]))
+#         end
+#     end
+#     record!(measurement, collect(values(std_series)))
+#     return measurement
+# end
