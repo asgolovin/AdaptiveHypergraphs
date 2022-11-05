@@ -463,6 +463,10 @@ TODO: make this more formal
 function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
     max_dim = length(num_hyperedges)
     n = get_num_nodes(network)
+    for size in 2:get_max_hyperedge_size(network)
+        network.active_hyperedges[size] = 0
+        network.hyperedge_dist[size] = 0
+    end
     for d in 1:max_dim
         num_inserted_hyperedges = 0
         # TODO: think of a better data structure if this ever becomes a bottleneck
