@@ -210,11 +210,8 @@ end
 
 mutable struct SlowManifoldPanel <: AbstractPanel
     measurement_logs::Vector{MeasurementLog}
-    axes::Vector{Axis}
+    axes::Axis
     lines::Vector{Lines}
-    num_subplots::Int64
-    num_cols::Int64
-    num_rows::Int64
     xlow::Union{Real,Nothing}
     xhigh::Union{Real,Nothing}
     ylow::Union{Real,Nothing}
@@ -236,40 +233,26 @@ function SlowManifoldPanel(box::GridPosition,
     ylow, yhigh = (-0.05num_hyperedges, nothing)
 
     lines = []
-    axes = []
     title = "Slow manifold plot"
-    num_subplots = max_size - 1
-    num_cols = num_subplots <= 3 ? 1 : 2
-    num_rows = Int64(ceil(num_subplots / num_cols))
-    linecolors = get(colorschemes[hyperedge_colormap],
-                     1:(num_subplots + 1), (1, num_subplots + 1))
+    linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
     logs = MeasurementLog[]
     push!(logs, state_count[1].log)
-    for i in 1:num_subplots
-        col = mod1(i, num_cols)
-        row = (i - 1) ÷ num_cols + 1
-        ax = Axis(box[row, col])
-        if i == 1
-            ax.title = title
-        end
-        if i != num_subplots
-            hidexdecorations!(ax)
-        end
+    ax = Axis(box[1, 1]; title=title)
+
+    for (i, measurement) in enumerate(active_hyperedge_count)
+        active_hyperedge_log = measurement.log
+        size = measurement.label
         l = lines!(ax,
-                   state_count[1].log.values,
-                   active_hyperedge_count[i].log.values;
-                   color=linecolors[i])
-        xlims!(ax; low=xlow, high=xhigh)
-        ylims!(ax; low=ylow, high=yhigh)
+                   logs[1].values, active_hyperedge_log.values;
+                   label="hyperedges of size $(size)",
+                   color=linecolors[size - 1])
         push!(lines, l)
-        push!(axes, ax)
-        push!(logs, active_hyperedge_count[i].log)
+        push!(logs, active_hyperedge_log)
     end
 
     return SlowManifoldPanel(logs,
-                             axes,
+                             ax,
                              lines,
-                             num_subplots, num_cols, num_rows,
                              xlow, xhigh, ylow, yhigh)
 end
 
@@ -335,10 +318,10 @@ function FinalMagnetizationPanel(box::GridPosition,
 end
 
 function deactivate_lines!(panel::SlowManifoldPanel)
-    for i in 1:(panel.num_subplots)
-        lines!(panel.axes[i],
+    for i in 2:length(panel.measurement_logs)
+        lines!(panel.axes,
                panel.measurement_logs[1].values[],
-               panel.measurement_logs[i + 1].values[];
+               panel.measurement_logs[i].values[];
                linewidth=1,
                color=(:gray, 0.5))
     end
@@ -360,14 +343,6 @@ function deactivate_lines!(panel::AbstractTimeSeriesPanel)
     # Bring the lines tied to observables in front of the gray lines
     for line in panel.lines
         translate!(line, 0, 0, 1)
-    end
-    return panel
-end
-
-function set_lims!(panel::SlowManifoldPanel)
-    for i in 1:(panel.num_subplots)
-        xlims!(panel.axes[i]; low=panel.xlow, high=panel.xhigh)
-        ylims!(panel.axes[i]; low=panel.ylow, high=panel.yhigh)
     end
     return panel
 end
