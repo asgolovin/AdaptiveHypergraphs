@@ -95,7 +95,7 @@ function Dashboard(model::AbstractModel;
             measurement_types = PANEL_DEPENDENCIES[type]
             measurements = Dict()
             for type in measurement_types
-                sym = Symbol(_to_snake_case("$type"))
+                sym = Symbol(_snake_case("$type"))
                 measurements[sym] = getfield(mo, sym)
             end
             panel = type(plot_box[col, row], measurements, graph_properties, vparams)
@@ -134,7 +134,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
             num_active_hyperedges = get_num_active_hyperedges(mo.network[])
             if i % buffer_size == 0 || num_active_hyperedges == 0
                 sleep(0.01)
-                notify(mo.network)
+                notify(mo)
                 for panel in dashboard.panels
                     if !(typeof(panel) <: ActiveLifetimePanel)
                         set_lims!(panel)

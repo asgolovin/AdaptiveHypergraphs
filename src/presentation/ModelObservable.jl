@@ -20,7 +20,7 @@ on those measurements only.
 To add a new measurement:
     1. create a new struct in Measuremnts.jl either of type AbstractStepMeasurement or AbstractRunMeasurement
     2. add a `record_measurement!(mo::ModelObservable, measurement::YourNewMeasurement)` function.
-    3. make the measurement a property of ModelObservable. The name of the field should be the name of the struct converted to snake_case as returned by _to_snake_case(YourNewMeasurement)
+    3. make the measurement a property of ModelObservable. The name of the field should be the name of the struct converted to snake_case as returned by _snake_case(YourNewMeasurement)
     4. if the constructor of the measurement requires any special arguments, add them to the `arguments` Dict in the ModelObservable constructor. 
 """
 @with_kw mutable struct ModelObservable{M<:AbstractModel}
@@ -46,12 +46,13 @@ function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
     log_params = Dict(:skip_points => skip_points,
                       :buffer_size => buffer_size)
     for type in measurement_types
-        sym = Symbol(_to_snake_case("$type"))
+        sym = Symbol(_snake_case("$type"))
         if type <: StateCount
             measurements[sym] = [StateCount(state; log_params...)
                                  for state in instances(State)]
         elseif type <: HyperedgeCount || type <: ActiveHyperedgeCount
-            measurements[sym] = [type(size; log_params...) for size in 2:max_size]
+            measurements[sym] = [type(size; log_params...)
+                                 for size in 2:max_size]
         else
             measurements[sym] = [type()]
         end
@@ -86,7 +87,7 @@ end
 """
 Helper function to convert type names in CamelCase to property names in snake_case.
 """
-function _to_snake_case(str::String)
+function _snake_case(str::String)
     patt = Regex("[A-Z][a-z]*")
     indices = findall(patt, str)
     return join([lowercase(str[i]) for i in indices], "_")
@@ -105,11 +106,29 @@ function step!(mo::ModelObservable)
     return mo
 end
 
+"""
+    flush_buffers!(mo::ModelObservable)
+
+Write all values in buffers of logs to the observables. 
+
+Used to flush the buffers "by hand" in the end of the simulation. 
+"""
 function flush_buffers!(mo::ModelObservable)
     for measurement in mo.step_measurements
         flush_buffers!(measurement.log)
     end
+    for measurement in mo.step_measurements
+        notify(measurement.log)
+    end
     return mo
+end
+
+function GLMakie.notify(mo::ModelObservable)
+    notify(mo.network)
+    for measurement in mo.measurements
+        notify(measurement.log)
+    end
+    return nothing
 end
 
 """

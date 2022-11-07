@@ -16,12 +16,24 @@ mutable struct MeasurementLog{IndexType,ValueType} # TODO: rename?
     buffered_values::Vector{ValueType}
     skip_points::Int64
     buffer_size::Int64
+    auto_notify::Bool
     remainder::Int64
     num_points::Int64
 end
 
+"""
+    function MeasurementLog{IndexType,ValueType}(; skip_points=1,
+        buffer_size=1,
+        auto_notify=true) where {IndexType,ValueType}
+
+# Arguments
+- `skip_points::Integer = 1` - if this is greater than one, then only every nth point gets written to the observables. Only works if `buffer_size` > 1
+- `buffer_size::Integer = 1` - if this is greater than one, then the points are written to a non-Observable buffer of given size. Once the buffer is full, they are pushed to the actual Observable. This improves performance if the updates are very frequent.
+- `auto_notify::Bool = true` - if set to true, any operations which modify the observables will automatically notify them. In the other case, this has to be done explicitly using notify(log). This can be used in cases where plots depend on multiple different logs and it is important to ensure that all logs are updated with the new values before the observables are triggered. 
+"""
 function MeasurementLog{IndexType,ValueType}(; skip_points=1,
-                                             buffer_size=1) where {IndexType,ValueType}
+                                             buffer_size=1,
+                                             auto_notify=true) where {IndexType,ValueType}
     indices = Observable(IndexType[])
     values = Observable(ValueType[])
     buffered_indices = IndexType[]
@@ -29,7 +41,7 @@ function MeasurementLog{IndexType,ValueType}(; skip_points=1,
     remainder = 0
     num_points = 0
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
-                          buffer_size, remainder, num_points)
+                          buffer_size, auto_notify, remainder, num_points)
 end
 
 function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
@@ -47,7 +59,10 @@ function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
         # update the observables directly
         push!(log.indices[], index)
         push!(log.values[], value)
-        notify(log.values)
+        if log.auto_notify
+            notify(log.indices)
+            notify(log.values)
+        end
     end
     log.num_points += 1
     return log
@@ -68,8 +83,17 @@ function flush_buffers!(log::MeasurementLog)
     append!(log.values[], log.buffered_values[start:skip:end])
     empty!(log.buffered_indices)
     empty!(log.buffered_values)
-    notify(log.indices)
+    if log.auto_notify
+        notify(log.indices)
+        notify(log.values)
+    end
     return log
+end
+
+function GLMakie.notify(log::MeasurementLog)
+    GLMakie.notify(log.indices)
+    GLMakie.notify(log.values)
+    return nothing
 end
 
 function save(io::IO, log::MeasurementLog)
@@ -114,7 +138,7 @@ struct StateCount <: AbstractStepMeasurement
 end
 
 function StateCount(state::State; skip_points::Int64, buffer_size::Int64)
-    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return StateCount(log, state)
 end
 
@@ -129,7 +153,7 @@ mutable struct HyperedgeCount <: AbstractStepMeasurement
 end
 
 function HyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
-    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return HyperedgeCount(log, size)
 end
 
@@ -145,7 +169,7 @@ mutable struct ActiveHyperedgeCount <: AbstractStepMeasurement
 end
 
 function ActiveHyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
-    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size)
+    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return ActiveHyperedgeCount(log, size)
 end
 
