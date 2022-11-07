@@ -8,14 +8,14 @@ A list of dependencies of Panels on Measurements.
 """
 PANEL_DEPENDENCIES = Dict{DataType,
                           Vector{DataType}}(
-        HypergraphPanel             => [],
-        StateDistPanel              => [StateCount],
-        HyperedgeDistPanel          => [HyperedgeCount],
-        ActiveHyperedgeDistPanel    => [ActiveHyperedgeCount],
-        SlowManifoldPanel           => [StateCount, ActiveHyperedgeCount],
-        ActiveLifetimePanel         => [ActiveLifetime],
-        FinalMagnetizationPanel     => [FinalMagnetization],
-        AvgHyperedgeCountPanel      => [AvgHyperedgeCount])
+        HypergraphPanel               => [],
+        StateDistPanel                => [StateCount],
+        HyperedgeDistPanel            => [HyperedgeCount],
+        ActiveHyperedgeDistPanel      => [ActiveHyperedgeCount],
+        SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount],
+        ActiveLifetimePanel           => [ActiveLifetime],
+        FinalMagnetizationPanel       => [FinalMagnetization],
+        AvgHyperedgeCountPanel        => [AvgHyperedgeCount])
 #! format: on
 
 struct Dashboard

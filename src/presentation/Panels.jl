@@ -296,6 +296,7 @@ function AvgHyperedgeCountPanel(box::GridPosition,
                                 vparams::VisualizationParams)
     avg_hyperedge_count = measurements[:avg_hyperedge_count]
     max_size = graph_properties[:max_hyperedge_size]
+    hyperedge_colormap = vparams.hyperedge_colormap
 
     xlow, xhigh = (0, nothing)
     ylow, yhigh = (-0.05max_size, nothing)
@@ -303,11 +304,22 @@ function AvgHyperedgeCountPanel(box::GridPosition,
     logs = []
     title = "Average number of hyperedges"
     ax = Axis(box[1, 1]; title=title)
+    linecolors = get(colorschemes[hyperedge_colormap], 1:(max_size - 1), (1, max_size))
+
     for size in 2:max_size
-        l = scatter!(ax,
-                     avg_hyperedge_count[size - 1].log.values)
+        total_count = @lift [v.total for v in $(avg_hyperedge_count[size - 1].log.values)]
+        active_count = @lift [v.active for v in $(avg_hyperedge_count[size - 1].log.values)]
+        l_total = scatter!(ax,
+                           total_count;
+                           marker=:circle,
+                           color=linecolors[size - 1])
+        l_active = scatter!(ax,
+                            active_count;
+                            marker=:cross,
+                            color=linecolors[size - 1])
         push!(logs, avg_hyperedge_count[size - 1].log)
-        push!(lines, l)
+        push!(lines, l_total)
+        push!(lines, l_active)
     end
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)

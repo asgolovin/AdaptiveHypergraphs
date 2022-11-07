@@ -217,9 +217,12 @@ end
 FinalMagnetization() = FinalMagnetization(MeasurementLog{Int64,Int64}())
 
 struct AvgHyperedgeCount <: AbstractRunMeasurement
-    log::MeasurementLog{Int64,Float64}
+    log::MeasurementLog{Int64,NamedTuple{(:total, :active),Tuple{Float64,Float64}}}
     label::Int64
 end
 
-AvgHyperedgeCount(size::Int64) = AvgHyperedgeCount(MeasurementLog{Int64,Float64}(),
-                                                   size)
+function AvgHyperedgeCount(size::Int64)
+    return AvgHyperedgeCount(MeasurementLog{Int64,
+                                            NamedTuple{(:total, :active),
+                                                       Tuple{Float64,Float64}}}(), size)
+end

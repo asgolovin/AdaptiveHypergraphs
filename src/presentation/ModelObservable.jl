@@ -234,6 +234,7 @@ end
 function record_measurement!(mo::ModelObservable, measurement::AvgHyperedgeCount)
     size = measurement.label
     avg_hyperedge_count = mean(mo.hyperedge_count[size - 1].log.values[])
-    record!(measurement.log, avg_hyperedge_count)
+    avg_active_count = mean(mo.active_hyperedge_count[size - 1].log.values[])
+    record!(measurement.log, (total=avg_hyperedge_count, active=avg_active_count))
     return measurement
 end
