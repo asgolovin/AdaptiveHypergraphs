@@ -31,9 +31,9 @@ To add a new measurement:
     state_count::Vector{StateCount} = StateCount[]
     hyperedge_count::Vector{HyperedgeCount} = HyperedgeCount[]
     active_hyperedge_count::Vector{ActiveHyperedgeCount} = ActiveHyperedgeCount[]
-    final_hyperedge_dist::Vector{FinalHyperedgeDist} = FinalHyperedgeDist[]
     active_lifetime::Vector{ActiveLifetime} = ActiveLifetime[]
     final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
+    avg_hyperedge_count::Vector{AvgHyperedgeCount} = AvgHyperedgeCount[]
 end
 
 function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
@@ -54,6 +54,8 @@ function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
         elseif type <: HyperedgeCount || type <: ActiveHyperedgeCount
             measurements[sym] = [type(size; log_params...)
                                  for size in 2:max_size]
+        elseif type <: AvgHyperedgeCount
+            measurements[sym] = [type(size) for size in 2:max_size]
         else
             measurements[sym] = [type()]
         end
@@ -229,17 +231,9 @@ function record_measurement!(mo::ModelObservable, measurement::FinalMagnetizatio
     return measurement
 end
 
-# function record_measurement!(mo::ModelObservable, measurement::FinalHyperedgeDist)
-#     # We want to calculate the average value of the hyperdeges after the system has stabilized. 
-#     # Idea: compute the std of the time series starting from t to the end of the simulation 
-#     std_series = Dict{Int64,Vector{Real}}()
-#     for hyperedge_count in mo.hyperedge_series
-#         size = hyperedge_count.size
-#         std_series[size] = []
-#         for t in 1:(length(hyperedge_count.values[]) - 1)
-#             push!(std_series[size], Statistics.std(hyperedge_count.values[][t:end]))
-#         end
-#     end
-#     record!(measurement, collect(values(std_series)))
-#     return measurement
-# end
+function record_measurement!(mo::ModelObservable, measurement::AvgHyperedgeCount)
+    size = measurement.label
+    avg_hyperedge_count = mean(mo.hyperedge_count[size - 1].log.values[])
+    record!(measurement.log, avg_hyperedge_count)
+    return measurement
+end

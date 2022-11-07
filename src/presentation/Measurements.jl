@@ -1,4 +1,5 @@
-export ActiveHyperedgeCount, StateCount, FinalMagnetization, HyperedgeCount, ActiveLifetime
+export ActiveHyperedgeCount, StateCount, FinalMagnetization, HyperedgeCount, ActiveLifetime,
+       AvgHyperedgeCount
 
 using GLMakie
 
@@ -215,8 +216,10 @@ end
 
 FinalMagnetization() = FinalMagnetization(MeasurementLog{Int64,Int64}())
 
-struct FinalHyperedgeDist <: AbstractRunMeasurement
-    log::MeasurementLog{Int64,Int64}
+struct AvgHyperedgeCount <: AbstractRunMeasurement
+    log::MeasurementLog{Int64,Float64}
+    label::Int64
 end
 
-FinalHyperedgeDist() = FinalHyperedgeDist(MeasurementLog{Int64,Int64}())
+AvgHyperedgeCount(size::Int64) = AvgHyperedgeCount(MeasurementLog{Int64,Float64}(),
+                                                   size)

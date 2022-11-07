@@ -14,7 +14,8 @@ PANEL_DEPENDENCIES = Dict{DataType,
         ActiveHyperedgeDistPanel    => [ActiveHyperedgeCount],
         SlowManifoldPanel           => [StateCount, ActiveHyperedgeCount],
         ActiveLifetimePanel         => [ActiveLifetime],
-        FinalMagnetizationPanel     => [FinalMagnetization])
+        FinalMagnetizationPanel     => [FinalMagnetization],
+        AvgHyperedgeCountPanel      => [AvgHyperedgeCount])
 #! format: on
 
 struct Dashboard
@@ -50,7 +51,8 @@ function Dashboard(model::AbstractModel;
                                 ActiveHyperedgeDistPanel,
                                 SlowManifoldPanel,
                                 ActiveLifetimePanel,
-                                FinalMagnetizationPanel],
+                                FinalMagnetizationPanel,
+                                AvgHyperedgeCountPanel],
                    vparams::VisualizationParams,
                    is_interactive::Bool=false)
     #! format: on
@@ -144,11 +146,12 @@ function run!(dashboard::Dashboard, num_steps::Integer)
 
             # stop the simulation early if we run out of active hyperdeges
             if num_active_hyperedges == 0
-                flush_buffers!(mo)
                 active_lifetime = i
                 break
             end
         end
+        flush_buffers!(mo)
+        notify(mo)
         record_measurements!(mo, :run)
     end
     return dashboard

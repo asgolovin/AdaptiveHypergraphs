@@ -139,41 +139,6 @@ function HyperedgeDistPanel(box::GridPosition,
     return HyperedgeDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
-# mutable struct FinalHyperedgeDistPanel <: AbstractTimeSeriesPanel
-#     measurement_logs::Vector{MeasurementLog}
-#     axes::Axis
-#     lines::Vector{Lines}
-#     xlow::Union{Real,Nothing}
-#     xhigh::Union{Real,Nothing}
-#     ylow::Union{Real,Nothing}
-#     yhigh::Union{Real,Nothing}
-# end
-# 
-# function FinalHyperedgeDistPanel(box::GridPosition;
-#                                  final_hyperedge_dist::FinalHyperedgeDist,
-#                                  max_size::Int64,
-#                                  hyperedge_colormap)
-#     (xlow, xhigh) = (0, nothing)
-#     (ylow, yhigh) = (-10, nothing)
-#     lines = []
-#     title = "Final distribution of hyperdeges"
-#     ax = Axis(box; title=title)
-#     linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
-#     logs = MeasurementLog[]
-#     for i in 1:(max_size - 1)
-#         l = lines!(ax,
-#                    final_hyperedge_dist.values;)
-#         #color=linecolors[i])
-#         push!(lines, l)
-#         push!()
-#     end
-#     xlims!(ax; low=xlow, high=xhigh)
-#     ylims!(ax; low=ylow, high=yhigh)
-# 
-#     return FinalHyperedgeDistPanel(final_hyperedge_dist, ax, lines, xlow, xhigh, ylow,
-#                                    yhigh)
-# end
-
 mutable struct ActiveHyperedgeDistPanel <: AbstractTimeSeriesPanel
     measurement_logs::Vector{MeasurementLog}
     axes::Axis
@@ -237,7 +202,6 @@ function SlowManifoldPanel(box::GridPosition,
     logs = MeasurementLog[]
     push!(logs, state_count[1].log)
     ax = Axis(box[1, 1]; title=title)
-
     for (i, measurement) in enumerate(active_hyperedge_count)
         active_hyperedge_log = measurement.log
         size = measurement.label
@@ -314,6 +278,41 @@ function FinalMagnetizationPanel(box::GridPosition,
     push!(lines, l)
     return FinalMagnetizationPanel([final_magnetization.log], ax, lines, xlow, xhigh, ylow,
                                    yhigh)
+end
+
+mutable struct AvgHyperedgeCountPanel <: AbstractPanel
+    measurement_logs::Vector{MeasurementLog}
+    axes::Axis
+    lines::Vector{Scatter}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function AvgHyperedgeCountPanel(box::GridPosition,
+                                measurements::Dict,
+                                graph_properties::Dict,
+                                vparams::VisualizationParams)
+    avg_hyperedge_count = measurements[:avg_hyperedge_count]
+    max_size = graph_properties[:max_hyperedge_size]
+
+    xlow, xhigh = (0, nothing)
+    ylow, yhigh = (-0.05max_size, nothing)
+    lines = []
+    logs = []
+    title = "Average number of hyperedges"
+    ax = Axis(box[1, 1]; title=title)
+    for size in 2:max_size
+        l = scatter!(ax,
+                     avg_hyperedge_count[size - 1].log.values)
+        push!(logs, avg_hyperedge_count[size - 1].log)
+        push!(lines, l)
+    end
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
+    return AvgHyperedgeCountPanel(logs, ax, lines, xlow, xhigh, ylow,
+                                  yhigh)
 end
 
 function deactivate_lines!(panel::SlowManifoldPanel)
