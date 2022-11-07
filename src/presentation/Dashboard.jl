@@ -10,7 +10,7 @@ PANEL_DEPENDENCIES = Dict{DataType,
                           Vector{DataType}}(
         HypergraphPanel               => [],
         StateDistPanel                => [StateCount],
-        HyperedgeDistPanel            => [HyperedgeCount],
+        HyperedgeDistPanel            => [HyperedgeCount, AvgHyperedgeCount],
         ActiveHyperedgeDistPanel      => [ActiveHyperedgeCount],
         SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount],
         ActiveLifetimePanel           => [ActiveLifetime],
@@ -51,8 +51,7 @@ function Dashboard(model::AbstractModel;
                                 ActiveHyperedgeDistPanel,
                                 SlowManifoldPanel,
                                 ActiveLifetimePanel,
-                                FinalMagnetizationPanel,
-                                AvgHyperedgeCountPanel],
+                                FinalMagnetizationPanel],
                    vparams::VisualizationParams,
                    is_interactive::Bool=false)
     #! format: on

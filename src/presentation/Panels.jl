@@ -122,6 +122,8 @@ function HyperedgeDistPanel(box::GridPosition,
                             graph_properties::Dict,
                             vparams::VisualizationParams)
     hyperedge_count = measurements[:hyperedge_count]
+    avg_hyperedge_count = measurements[:avg_hyperedge_count]
+
     max_size = graph_properties[:max_hyperedge_size]
     num_hyperedges = graph_properties[:num_hyperedges]
     hyperedge_colormap = vparams.hyperedge_colormap
@@ -135,6 +137,16 @@ function HyperedgeDistPanel(box::GridPosition,
     labels = ["hyperedges of size $(m.label)" for m in hyperedge_count]
     ax, lines, logs = _plot_time_series(box, hyperedge_count, lims; title, linecolors,
                                         labels)
+
+    # plot averages over multiple runs
+    for (i, measurement) in enumerate(avg_hyperedge_count)
+        total_mean = @lift mean([v.total for v in $(measurement.log.values)])
+        total_std = @lift std([v.total for v in $(measurement.log.values)])
+
+        hlines!(ax, total_mean; color=:gray)
+        text = @lift "$(round($total_mean, digits=1)) ± $(round($total_std, digits=1))"
+        text!(0.5e6, total_mean; text=text, textsize=16, offset=(0, 5))
+    end
 
     return HyperedgeDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
 end
