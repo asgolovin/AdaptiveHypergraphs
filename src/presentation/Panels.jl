@@ -42,6 +42,41 @@ function HypergraphPanel(box::GridPosition;
     return HypergraphPanel(network, ax, xlow, xhigh, ylow, yhigh)
 end
 
+"""
+Helper function to create plots for `AbstractTimeSeriesPanel`s. 
+"""
+function _plot_time_series(box::GridPosition, measurements::Vector{<:AbstractMeasurement},
+                           lims;
+                           title::String="",
+                           linecolors::Union{Vector,Nothing}=nothing,
+                           labels::Vector{String}=String[])
+    ax = Axis(box[1, 1]; title=title)
+    lines = []
+    logs = MeasurementLog[]
+    for (i, measurement) in enumerate(measurements)
+        kwargs = Dict()
+        if labels != []
+            kwargs[:label] = labels[i]
+        end
+        if linecolors != nothing
+            kwargs[:color] = linecolors[i]
+        end
+        log = measurement.log
+        l = lines!(ax,
+                   log.indices, log.values;
+                   kwargs...)
+        push!(lines, l)
+        push!(logs, log)
+    end
+    (xlow, xhigh, ylow, yhigh) = lims
+    xlims!(ax; low=xlow, high=xhigh)
+    ylims!(ax; low=ylow, high=yhigh)
+    if length(labels) > 0
+        axislegend(ax; labelsize=12)
+    end
+    return ax, lines, logs
+end
+
 mutable struct StateDistPanel <: AbstractTimeSeriesPanel
     measurement_logs::Vector{MeasurementLog}
     axes::Axis
@@ -59,31 +94,16 @@ function StateDistPanel(box::GridPosition,
     num_nodes = graph_properties[:num_nodes]
     state_count = measurements[:state_count]
     node_colormap = vparams.node_colormap
+    num_states = length(keys(state_count))
 
     xlow, xhigh = (0, nothing)
     ylow, yhigh = (-0.05num_nodes, 1.05num_nodes)
+    lims = (xlow, xhigh, ylow, yhigh)
 
-    lines = []
-    title = "Distribution of states"
-    ax = Axis(box; title=title)
-    num_states = length(instances(State))
+    title = "Number of nodes in every state"
     linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
-
-    logs = MeasurementLog[]
-    for (i, measurement) in enumerate(state_count)
-        log = measurement.log
-        l = lines!(ax,
-                   log.indices, log.values;
-                   label="# of $(measurement.label) nodes",
-                   color=linecolors[i])
-        push!(lines, l)
-        push!(logs, log)
-    end
-    xlims!(ax; low=xlow, high=xhigh)
-    ylims!(ax; low=ylow, high=yhigh)
-
-    axislegend(ax; labelsize=12)
-
+    labels = ["# of $(m.label) nodes" for m in state_count]
+    ax, lines, logs = _plot_time_series(box, state_count, lims; title, linecolors)
     return StateDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
@@ -108,24 +128,13 @@ function HyperedgeDistPanel(box::GridPosition,
 
     xlow, xhigh = (0, nothing)
     ylow, yhigh = (-0.05num_hyperedges, nothing)
-    lines = []
-    title = "Distribution of hyperdeges"
-    ax = Axis(box; title=title)
-    linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
-    logs = MeasurementLog[]
-    for (i, measurement) in enumerate(hyperedge_count)
-        log = measurement.log
-        size = measurement.label
-        l = lines!(ax,
-                   log.indices, log.values;
-                   label="hyperedges of size $(size)",
-                   color=linecolors[size - 1])
-        push!(lines, l)
-        push!(logs, log)
-    end
-    xlims!(ax; low=xlow, high=xhigh)
-    ylims!(ax; low=ylow, high=yhigh)
-    axislegend(ax; labelsize=12)
+    lims = (xlow, xhigh, ylow, yhigh)
+
+    title = "Number of hyperedges"
+    linecolors = get(colorschemes[hyperedge_colormap], 1:(max_size - 1), (1, max_size))
+    labels = ["hyperedges of size $(m.label)" for m in hyperedge_count]
+    ax, lines, logs = _plot_time_series(box, hyperedge_count, lims; title, linecolors,
+                                        labels)
 
     return HyperedgeDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
 end
@@ -186,24 +195,14 @@ function ActiveHyperedgeDistPanel(box::GridPosition,
 
     xlow, xhigh = (0, nothing)
     ylow, yhigh = (-0.05num_hyperedges, nothing)
+    lims = (xlow, xhigh, ylow, yhigh)
 
-    lines = []
     title = "Number of active hyperedges"
-    ax = Axis(box[1, 1]; title=title)
-    linecolors = get(colorschemes[hyperedge_colormap], 1:max_size, (1, max_size))
-    logs = MeasurementLog[]
-    for (i, measurement) in enumerate(active_hyperedge_count)
-        log = measurement.log
-        size = measurement.label
-        l = lines!(ax,
-                   log.indices, log.values;
-                   label="hyperedges of size $(size)",
-                   color=linecolors[size - 1])
-        push!(lines, l)
-        push!(logs, log)
-    end
-    xlims!(ax; low=xlow, high=xhigh)
-    ylims!(ax; low=ylow, high=yhigh)
+    linecolors = get(colorschemes[hyperedge_colormap], 1:(max_size - 1), (1, max_size))
+    labels = ["hyperedges of size $(m.label)" for m in active_hyperedge_count]
+    ax, lines, logs = _plot_time_series(box, active_hyperedge_count, lims; title,
+                                        linecolors, labels)
+
     return ActiveHyperedgeDistPanel(logs, ax, lines, xlow, xhigh,
                                     ylow, yhigh)
 end
