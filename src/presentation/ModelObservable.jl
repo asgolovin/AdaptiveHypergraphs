@@ -1,6 +1,6 @@
 using Statistics, Parameters
 
-export ModelObservable, step!, flush_buffers!, record_time_series, record_active_lifetime!,
+export ModelObservable, step!, flush_buffers!, notify, record_measurements!,
        rebind_model!, clear!
 
 """
@@ -20,11 +20,12 @@ on those measurements only.
 To add a new measurement:
     1. create a new struct in Measuremnts.jl either of type AbstractStepMeasurement or AbstractRunMeasurement
     2. add a `record_measurement!(mo::ModelObservable, measurement::YourNewMeasurement)` function.
-    3. make the measurement a property of ModelObservable. The name of the field should be the name of the struct converted to snake_case as returned by _snake_case(YourNewMeasurement)
-    4. if the constructor of the measurement requires any special arguments, add them to the `arguments` Dict in the ModelObservable constructor. 
+    3. make the measurement a property of ModelObservable. The name of the field should be the name of the struct converted to snake_case as returned by `_snake_case(YourNewMeasurement)`
+    4. it might be necessary to add a case distinction to create the measurement in the constructor of `ModelObservable`. 
 """
 @with_kw mutable struct ModelObservable{M<:AbstractModel}
     time::Int64
+    buffer_size::Int64
     model::Observable{M}
     network::Observable{HyperNetwork}
     state_count::Vector{StateCount} = StateCount[]
@@ -59,14 +60,10 @@ function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
     end
 
     return ModelObservable(; time=time,
+                           buffer_size=buffer_size,
                            model=Observable(model),
                            network=Observable(model.network),
                            measurements...)
-    #mo = new{M}(time,
-    #            Observable(model),
-    #            Observable(model.network);
-    #            measurements...)
-    #return record_measurements!(mo, :step)
 end
 
 function Base.getproperty(obj::ModelObservable, sym::Symbol)
@@ -85,12 +82,24 @@ function Base.getproperty(obj::ModelObservable, sym::Symbol)
 end
 
 """
+    _snake_case(str:S) where S <: AbstractString
+
 Helper function to convert type names in CamelCase to property names in snake_case.
+
+Copied from: https://stackoverflow.com/questions/70007955/julia-implementation-for-converting-string-to-snake-case-camelcase
 """
-function _snake_case(str::String)
-    patt = Regex("[A-Z][a-z]*")
-    indices = findall(patt, str)
-    return join([lowercase(str[i]) for i in indices], "_")
+function _snake_case(str::S) where {S<:AbstractString}
+    wordpat = r"
+    ^[a-z]+ |                  #match initial lower case part
+    [A-Z][a-z]+ |              #match Words Like This
+    \d*([A-Z](?=[A-Z]|$))+ |   #match ABBREV 30MW 
+    \d+                        #match 1234 (numbers without units)
+    "x
+
+    smartlower(word) = any(islowercase, word) ? lowercase(word) : word
+    words = [smartlower(m.match) for m in eachmatch(wordpat, str)]
+
+    return join(words, "_")
 end
 
 """
@@ -102,6 +111,10 @@ function step!(mo::ModelObservable)
     network_changed = step!(mo.model[])
     network_changed && notify(mo.model)
     record_measurements!(mo, :step)
+    if mo.time % mo.buffer_size == 0
+        sleep(0.001)
+        notify(mo)
+    end
     mo.time += 1
     return mo
 end
@@ -123,6 +136,11 @@ function flush_buffers!(mo::ModelObservable)
     return mo
 end
 
+"""
+    notify(mo::ModelObservable)
+
+Notify all observables in the ModelObservable.
+"""
 function GLMakie.notify(mo::ModelObservable)
     notify(mo.network)
     for measurement in mo.measurements
@@ -132,11 +150,11 @@ function GLMakie.notify(mo::ModelObservable)
 end
 
 """
-record_measurements!(mo::ModelObservable)
+    record_measurements!(mo::ModelObservable)
 
 Record measurements which fit the corresponding context. 
 
-context can be either :step or :run
+context can be either `:step` or `:run`.
 """
 function record_measurements!(mo::ModelObservable, context::Symbol)
     if context == :step
@@ -154,7 +172,7 @@ function record_measurements!(mo::ModelObservable, context::Symbol)
 end
 
 """
-rebind_model!(mo::ModelObservable, model::AbstractModel)
+    rebind_model!(mo::ModelObservable, model::AbstractModel)
 
 Rebind the observables to track the new `model`.
 """
@@ -169,7 +187,7 @@ end
 """
     clear!(mo::ModelObservable)
 
-    Clear the history buffers in the ModelObservable.
+Clear the history buffers in the ModelObservable.
 """
 function clear!(mo::ModelObservable)
     for measurement in mo.step_measurements

@@ -3,6 +3,9 @@ export Dashboard, run!, record!, reset!
 using DrWatson
 
 #! format: off
+"""
+A list of dependencies of Panels on Measurements. 
+"""
 PANEL_DEPENDENCIES = Dict{DataType,
                           Vector{DataType}}(
         HypergraphPanel             => [],
@@ -21,25 +24,26 @@ struct Dashboard
     is_interactive::Bool
 end
 
+#! format: off
 """
-    Dashboard(model::AbstractModel;
-              plot_hypergraph::Bool=false,
-              plot_states::Bool=true,
-              plot_hyperedges::Bool=true,
-              plot_active_hyperedges::Bool=true,
-              is_interactive::Bool=false,
-              node_colormap = :RdYlGn_6,
-              hyperedge_colormap = :thermal)
+    function Dashboard(model::AbstractModel;
+                       panel_types=[StateDistPanel,
+                                   HyperedgeDistPanel,
+                                   ActiveHyperedgeDistPanel,
+                                   SlowManifoldPanel,
+                                   ActiveLifetimePanel,
+                                   FinalMagnetizationPanel],
+                       vparams::VisualizationParams,
+                       is_interactive::Bool=false)
 
 A visualization of the evolution of the hypergraph during the simulation.
 
 # Arguments
-- `skip_points::Int64=1`: if this parameter is set to a value greater than one, then 
-not all datapoints are shown in the plot. Instead, the points are selected with a stride 
-equal to `skip_points`: `1:step_points:end`. This helps to improve perofrmance when the 
-number of time steps is very large. 
+- `model::AbstractModel` - the model on which the dashboard is based on. 
+- `panel_types::Vector{DataType}` - a list of types of `Panel`s to plot. 
+- `vparams::VisualizationParams` - parameters used for visualization
+- `is_interactive::Bool` - if true, the Dashboard will have interactive GUI elements to controll the simulation. Not implemented yet. 
 """
-#! format: off
 function Dashboard(model::AbstractModel;
                    panel_types=[StateDistPanel,
                                 HyperedgeDistPanel,
@@ -107,13 +111,11 @@ function Dashboard(model::AbstractModel;
 end
 
 """
-    run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
+    run!(dashboard::Dashboard, num_steps::Integer)
 
-Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges. 
-    
-The visualization is updated only once every number of steps given by `buffer_size`.
+Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges.
 """
-function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
+function run!(dashboard::Dashboard, num_steps::Integer)
     mo = dashboard.mo
 
     if dashboard.is_interactive
@@ -132,9 +134,7 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
         for i in 1:num_steps
             step!(mo)
             num_active_hyperedges = get_num_active_hyperedges(mo.network[])
-            if i % buffer_size == 0 || num_active_hyperedges == 0
-                sleep(0.01)
-                notify(mo)
+            if i % mo.buffer_size == 0 || num_active_hyperedges == 0
                 for panel in dashboard.panels
                     if !(typeof(panel) <: ActiveLifetimePanel)
                         set_lims!(panel)
@@ -155,20 +155,20 @@ function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
 end
 
 """
-    record!(dashboard::Dashboard, filename::String, num_steps::Integer, buffer_size::Integer, framerate::Integer)
+    record!(dashboard::Dashboard, filename::String, num_steps::Int64, framerate::Int64)
 
 Run the simulation for `num_steps` time steps and record a video of the dashboard. 
 
 The video is saved to ./videos in a .mp4 format. `filename` should only contain the name 
 of the file without the extension.
 """
-function record!(dashboard::Dashboard, filename::String, num_steps::Integer,
-                 buffer_size::Integer, framerate::Integer)
+function record!(dashboard::Dashboard, filename::String, num_steps::Int64,
+                 framerate::Int64)
     savepath = joinpath("videos", filename * ".mp4")
 
-    num_updates = num_steps ÷ buffer_size
+    num_updates = num_steps ÷ mo.buffer_size
     record(dashboard.fig, savepath, 1:num_updates; framerate=framerate, compression=1) do i
-        return run!(dashboard, buffer_size, buffer_size)
+        return run!(dashboard, mo.buffer_size)
     end
     return dashboard
 end

@@ -27,7 +27,7 @@ end
         auto_notify=true) where {IndexType,ValueType}
 
 # Arguments
-- `skip_points::Integer = 1` - if this is greater than one, then only every nth point gets written to the observables. Only works if `buffer_size` > 1
+- `skip_points::Integer = 1` - if this is greater than one, then only every n-th point gets written to the observables. Only works if `buffer_size` > 1
 - `buffer_size::Integer = 1` - if this is greater than one, then the points are written to a non-Observable buffer of given size. Once the buffer is full, they are pushed to the actual Observable. This improves performance if the updates are very frequent.
 - `auto_notify::Bool = true` - if set to true, any operations which modify the observables will automatically notify them. In the other case, this has to be done explicitly using notify(log). This can be used in cases where plots depend on multiple different logs and it is important to ensure that all logs are updated with the new values before the observables are triggered. 
 """
@@ -44,6 +44,12 @@ function MeasurementLog{IndexType,ValueType}(; skip_points=1,
                           buffer_size, auto_notify, remainder, num_points)
 end
 
+"""
+    record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
+        value::ValueType) where {IndexType,ValueType}
+
+Push a new pair of (`index`, `value`) into the log. 
+"""
 function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
                  value::ValueType) where {IndexType,ValueType}
     if log.buffer_size > 1
@@ -74,6 +80,11 @@ function record!(log::MeasurementLog{IndexType,ValueType},
     return record!(log, index, value)
 end
 
+"""
+    flush_buffers!(log::MeasurementLog)
+
+Write the values in the buffers to the observables. If `auto_notify` is set to `true`, the observables are notified after the update. 
+"""
 function flush_buffers!(log::MeasurementLog)
     # crazy mod magic to account for the fact that skip_points might not divide buffer_size
     skip = log.skip_points
@@ -96,6 +107,11 @@ function GLMakie.notify(log::MeasurementLog)
     return nothing
 end
 
+"""
+    save(io::IO, log::MeasurementLog)
+
+Write the log into the IO stream as a CSV table separated by comma. 
+"""
 function save(io::IO, log::MeasurementLog)
     indices = log.indices[]
     values = log.values[]
@@ -105,6 +121,11 @@ function save(io::IO, log::MeasurementLog)
     return nothing
 end
 
+"""
+    clear(log::MeasurementLog)
+
+Empty all vectors and reset the log. 
+"""
 function clear!(log::MeasurementLog)
     empty!(log.indices[])
     empty!(log.values[])
@@ -185,6 +206,9 @@ end
 
 ActiveLifetime() = ActiveLifetime(MeasurementLog{Int64,Int64}())
 
+"""
+Measures the magnetization in the end of the simulation. 
+"""
 struct FinalMagnetization <: AbstractRunMeasurement
     log::MeasurementLog{Int64,Int64}
 end
