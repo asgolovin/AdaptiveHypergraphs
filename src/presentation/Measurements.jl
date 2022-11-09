@@ -29,11 +29,11 @@ end
 
 # Arguments
 - `skip_points::Integer = 1` - if this is greater than one, then only every n-th point gets written to the observables. Only works if `buffer_size` > 1
-- `buffer_size::Integer = 1` - if this is greater than one, then the points are written to a non-Observable buffer of given size. Once the buffer is full, they are pushed to the actual Observable. This improves performance if the updates are very frequent.
+- `buffer_size::Integer = 0` - if this is greater than zero, then the points are written to a non-Observable buffer of given size. Once the buffer is full, they are pushed to the actual Observable. This improves performance if the updates are very frequent.
 - `auto_notify::Bool = true` - if set to true, any operations which modify the observables will automatically notify them. In the other case, this has to be done explicitly using notify(log). This can be used in cases where plots depend on multiple different logs and it is important to ensure that all logs are updated with the new values before the observables are triggered. 
 """
 function MeasurementLog{IndexType,ValueType}(; skip_points=1,
-                                             buffer_size=1,
+                                             buffer_size=0,
                                              auto_notify=true) where {IndexType,ValueType}
     indices = Observable(IndexType[])
     values = Observable(ValueType[])
@@ -41,6 +41,21 @@ function MeasurementLog{IndexType,ValueType}(; skip_points=1,
     buffered_values = ValueType[]
     remainder = 0
     num_points = 0
+    return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
+                          buffer_size, auto_notify, remainder, num_points)
+end
+
+function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexType}},
+                                             values::Observable{Vector{ValueType}}) where {IndexType,
+                                                                                           ValueType}
+    @assert length(indices[]) == length(values[])
+    buffered_indices = IndexType[]
+    buffered_values = ValueType[]
+    skip_points = 1
+    buffer_size = 0
+    auto_notify = true
+    remainder = 0
+    num_points = length(indices[])
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
                           buffer_size, auto_notify, remainder, num_points)
 end
@@ -53,7 +68,7 @@ Push a new pair of (`index`, `value`) into the log.
 """
 function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
                  value::ValueType) where {IndexType,ValueType}
-    if log.buffer_size > 1
+    if log.buffer_size > 0
         # write the values to the buffer
         push!(log.buffered_indices, index)
         push!(log.buffered_values, value)

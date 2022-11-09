@@ -184,6 +184,61 @@ function ActiveHyperedgeDistPanel(box::GridPosition,
                                     ylow, yhigh)
 end
 
+mutable struct ActiveRatioPanel <: AbstractTimeSeriesPanel
+    measurement_logs::Vector{MeasurementLog}
+    axes::Axis
+    lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function ActiveRatioPanel(box::GridPosition,
+                          measurements::Dict,
+                          graph_properties::Dict,
+                          vparams::VisualizationParams)
+    active_hyperedge_count = measurements[:active_hyperedge_count]
+    max_size = graph_properties[:max_hyperedge_size]
+    num_hyperedges = graph_properties[:num_hyperedges]
+    hyperedge_colormap = vparams.hyperedge_colormap
+
+    xlow, xhigh = (0, nothing)
+    ylow, yhigh = (-1, nothing)
+
+    title = "Ratio of active hyperedges"
+    linecolors = get(colorschemes[hyperedge_colormap], 1:(max_size - 1), (1, max_size))
+    labels = ["hyperedges of size $(m.label)" for m in active_hyperedge_count]
+
+    size_two_hyperedges = active_hyperedge_count[1].log.values
+
+    lines = []
+    logs = []
+
+    ax = Axis(box[1, 1]; title=title)
+    for (i, measurement) in enumerate(active_hyperedge_count)
+        log = measurement.log
+        size = measurement.label
+
+        if size == 2
+            # for hyperedges of size 2 the ratio is fixed to one
+            ratio = lift(x -> ones(length(x)), log.indices)
+        else
+            ratio = lift((x, y) -> x ./ y, log.values, size_two_hyperedges)
+        end
+        ratio_log = MeasurementLog{Int64,Float64}(log.indices, ratio)
+
+        l = lines!(ax,
+                   log.indices, ratio;
+                   label="hyperedges of size $(size)",
+                   color=linecolors[size - 1])
+        push!(lines, l)
+        push!(logs, ratio_log)
+    end
+
+    return ActiveRatioPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
+end
+
 mutable struct SlowManifoldPanel <: AbstractPanel
     measurement_logs::Vector{MeasurementLog}
     axes::Axis
