@@ -7,10 +7,9 @@ using REPL.TerminalMenus
 export start_simulation
 
 function start_simulation(params::InputParams)
-    nparams, mparams, vparams, bparams = params.network_params,
-                                         params.model_params,
-                                         params.visualization_params,
-                                         params.batch_params
+    bparams = params.batch_params
+    vparams = params.visualization_params
+
     # turns on a prompt if the data should be saved. 
     if bparams.prompt_for_save
         save_to_file = _prompt_for_save()
@@ -22,6 +21,13 @@ function start_simulation(params::InputParams)
         save_to_file = false
     end
 
+    # a vector with all possible combinations of all sweeped params
+    param_vector = flatten(params)
+    @show param_vector
+
+    nparams = param_vector[1].network_params
+    mparams = param_vector[1].model_params
+
     n = nparams.num_nodes
     network = HyperNetwork(n, nparams.infected_prob)
     build_RSC_hg!(network, nparams.num_hyperedges)
@@ -30,13 +36,20 @@ function start_simulation(params::InputParams)
 
     dashboard = Dashboard(model; vparams)
 
-    for t in 1:(bparams.batch_size)
-        reset!(dashboard, model)
-        run!(dashboard, mparams.num_time_steps)
-        sleep(0.1)
-        network = HyperNetwork(n, nparams.infected_prob)
-        build_RSC_hg!(network, nparams.num_hyperedges)
-        model = _create_model(network, mparams)
+    for param in param_vector
+        nparams = param.network_params
+        mparams = param.model_params
+
+        for t in 1:(bparams.batch_size)
+            if t != 1
+                network = HyperNetwork(n, nparams.infected_prob)
+                build_RSC_hg!(network, nparams.num_hyperedges)
+                model = _create_model(network, mparams)
+                reset!(dashboard, model)
+            end
+            run!(dashboard, mparams.num_time_steps)
+            sleep(0.1)
+        end
     end
 
     if save_to_file
