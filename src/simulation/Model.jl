@@ -10,7 +10,7 @@ struct DiscrModel{P<:PropagationRule,A<:AdaptivityRule} <: AbstractModel{P,A}
     network::HyperNetwork
     propagation_rule::P
     adaptivity_rule::A
-    adaptivity_prob::Real
+    adaptivity_prob::Float64
 end
 
 """
@@ -52,17 +52,17 @@ mutable struct ContinuousModel{P<:PropagationRule,A<:AdaptivityRule} <: Abstract
     adaptivity_rule::A
     propagation_distr::Distribution
     adaptivity_distr::Distribution
-    propagation_rate::Real
-    adaptivity_rate::Real
-    current_time::Real
+    propagation_rate::Float64
+    adaptivity_rate::Float64
+    current_time::Float64
 end
 
 function ContinuousModel{P,A}(network::HyperNetwork,
                               propagation_rule::P,
                               adaptivity_rule::A,
-                              propagation_rate::Real,
-                              adaptivity_rate::Real) where {P<:PropagationRule,
-                                                            A<:AdaptivityRule}
+                              propagation_rate::Float64,
+                              adaptivity_rate::Float64) where {P<:PropagationRule,
+                                                               A<:AdaptivityRule}
     event_queue = PriorityQueue()
 
     propagation_distr = Exponential(propagation_rate)
