@@ -1,4 +1,4 @@
-using Statistics, Parameters
+using Statistics, Parameters, Polynomials
 
 export ModelObservable, step!, flush_buffers!, notify, record_measurements!,
        rebind_model!, clear!
@@ -13,7 +13,8 @@ MEASUREMENT_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         ActiveHyperedgeCount    => [],
         ActiveLifetime          => [],
         AvgHyperedgeCount       => [HyperedgeCount, ActiveHyperedgeCount],
-        FinalMagnetization      => [])
+        FinalMagnetization      => [],
+        SlowManifoldPeak        => [StateCount, ActiveHyperedgeCount])
 #! format: on
 
 """
@@ -47,6 +48,7 @@ To add a new measurement:
     active_lifetime::Vector{ActiveLifetime} = ActiveLifetime[]
     final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
     avg_hyperedge_count::Vector{AvgHyperedgeCount} = AvgHyperedgeCount[]
+    slow_manifold_peak::Vector{SlowManifoldPeak} = SlowManifoldPeak[]
 end
 
 function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
@@ -82,7 +84,7 @@ function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
         elseif type <: HyperedgeCount || type <: ActiveHyperedgeCount
             measurements[sym] = [type(size; log_params...)
                                  for size in 2:max_size]
-        elseif type <: AvgHyperedgeCount
+        elseif type <: AvgHyperedgeCount || type <: SlowManifoldPeak
             measurements[sym] = [type(size) for size in 2:max_size]
         else
             measurements[sym] = [type()]
@@ -268,5 +270,17 @@ function record_measurement!(mo::ModelObservable, measurement::AvgHyperedgeCount
     avg_hyperedge_count = mean(mo.hyperedge_count[size - 1].log.values[])
     avg_active_count = mean(mo.active_hyperedge_count[size - 1].log.values[])
     record!(measurement.log, (total=avg_hyperedge_count, active=avg_active_count))
+    return measurement
+end
+
+function record_measurement!(mo::ModelObservable, measurement::SlowManifoldPeak)
+    size = measurement.label
+    x = mo.state_count[1].log.values[]
+    y = mo.active_hyperedge_count[size - 1].log.values[]
+    f = Polynomials.fit(x, y, 2) # polynomial fit of degree 2
+    a, b, c = coeffs(f) # f(x) = a + bx + cx^2
+    peak = -b / (2 * c)
+    println("size: $size, peak at $peak")
+    record!(measurement.log, peak)
     return measurement
 end

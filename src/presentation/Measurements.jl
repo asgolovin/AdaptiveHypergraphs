@@ -1,5 +1,5 @@
 export ActiveHyperedgeCount, StateCount, FinalMagnetization, HyperedgeCount, ActiveLifetime,
-       AvgHyperedgeCount
+       AvgHyperedgeCount, SlowManifoldPeak
 
 using GLMakie
 
@@ -242,4 +242,14 @@ function AvgHyperedgeCount(size::Int64)
     return AvgHyperedgeCount(MeasurementLog{Int64,
                                             NamedTuple{(:total, :active),
                                                        Tuple{Float64,Float64}}}(), size)
+end
+
+struct SlowManifoldPeak <: AbstractRunMeasurement
+    log::MeasurementLog{Int64,Float64}
+    label::Int64
+end
+
+function SlowManifoldPeak(size::Int64)
+    log = MeasurementLog{Int64,Float64}()
+    return SlowManifoldPeak(log, size)
 end
