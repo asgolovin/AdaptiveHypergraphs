@@ -78,6 +78,8 @@ function Base.getproperty(obj::ModelObservable, sym::Symbol)
         return filter(x -> typeof(x) <: AbstractStepMeasurement, obj.measurements)
     elseif sym === :run_measurements
         return filter(x -> typeof(x) <: AbstractRunMeasurement, obj.measurements)
+    elseif sym === :batch_measurements
+        return filter(x -> typeof(x) <: AbstractBatchMeasurement, obj.measurements)
     else
         return getfield(obj, sym)
     end
@@ -156,15 +158,17 @@ end
 
 Record measurements which fit the corresponding context. 
 
-context can be either `:step` or `:run`.
+context can be either `:step`, `:run` or `:batch`.
 """
 function record_measurements!(mo::ModelObservable, context::Symbol)
     if context == :step
         measurements = mo.step_measurements
     elseif context == :run
         measurements = mo.run_measurements
+    elseif context == :batch
+        measurements = mo.batch_measurements
     else
-        raise(ArgumentError("context should be either :step or :run."))
+        raise(ArgumentError("context should be either :step, :run or :batch."))
     end
 
     for measurement in measurements

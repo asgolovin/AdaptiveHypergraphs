@@ -161,6 +161,8 @@ abstract type AbstractStepMeasurement <: AbstractMeasurement end
 
 abstract type AbstractRunMeasurement <: AbstractMeasurement end
 
+abstract type AbstractBatchMeasurement <: AbstractMeasurement end
+
 # ====================================================================================
 # ------------------------------- Step Measurements ----------------------------------
 
