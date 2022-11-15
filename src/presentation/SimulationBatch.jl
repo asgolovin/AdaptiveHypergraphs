@@ -22,7 +22,7 @@ function start_simulation(params::InputParams)
     end
 
     # a vector with all possible combinations of all sweeped params
-    param_vector = flatten(params)
+    param_vector = expand(params)
     @show param_vector
 
     nparams = param_vector[1].network_params
