@@ -6,8 +6,7 @@ using DrWatson
 """
 A list of dependencies of Panels on Measurements. 
 """
-PANEL_DEPENDENCIES = Dict{DataType,
-                          Vector{DataType}}(
+PANEL_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         HypergraphPanel               => [],
         StateDistPanel                => [StateCount],
         HyperedgeDistPanel            => [HyperedgeCount, AvgHyperedgeCount],

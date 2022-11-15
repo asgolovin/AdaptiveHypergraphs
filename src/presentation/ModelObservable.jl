@@ -3,6 +3,19 @@ using Statistics, Parameters
 export ModelObservable, step!, flush_buffers!, notify, record_measurements!,
        rebind_model!, clear!
 
+#! format: off
+"""
+A list of dependencies of Measurements on other Measurements. 
+"""
+MEASUREMENT_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
+        StateCount              => [],
+        HyperedgeCount          => [],
+        ActiveHyperedgeCount    => [],
+        ActiveLifetime          => [],
+        AvgHyperedgeCount       => [HyperedgeCount, ActiveHyperedgeCount],
+        FinalMagnetization      => [])
+#! format: on
+
 """
     ModelObservable{M <: AbstarctModel}
 
@@ -42,6 +55,21 @@ function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
     time = 0
 
     max_size = get_max_hyperedge_size(model.network)
+
+    # the required measurements from measurement_types might depend on other measurements. 
+    # We need to add them to the list.
+    buffer = measurement_types
+    measurement_types = []
+    while length(buffer) > 0
+        mtype = pop!(buffer)
+        if !(mtype in measurement_types)
+            push!(measurement_types, mtype)
+        end
+        for dependency in MEASUREMENT_DEPENDENCIES[mtype]
+            push!(buffer, dependency)
+        end
+    end
+
     # instantiate only the required measurements
     measurements = Dict()
     log_params = Dict(:skip_points => skip_points,
