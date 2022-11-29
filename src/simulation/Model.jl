@@ -83,7 +83,7 @@ function ContinuousModel{P,A}(network::HyperNetwork,
                 event_type = adapt
             end
             time = rand(distr)
-            event = Event(hyperedge, time, event_type)
+            event = Event(hyperedge, time, event_type, true)
             next_event_time[hyperedge] = 0.0
             enqueue!(event_queue, event, event.time)
         end
@@ -105,10 +105,38 @@ end
 
 @enum EventType propagate = 0 adapt = 1
 
-struct Event
+mutable struct Event
     hyperedge::Integer
     time::Real
     action::EventType
+    active::Bool
+end
+
+struct IndexedQueues{K,V,I}
+    queues::Dict{I,PriorityQueue{K,V}}
+    get_index::Function
+end
+
+function IndexedQueues{K,V,I}(get_index::Function) where {K,V,I}
+    queues = Dict{I,PriorityQueue{K,V}}()
+    return IndexedQueues(queues, get_index)
+end
+
+Base.length(iq::IndexedQueues) = sum([length(q) for q in values(iq.queues)])
+Base.isempty(iq::IndexedQueues) = all([isempty(q) for q in values(iq.queues)])
+
+function DataStructures.enqueue!(queue::IndexedQueues{K,V,I}, key::K, value::V,
+                                 index::I) where {K,V,I}
+    if !(index in keys(queue.queues))
+        queue.queues[index] = PriorityQueue{K,V}()
+    end
+    return enqueue!(queue.queues[index], key, value)
+end
+
+function DataStructures.enqueue!(queue::IndexedQueues{K,V,I}, key::K,
+                                 value::V) where {K,V,I}
+    index = queue.get_index(key)
+    return enqueue!(queue, key, value, index)
 end
 
 function step!(model::ContinuousModel)
@@ -122,6 +150,10 @@ function step!(model::ContinuousModel)
     end
 
     event = dequeue!(model.event_queue)
+    while !event.active
+        event = dequeue!(model.event_queue)
+    end
+
     model.current_time = event.time
 
     source_hyperedge = event.hyperedge
@@ -198,7 +230,7 @@ Remove all events belonging to the hyperedge `hyperedge`
 function _remove_events!(queue::PriorityQueue, hyperedge::Integer)
     for (event, _) in queue
         if event.hyperedge == hyperedge
-            delete!(queue, event)
+            event.active = false
         end
     end
     return queue
@@ -219,7 +251,7 @@ function _add_event!(model::ContinuousModel, hyperedge::Integer)
         event_type = adapt
     end
     event_time = model.current_time + rand(distr)
-    event = Event(hyperedge, event_time, event_type)
+    event = Event(hyperedge, event_time, event_type, true)
     return enqueue!(model.event_queue, event, event.time)
 end
 
