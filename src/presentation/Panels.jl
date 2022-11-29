@@ -144,8 +144,9 @@ function HyperedgeDistPanel(box::GridPosition,
         total_std = @lift std([v.total for v in $(measurement.log.values)])
 
         hlines!(ax, total_mean; color=:gray)
-        text = @lift "$(round($total_mean, digits=1)) ± $(round($total_std, digits=1))"
-        text!(0.5e6, total_mean; text=text, textsize=16, offset=(0, 5))
+        label = @lift "$(round($total_mean, digits=1)) ± $(round($total_std, digits=1))"
+        text!(label; space=:relative, position=Point2f(0.5, 0.5))
+        # text!(xpos, total_mean; text=text, textsize=16, offset=(0, 5))
     end
 
     return HyperedgeDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
@@ -226,7 +227,7 @@ function ActiveRatioPanel(box::GridPosition,
         else
             ratio = lift((x, y) -> x ./ y, log.values, size_two_hyperedges)
         end
-        ratio_log = MeasurementLog{Int64,Float64}(log.indices, ratio)
+        ratio_log = MeasurementLog{Float64,Float64}(log.indices, ratio)
 
         l = lines!(ax,
                    log.indices, ratio;

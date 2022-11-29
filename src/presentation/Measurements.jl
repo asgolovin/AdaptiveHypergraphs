@@ -172,12 +172,12 @@ abstract type AbstractBatchMeasurement <: AbstractMeasurement end
 Tracks the absolute number of nodes in every state.
 """
 struct StateCount <: AbstractStepMeasurement
-    log::MeasurementLog{Int64,Int64}
+    log::MeasurementLog{Float64,Int64}
     label::State
 end
 
 function StateCount(state::State; skip_points::Int64, buffer_size::Int64)
-    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size, auto_notify=false)
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return StateCount(log, state)
 end
 
@@ -187,12 +187,12 @@ end
 Tracks the number of hyperedges of every size.
 """
 mutable struct HyperedgeCount <: AbstractStepMeasurement
-    log::MeasurementLog{Int64,Int64}
+    log::MeasurementLog{Float64,Int64}
     label::Int64
 end
 
 function HyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
-    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size, auto_notify=false)
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return HyperedgeCount(log, size)
 end
 
@@ -203,12 +203,12 @@ Tracks the number of active hyperdeges (i.e., hyperedges with at least two nodes
 in different states).
 """
 mutable struct ActiveHyperedgeCount <: AbstractStepMeasurement
-    log::MeasurementLog{Int64,Int64}
+    log::MeasurementLog{Float64,Int64}
     label::Int64
 end
 
 function ActiveHyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
-    log = MeasurementLog{Int64,Int64}(; skip_points, buffer_size, auto_notify=false)
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return ActiveHyperedgeCount(log, size)
 end
 
@@ -219,10 +219,10 @@ end
 Measures the time that the system needs to deplete all active hyperedges. 
 """
 struct ActiveLifetime <: AbstractRunMeasurement
-    log::MeasurementLog{Int64,Int64}
+    log::MeasurementLog{Int64,Float64}
 end
 
-ActiveLifetime() = ActiveLifetime(MeasurementLog{Int64,Int64}())
+ActiveLifetime() = ActiveLifetime(MeasurementLog{Int64,Float64}())
 
 """
 Measures the magnetization in the end of the simulation. 

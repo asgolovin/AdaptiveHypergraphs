@@ -16,7 +16,7 @@ end
 """
 Advances the dynamics of the network by one step. 
 
-Return true if the network has changed, false otherwise. 
+Return if the network has changed and the time step.
 """
 function step!(model::DiscrModel)
     network = model.network
@@ -28,7 +28,7 @@ function step!(model::DiscrModel)
 
     # do nothing if the hyperedge connects vertices with the same state
     if !is_active(network, hyperedge)
-        return false
+        return (false, 1)
     end
 
     p = rand()
@@ -40,7 +40,7 @@ function step!(model::DiscrModel)
         propagate!(network, propagation_rule, hyperedge)
     end
 
-    return true
+    return (true, 1)
 end
 
 mutable struct ContinuousModel{P<:PropagationRule,A<:AdaptivityRule} <: AbstractModel{P,A}
@@ -146,7 +146,7 @@ function step!(model::ContinuousModel)
 
     # Don't do anything if there are no events anymore
     if length(model.event_queue) == 0
-        return false
+        return (false, 0.0)
     end
 
     event = dequeue!(model.event_queue)
@@ -154,6 +154,7 @@ function step!(model::ContinuousModel)
         event = dequeue!(model.event_queue)
     end
 
+    Δt = event.time - model.current_time
     model.current_time = event.time
 
     source_hyperedge = event.hyperedge
@@ -161,7 +162,7 @@ function step!(model::ContinuousModel)
     # Should not be necessary... theoretically
     if !is_active(network, source_hyperedge)
         println("A non-active hyperedge was selected by an event. Something went wrong!")
-        return false
+        return (false, 0.0)
     end
 
     network_changed = false
@@ -219,7 +220,7 @@ function step!(model::ContinuousModel)
         _remove_events!(model.event_queue, source_hyperedge)
     end
 
-    return network_changed
+    return (network_changed, Δt)
 end
 
 """

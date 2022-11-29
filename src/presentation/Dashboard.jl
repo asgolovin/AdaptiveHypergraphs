@@ -23,6 +23,7 @@ struct Dashboard
     panels::Vector{AbstractPanel}
     mo::ModelObservable
     is_interactive::Bool
+    is_discrete::Bool
 end
 
 #! format: off
@@ -66,6 +67,7 @@ function Dashboard(model::AbstractModel;
     end
     measurement_types = unique(measurements)
 
+    is_discrete = typeof(model) <: DiscrModel
     mo = ModelObservable{typeof(model)}(model, measurement_types;
                                         skip_points=vparams.skip_points,
                                         buffer_size=vparams.buffer_size)
@@ -109,7 +111,7 @@ function Dashboard(model::AbstractModel;
         push!(panels, panel)
     end
 
-    return Dashboard(fig, panels, mo, is_interactive)
+    return Dashboard(fig, panels, mo, is_interactive, is_discrete)
 end
 
 """
@@ -123,13 +125,17 @@ function run!(dashboard::Dashboard, num_steps::Integer)
     if dashboard.is_interactive
         # TODO: something should happen here
     else
-        for panel in dashboard.panels
-            if typeof(panel) <: AbstractTimeSeriesPanel
-                panel.xhigh = num_steps
-            elseif typeof(panel) <: ActiveLifetimePanel
-                panel.yhigh = num_steps^1.05
+        # if the model is discrete, set the limits of the panels to the number of steps. 
+        # For a continuous model, we do not know the time in advance. 
+        if dashboard.is_discrete
+            for panel in dashboard.panels
+                if typeof(panel) <: AbstractTimeSeriesPanel
+                    panel.xhigh = num_steps
+                elseif typeof(panel) <: ActiveLifetimePanel
+                    panel.yhigh = num_steps^1.05
+                end
+                set_lims!(panel)
             end
-            set_lims!(panel)
         end
 
         active_lifetime = num_steps

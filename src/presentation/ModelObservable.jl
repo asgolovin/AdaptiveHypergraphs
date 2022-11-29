@@ -38,7 +38,8 @@ To add a new measurement:
     4. it might be necessary to add a case distinction to create the measurement in the constructor of `ModelObservable`. 
 """
 @with_kw mutable struct ModelObservable{M<:AbstractModel}
-    time::Int64
+    time::Float64
+    num_steps::Int64
     buffer_size::Int64
     model::Observable{M}
     network::Observable{HyperNetwork}
@@ -54,7 +55,8 @@ end
 function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
                             skip_points=1,
                             buffer_size=1) where {M<:AbstractModel}
-    time = 0
+    time = 0.0
+    num_steps = 0
 
     max_size = get_max_hyperedge_size(model.network)
 
@@ -92,6 +94,7 @@ function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
     end
 
     return ModelObservable(; time=time,
+                           num_steps=num_steps,
                            buffer_size=buffer_size,
                            model=Observable(model),
                            network=Observable(model.network),
@@ -142,14 +145,15 @@ end
 Progress the model one time step forward and update the history. 
 """
 function step!(mo::ModelObservable)
-    network_changed = step!(mo.model[])
+    network_changed, Δt = step!(mo.model[])
+    mo.time += Δt
+    mo.num_steps += 1
     network_changed && notify(mo.model)
     record_measurements!(mo, :step)
-    if mo.time % mo.buffer_size == 0
+    if mo.num_steps % mo.buffer_size == 0
         sleep(0.001)
         notify(mo)
     end
-    mo.time += 1
     return mo
 end
 
@@ -214,7 +218,8 @@ Rebind the observables to track the new `model`.
 """
 function rebind_model!(mo::ModelObservable, model::AbstractModel)
     clear!(mo)
-    mo.time = 0
+    mo.time = 0.0
+    mo.num_steps = 0
     mo.model[] = model
     mo.network[] = model.network
     return record_measurements!(mo, :step)
