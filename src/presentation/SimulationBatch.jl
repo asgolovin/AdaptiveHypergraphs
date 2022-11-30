@@ -35,12 +35,14 @@ function start_simulation(params::InputParams)
 
     dashboard = Dashboard(model; vparams)
 
-    for param in param_vector
+    for (i, param) in enumerate(param_vector)
+        println("Executing batch $i/$(length(param_vector))")
         nparams = param.network_params
         mparams = param.model_params
 
         for t in 1:(bparams.batch_size)
-            if t != 1
+            # if a model was already created
+            if !(t == 1 && i == 1)
                 network = HyperNetwork(n, nparams.infected_prob)
                 build_RSC_hg!(network, nparams.num_hyperedges)
                 model = _create_model(network, mparams)
