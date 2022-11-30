@@ -23,12 +23,15 @@ function step!(model::DiscrModel)
     propagation_rule = model.propagation_rule
     adaptivity_rule = model.adaptivity_rule
 
+    # Δt is equal to 1/K, where K is the number of hyperdeges
+    Δt = 1 / get_num_hyperedges(network)
+
     # choose a random hyperedge
     hyperedge = rand(get_hyperedges(network))
 
     # do nothing if the hyperedge connects vertices with the same state
     if !is_active(network, hyperedge)
-        return (false, 1)
+        return (false, Δt)
     end
 
     p = rand()
@@ -40,7 +43,7 @@ function step!(model::DiscrModel)
         propagate!(network, propagation_rule, hyperedge)
     end
 
-    return (true, 1)
+    return (true, Δt)
 end
 
 mutable struct ContinuousModel{P<:PropagationRule,A<:AdaptivityRule} <: AbstractModel{P,A}
@@ -145,13 +148,18 @@ function step!(model::ContinuousModel)
     adaptivity_rule = model.adaptivity_rule
 
     # Don't do anything if there are no events anymore
-    if length(model.event_queue) == 0
+    if isempty(model.event_queue)
         return (false, 0.0)
     end
 
     event = dequeue!(model.event_queue)
-    while !event.active
+    while !(event.active || isempty(model.event_queue))
         event = dequeue!(model.event_queue)
+    end
+
+    # check again if we have emptied the queue
+    if isempty(model.event_queue)
+        return (false, 0.0)
     end
 
     Δt = event.time - model.current_time
