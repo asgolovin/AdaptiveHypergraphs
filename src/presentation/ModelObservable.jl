@@ -37,11 +37,12 @@ To add a new measurement:
     3. make the measurement a property of ModelObservable. The name of the field should be the name of the struct converted to snake_case as returned by `_snake_case(YourNewMeasurement)`
     4. it might be necessary to add a case distinction to create the measurement in the constructor of `ModelObservable`. 
 """
-@with_kw mutable struct ModelObservable{M<:AbstractModel}
+@with_kw mutable struct ModelObservable
     time::Float64
     num_steps::Int64
+    skip_points::Int64
     buffer_size::Int64
-    model::Observable{M}
+    model::Observable{AbstractModel}
     network::Observable{HyperNetwork}
     state_count::Vector{StateCount} = StateCount[]
     hyperedge_count::Vector{HyperedgeCount} = HyperedgeCount[]
@@ -52,9 +53,9 @@ To add a new measurement:
     slow_manifold_peak::Vector{SlowManifoldPeak} = SlowManifoldPeak[]
 end
 
-function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
-                            skip_points=1,
-                            buffer_size=1) where {M<:AbstractModel}
+function ModelObservable(model::AbstractModel, measurement_types::Vector{DataType};
+                         skip_points=1,
+                         buffer_size=1)
     time = 0.0
     num_steps = 0
 
@@ -95,6 +96,7 @@ function ModelObservable{M}(model::M, measurement_types::Vector{DataType};
 
     return ModelObservable(; time=time,
                            num_steps=num_steps,
+                           skip_points=skip_points,
                            buffer_size=buffer_size,
                            model=Observable(model),
                            network=Observable(model.network),
