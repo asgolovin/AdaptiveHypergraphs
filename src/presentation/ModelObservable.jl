@@ -103,6 +103,22 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
                            measurements...)
 end
 
+function Base.show(io::IO, mo::ModelObservable)
+    return print("ModelObservable(model::$(typeof(mo.model[])))")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", mo::ModelObservable)
+    println(io, "ModelObservable of a $(typeof(mo.model[]))")
+    println(io, "  time: $(mo.time)")
+    println(io, "  num_steps: $(mo.num_steps)")
+    step_measurements = join(mo.step_measurements, ", ")
+    run_measurements = join(mo.run_measurements, ", ")
+    batch_measurements = join(mo.batch_measurements, ", ")
+    println(io, "  step measurements: [$step_measurements]")
+    println(io, "  run measurements: [$run_measurements]")
+    return println(io, "  batch measurements: [$batch_measurements]")
+end
+
 function Base.getproperty(obj::ModelObservable, sym::Symbol)
     if sym === :measurements
         names = fieldnames(ModelObservable)

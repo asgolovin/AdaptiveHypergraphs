@@ -119,6 +119,29 @@ function HyperNetwork(n::Integer, p0::AbstractFloat)
     return HyperNetwork(n, node_state)
 end
 
+function Base.show(io::IO, network::HyperNetwork)
+    num_nodes = get_num_nodes(network)
+    return print(io, "HyperNetwork($num_nodes)")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", network::HyperNetwork)
+    num_nodes = get_num_nodes(network)
+    num_hyperedges = get_num_hyperedges(network)
+
+    println(io, "HyperNetwork with $num_nodes nodes and $num_hyperedges hyperedges")
+    println(io, "states:")
+    for state in instances(State)
+        println(io, "  $state => $(network.state_count[state]) nodes")
+    end
+    println(io, "hyperedges:")
+    for size in 2:get_max_hyperedge_size(network)
+        num_hyperedges = network.hyperedge_dist[size]
+        num_active = network.active_hyperedges[size]
+        println(io,
+                "  size $size => $num_hyperedges hyperdeges, $num_active/$num_hyperedges active")
+    end
+end
+
 # ====================================================================================
 # ----------------------------- GRAPH MANIPULATION -----------------------------------
 
@@ -138,6 +161,11 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     # update hyperedge_dist
     new_size = length(nodes)
     _increment!(network.hyperedge_dist, new_size)
+
+    # increment active hyperedges too to fill in the gap, but reset it for now
+    # this is really ugly, I know, I don't wanna fix it rn
+    _increment!(network.active_hyperedges, new_size)
+    network.active_hyperedges[new_size] -= 1
 
     # update uid
     network.max_hyperedge_uid += 1

@@ -60,6 +60,28 @@ function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexTyp
                           buffer_size, auto_notify, remainder, num_points)
 end
 
+function Base.show(io::IO, log::MeasurementLog)
+    return print(io, "$(typeof(log))()")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", log::MeasurementLog)
+    println(io, log)
+
+    indices = log.indices[]
+    values = log.values[]
+    if length(log.indices[]) > 10
+        first_indices = join(indices[1:5], ", ")
+        first_values = join(values[1:5], ", ")
+        last_indices = join(indices[(end - 4):end], ", ")
+        last_values = join(values[(end - 4):end], ", ")
+        indices = "[$first_indices, ..., $last_indices]"
+        values = "[$first_values, ..., $last_values]"
+    end
+    println(io, "  indices: $indices")
+    println(io, "  values: $values")
+    return println(io, "  buffer: $(length(log.buffered_indices))/$(log.buffer_size) full")
+end
+
 """
     record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
         value::ValueType) where {IndexType,ValueType}
@@ -163,6 +185,21 @@ abstract type AbstractRunMeasurement <: AbstractMeasurement end
 
 abstract type AbstractBatchMeasurement <: AbstractMeasurement end
 
+function Base.show(io::IO, meas::AbstractMeasurement)
+    if :label in propertynames(meas)
+        arguments = "$(meas.label)"
+    else
+        arguments = ""
+    end
+    return print(io, "$(typeof(meas))($arguments)")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", meas::AbstractMeasurement)
+    println(io, meas)
+    print(io, " log: ")
+    return show(io, MIME("text/plain"), meas.log)
+end
+
 # ====================================================================================
 # ------------------------------- Step Measurements ----------------------------------
 
@@ -176,7 +213,7 @@ struct StateCount <: AbstractStepMeasurement
     label::State
 end
 
-function StateCount(state::State; skip_points::Int64, buffer_size::Int64)
+function StateCount(state::State; skip_points::Int64=1, buffer_size::Int64=0)
     log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return StateCount(log, state)
 end
@@ -191,7 +228,7 @@ mutable struct HyperedgeCount <: AbstractStepMeasurement
     label::Int64
 end
 
-function HyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
+function HyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0)
     log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return HyperedgeCount(log, size)
 end
@@ -207,7 +244,7 @@ mutable struct ActiveHyperedgeCount <: AbstractStepMeasurement
     label::Int64
 end
 
-function ActiveHyperedgeCount(size::Int64; skip_points::Int64, buffer_size::Int64)
+function ActiveHyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0)
     log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return ActiveHyperedgeCount(log, size)
 end
