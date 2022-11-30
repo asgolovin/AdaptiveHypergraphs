@@ -22,7 +22,7 @@ struct Dashboard
     fig::Figure
     panels::Vector{AbstractPanel}
     mo::ModelObservable
-    is_interactive::Bool
+    measurement_types::Vector{DataType}
     is_discrete::Bool
 end
 
@@ -35,8 +35,7 @@ end
                                    SlowManifoldPanel,
                                    ActiveLifetimePanel,
                                    FinalMagnetizationPanel],
-                       vparams::VisualizationParams,
-                       is_interactive::Bool=false)
+                       vparams::VisualizationParams)
 
 A visualization of the evolution of the hypergraph during the simulation.
 
@@ -44,7 +43,6 @@ A visualization of the evolution of the hypergraph during the simulation.
 - `model::AbstractModel` - the model on which the dashboard is based on. 
 - `panel_types::Vector{DataType}` - a list of types of `Panel`s to plot. 
 - `vparams::VisualizationParams` - parameters used for visualization
-- `is_interactive::Bool` - if true, the Dashboard will have interactive GUI elements to controll the simulation. Not implemented yet. 
 """
 function Dashboard(model::AbstractModel;
                    panel_types=[StateDistPanel,
@@ -54,8 +52,7 @@ function Dashboard(model::AbstractModel;
                                 SlowManifoldPanel,
                                 ActiveLifetimePanel,
                                 FinalMagnetizationPanel],
-                   vparams::VisualizationParams,
-                   is_interactive::Bool=false)
+                   vparams::VisualizationParams)
     #! format: on
     fig = Figure(; resolution=(1200, 800))
     display(fig)
@@ -68,15 +65,16 @@ function Dashboard(model::AbstractModel;
     measurement_types = unique(measurements)
 
     is_discrete = typeof(model) <: DiscrModel
-    mo = ModelObservable{typeof(model)}(model, measurement_types;
-                                        skip_points=vparams.skip_points,
-                                        buffer_size=vparams.buffer_size)
+    mo = ModelObservable(model, measurement_types;
+                         skip_points=vparams.skip_points,
+                         buffer_size=vparams.buffer_size)
 
-    # the plots are in the left half of the figure, the interactive controlls on the right
+    # Display plots in the left part of the figure and the info box on the right. 
     plot_box = fig[1, 1] = GridLayout()
-    if is_interactive
-        controls_box = fig[2, 1] = GridLayout()
-    end
+    # info_box = fig[1, 2] = GridLayout()
+
+    # ==========================================================================================
+    # -------------------------------------- PLOTS ---------------------------------------------
 
     # determine the number of rows and columns 
     num_panels = length(panel_types)
@@ -111,7 +109,10 @@ function Dashboard(model::AbstractModel;
         push!(panels, panel)
     end
 
-    return Dashboard(fig, panels, mo, is_interactive, is_discrete)
+    # ==========================================================================================
+    # ------------------------------------ INFO BOX---------------------------------------------
+
+    return Dashboard(fig, panels, mo, measurement_types, is_discrete)
 end
 
 """
@@ -122,44 +123,28 @@ Run the simulation for `num_steps` time steps or until the hypergraph runs out o
 function run!(dashboard::Dashboard, num_steps::Integer)
     mo = dashboard.mo
 
-    if dashboard.is_interactive
-        # TODO: something should happen here
-    else
-        # if the model is discrete, set the limits of the panels to the number of steps. 
-        # For a continuous model, we do not know the time in advance. 
-        if dashboard.is_discrete
+    active_lifetime = num_steps
+    for i in 1:num_steps
+        step!(mo)
+        num_active_hyperedges = get_num_active_hyperedges(mo.network[])
+        if i % mo.buffer_size == 0 || num_active_hyperedges == 0
             for panel in dashboard.panels
-                if typeof(panel) <: AbstractTimeSeriesPanel
-                    panel.xhigh = num_steps
-                elseif typeof(panel) <: ActiveLifetimePanel
-                    panel.yhigh = num_steps^1.05
+                if !(typeof(panel) <: ActiveLifetimePanel)
+                    set_lims!(panel)
                 end
-                set_lims!(panel)
             end
         end
 
-        active_lifetime = num_steps
-        for i in 1:num_steps
-            step!(mo)
-            num_active_hyperedges = get_num_active_hyperedges(mo.network[])
-            if i % mo.buffer_size == 0 || num_active_hyperedges == 0
-                for panel in dashboard.panels
-                    if !(typeof(panel) <: ActiveLifetimePanel)
-                        set_lims!(panel)
-                    end
-                end
-            end
-
-            # stop the simulation early if we run out of active hyperdeges
-            if num_active_hyperedges == 0
-                active_lifetime = i
-                break
-            end
+        # stop the simulation early if we run out of active hyperdeges
+        if num_active_hyperedges == 0
+            active_lifetime = i
+            break
         end
-        flush_buffers!(mo)
-        notify(mo)
-        record_measurements!(mo, :run)
     end
+    flush_buffers!(mo)
+    notify(mo)
+    record_measurements!(mo, :run)
+
     return dashboard
 end
 
