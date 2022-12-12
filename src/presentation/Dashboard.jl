@@ -15,7 +15,7 @@ PANEL_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount, SlowManifoldFit],
         ActiveLifetimePanel           => [ActiveLifetime],
         FinalMagnetizationPanel       => [FinalMagnetization],
-        AvgHyperedgeCountPanel        => [AvgHyperedgeCount])
+        AvgHyperedgeCountPanel        => [AvgHyperedgeCount, SlowManifoldFit])
 #! format: on
 
 struct Dashboard
@@ -51,7 +51,8 @@ function Dashboard(model::AbstractModel;
                                 ActiveRatioPanel,
                                 SlowManifoldPanel,
                                 ActiveLifetimePanel,
-                                FinalMagnetizationPanel],
+                                FinalMagnetizationPanel,
+                                AvgHyperedgeCountPanel],
                    vparams::VisualizationParams)
     #! format: on
     fig = Figure(; resolution=(1200, 800))

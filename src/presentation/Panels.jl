@@ -24,7 +24,7 @@ A subtype of panel that has time on the x-axis.
 abstract type AbstractTimeSeriesPanel <: AbstractPanel end
 
 mutable struct HypergraphPanel <: AbstractPanel
-    network::HyperNetwork
+    network::Observable{HyperNetwork}
     axes::Axis
     xlow::Union{Real,Nothing}
     xhigh::Union{Real,Nothing}
@@ -32,14 +32,18 @@ mutable struct HypergraphPanel <: AbstractPanel
     yhigh::Union{Real,Nothing}
 end
 
-function HypergraphPanel(box::GridPosition;
+function HypergraphPanel(box::GridPosition,
                          network::Observable{HyperNetwork},
-                         node_colormap=:RdYlGn_6,
-                         hyperedge_colormap=:thermal)
-    ax, _ = hypergraphplot(box, mo.network; node_colormap,
+                         graph_properties::Dict,
+                         vparams::VisualizationParams)
+    node_colormap = vparams.node_colormap
+    hyperedge_colormap = vparams.hyperedge_colormap
+    ax, _ = hypergraphplot(box, network; node_colormap,
                            hyperedge_colormap)
     ax.title = "Visualization of the hypergraph"
-    return HypergraphPanel(network, ax, xlow, xhigh, ylow, yhigh)
+    xlow = 0
+    ylow = 0
+    return HypergraphPanel(network, ax, xlow, nothing, ylow, nothing)
 end
 
 """
@@ -140,15 +144,20 @@ function HyperedgeDistPanel(box::GridPosition,
 
     # plot averages over multiple runs
     for (i, measurement) in enumerate(avg_hyperedge_count)
-        total_mean = @lift mean($(measurement.values))
-        total_std = @lift std($(measurement.values))
+        total_mean = lift(measurement.values) do values
+            if length(values) > 0
+                return values[end]
+            else
+                return 0.0
+            end
+        end
 
         hlines!(ax, total_mean; color=:gray)
         xpos = Observable(0.0)
         xpos = lift(hyperedge_count[i].indices) do count
             return max(xpos[], 0.1 * maximum(count; init=-100.0))
         end
-        label = @lift "$(round($total_mean, digits=1)) ± $(round($total_std, digits=1))"
+        label = @lift "$(round($total_mean, digits=1))"
         text!(xpos, total_mean; text=label, textsize=16, offset=(0, 5))
     end
 
@@ -384,6 +393,7 @@ function AvgHyperedgeCountPanel(box::GridPosition,
                                 graph_properties::Dict,
                                 vparams::VisualizationParams)
     avg_hyperedge_count = measurements[:avg_hyperedge_count]
+    slow_manifold_fit = measurements[:slow_manifold_fit]
     max_size = graph_properties[:max_hyperedge_size]
     hyperedge_colormap = vparams.hyperedge_colormap
 
@@ -396,16 +406,28 @@ function AvgHyperedgeCountPanel(box::GridPosition,
     linecolors = get(colorschemes[hyperedge_colormap], 1:(max_size - 1), (1, max_size))
 
     for size in 2:max_size
-        total_count = @lift [v.total for v in $(avg_hyperedge_count[size - 1].values)]
-        active_count = @lift [v.active for v in $(avg_hyperedge_count[size - 1].values)]
+        total_count = avg_hyperedge_count[size - 1].values
+        active_count = lift(slow_manifold_fit[size - 1].values) do coeffs
+            count = Float64[]
+            for (a, b, c) in coeffs
+                x = -b / (2 * c)
+                push!(count, a + b * x + c * x^2)
+            end
+            return count
+        end
+
         l_total = scatter!(ax,
                            total_count;
                            marker=:circle,
-                           color=linecolors[size - 1])
+                           color=linecolors[size - 1],
+                           markersize=16)
+        lines!(ax, total_count; color=linecolors[size - 1])
         l_active = scatter!(ax,
                             active_count;
                             marker=:cross,
-                            color=linecolors[size - 1])
+                            color=linecolors[size - 1],
+                            markersize=16)
+        lines!(ax, active_count; color=linecolors[size - 1])
         push!(logs, avg_hyperedge_count[size - 1].log)
         push!(lines, l_total)
         push!(lines, l_active)
