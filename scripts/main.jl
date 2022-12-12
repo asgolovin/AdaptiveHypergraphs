@@ -1,5 +1,5 @@
 using AdaptiveHypergraphs
 
-include("../input/continuous_model.jl")
+include("../input/large_network.jl")
 
 start_simulation(params)
