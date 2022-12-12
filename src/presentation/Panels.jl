@@ -259,6 +259,7 @@ function SlowManifoldPanel(box::GridPosition,
                            vparams::VisualizationParams)
     state_count = measurements[:state_count]
     active_hyperedge_count = measurements[:active_hyperedge_count]
+    slow_manifold_fit = measurements[:slow_manifold_fit]
     max_size = graph_properties[:max_hyperedge_size]
     num_nodes = graph_properties[:num_nodes]
     num_hyperedges = graph_properties[:num_hyperedges]
@@ -282,6 +283,23 @@ function SlowManifoldPanel(box::GridPosition,
                    color=linecolors[size - 1])
         push!(lines, l)
         push!(logs, active_hyperedge_log)
+    end
+
+    for (i, measurement) in enumerate(slow_manifold_fit)
+        x = 0:1:num_nodes
+        coeffs = lift(measurement.values) do values
+            if length(values) == 0
+                return (0.0, 0.0, 0.0)
+            else
+                return values[end]
+            end
+        end
+        a = @lift ($coeffs)[1]
+        b = @lift ($coeffs)[2]
+        c = @lift ($coeffs)[3]
+        y = @lift @. $a + $b * x + $c * x^2
+        l = lines!(ax, x, y; color=:red)
+        translate!(l, 0, 0, 2)
     end
 
     return SlowManifoldPanel(logs,
