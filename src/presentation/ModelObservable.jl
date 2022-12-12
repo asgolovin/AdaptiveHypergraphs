@@ -290,9 +290,10 @@ end
 
 function record_measurement!(mo::ModelObservable, measurement::AvgHyperedgeCount)
     size = measurement.label
-    avg_hyperedge_count = mean(mo.hyperedge_count[size - 1].log.values[])
-    avg_active_count = mean(mo.active_hyperedge_count[size - 1].log.values[])
-    record!(measurement.log, (total=avg_hyperedge_count, active=avg_active_count))
+    hyperedge_timeseries = mo.hyperedge_count[size - 1].log.values[]
+    skip = length(hyperedge_timeseries) ÷ 10
+    avg_hyperedge_count = mean(hyperedge_timeseries[skip:end])
+    record!(measurement.log, avg_hyperedge_count)
     return measurement
 end
 
@@ -300,6 +301,11 @@ function record_measurement!(mo::ModelObservable, measurement::SlowManifoldPeak)
     size = measurement.label
     x = mo.state_count[1].log.values[]
     y = mo.active_hyperedge_count[size - 1].log.values[]
+    skip = length(x) ÷ 10
+    @show skip
+    x = x[skip:end]
+    y = y[skip:end]
+
     f = Polynomials.fit(x, y, 2) # polynomial fit of degree 2
     a, b, c = coeffs(f) # f(x) = a + bx + cx^2
     peak = -b / (2 * c)

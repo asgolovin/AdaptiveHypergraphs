@@ -140,13 +140,16 @@ function HyperedgeDistPanel(box::GridPosition,
 
     # plot averages over multiple runs
     for (i, measurement) in enumerate(avg_hyperedge_count)
-        total_mean = @lift mean([v.total for v in $(measurement.log.values)])
-        total_std = @lift std([v.total for v in $(measurement.log.values)])
+        total_mean = @lift mean($(measurement.log.values))
+        total_std = @lift std($(measurement.log.values))
 
         hlines!(ax, total_mean; color=:gray)
+        xpos = Observable(0.0)
+        xpos = lift(hyperedge_count[i].log.indices) do count
+            return max(xpos[], 0.1 * maximum(count; init=-100.0))
+        end
         label = @lift "$(round($total_mean, digits=1)) ± $(round($total_std, digits=1))"
-        text!(label; space=:relative, position=Point2f(0.5, 0.5))
-        # text!(xpos, total_mean; text=text, textsize=16, offset=(0, 5))
+        text!(xpos, total_mean; text=label, textsize=16, offset=(0, 5))
     end
 
     return HyperedgeDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
