@@ -185,6 +185,17 @@ abstract type AbstractRunMeasurement <: AbstractMeasurement end
 
 abstract type AbstractBatchMeasurement <: AbstractMeasurement end
 
+function Base.getproperty(obj::AbstractMeasurement, sym::Symbol)
+    # short-hand to access the log information. 
+    if sym === :values
+        return obj.log.values
+    elseif sym === :indices
+        return obj.log.indices
+    else
+        return getfield(obj, sym)
+    end
+end
+
 function Base.show(io::IO, meas::AbstractMeasurement)
     if :label in propertynames(meas)
         arguments = "$(meas.label)"

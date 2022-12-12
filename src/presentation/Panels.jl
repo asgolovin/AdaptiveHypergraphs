@@ -140,12 +140,12 @@ function HyperedgeDistPanel(box::GridPosition,
 
     # plot averages over multiple runs
     for (i, measurement) in enumerate(avg_hyperedge_count)
-        total_mean = @lift mean($(measurement.log.values))
-        total_std = @lift std($(measurement.log.values))
+        total_mean = @lift mean($(measurement.values))
+        total_std = @lift std($(measurement.values))
 
         hlines!(ax, total_mean; color=:gray)
         xpos = Observable(0.0)
-        xpos = lift(hyperedge_count[i].log.indices) do count
+        xpos = lift(hyperedge_count[i].indices) do count
             return max(xpos[], 0.1 * maximum(count; init=-100.0))
         end
         label = @lift "$(round($total_mean, digits=1)) ± $(round($total_std, digits=1))"
@@ -214,7 +214,7 @@ function ActiveRatioPanel(box::GridPosition,
     linecolors = get(colorschemes[hyperedge_colormap], 1:(max_size - 1), (1, max_size))
     labels = ["hyperedges of size $(m.label)" for m in active_hyperedge_count]
 
-    size_two_hyperedges = active_hyperedge_count[1].log.values
+    size_two_hyperedges = active_hyperedge_count[1].values
 
     lines = []
     logs = []
@@ -313,7 +313,7 @@ function ActiveLifetimePanel(box::GridPosition,
     ax = Axis(box[1, 1]; title=title, yscale=log10)
 
     l = scatter!(ax,
-                 active_lifetime.log.values)
+                 active_lifetime.values)
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
     push!(lines, l)
@@ -343,7 +343,7 @@ function FinalMagnetizationPanel(box::GridPosition,
     title = "Final magnetization after a simulation"
     ax = Axis(box[1, 1]; title=title)
     l = scatter!(ax,
-                 final_magnetization.log.values)
+                 final_magnetization.values)
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
     push!(lines, l)
@@ -378,8 +378,8 @@ function AvgHyperedgeCountPanel(box::GridPosition,
     linecolors = get(colorschemes[hyperedge_colormap], 1:(max_size - 1), (1, max_size))
 
     for size in 2:max_size
-        total_count = @lift [v.total for v in $(avg_hyperedge_count[size - 1].log.values)]
-        active_count = @lift [v.active for v in $(avg_hyperedge_count[size - 1].log.values)]
+        total_count = @lift [v.total for v in $(avg_hyperedge_count[size - 1].values)]
+        active_count = @lift [v.active for v in $(avg_hyperedge_count[size - 1].values)]
         l_total = scatter!(ax,
                            total_count;
                            marker=:circle,
