@@ -88,6 +88,30 @@ function expand(params::InputParams)
     return flattened_params
 end
 
+"""
+    get_expandable_params(params::InputParams)
+
+Get a list of params which are given in a vector-form and will be expanded in `expand(params)`.
+"""
+function get_expandable_params(params::InputParams)
+    param_names = Dict{Symbol,Vector{Symbol}}()
+    param_names[:nparams] = Symbol[]
+    param_names[:mparams] = Symbol[]
+
+    nparams, mparams = params.network_params, params.model_params
+    for key in fieldnames(NetworkParams)
+        if typeof(getfield(nparams, key)) <: Vector
+            push!(param_names[:nparams], key)
+        end
+    end
+    for key in fieldnames(ModelParams)
+        if typeof(getfield(mparams, key)) <: Vector
+            push!(param_names[:mparams], key)
+        end
+    end
+    return param_names
+end
+
 function save_json(io::IO, params::InputParams)
     return JSON3.pretty(io, save_json(params))
 end

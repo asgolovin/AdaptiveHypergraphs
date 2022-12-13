@@ -22,6 +22,7 @@ function start_simulation(params::InputParams)
     end
 
     # a vector with all possible combinations of all sweeped params
+    expandable_params = get_expandable_params(params)
     param_vector = expand(params)
 
     nparams = param_vector[1].network_params
@@ -36,9 +37,16 @@ function start_simulation(params::InputParams)
     dashboard = Dashboard(model; vparams)
 
     for (i, param) in enumerate(param_vector)
-        println("Executing batch $i/$(length(param_vector))")
+        println("\nExecuting batch $i/$(length(param_vector))")
         nparams = param.network_params
         mparams = param.model_params
+
+        for param in expandable_params[:nparams]
+            println("$param = $(getfield(nparams, param))")
+        end
+        for param in expandable_params[:mparams]
+            println("$param = $(getfield(mparams, param))")
+        end
 
         for t in 1:(bparams.batch_size)
             # if a model was already created
