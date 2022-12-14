@@ -8,7 +8,7 @@ export State, I, S, HyperNetwork,
        add_hyperedge!, include_node!, delete_hyperedge!, remove_node!, set_state!,
        get_nodes, get_hyperedges, get_state, get_state_map, get_state_count,
        get_hyperedge_dist, get_num_hyperedges, get_num_active_hyperedges,
-       get_num_nodes, get_node_degree, get_hyperedge_size, get_max_hyperedge_size,
+       get_num_nodes, get_node_degree, get_hyperedge_size, get_max_size,
        is_active, get_twosection_graph, build_regular_hg!, build_RSC_hg!
 
 @enum State::Bool I = false S = true
@@ -144,14 +144,14 @@ function Base.show(io::IO, ::MIME"text/plain", network::HyperNetwork)
         println(io, "  $state => $(network.state_count[state]) nodes")
     end
     println(io, "hyperedges:")
-    for size in 2:get_max_hyperedge_size(network)
+    for size in 2:get_max_size(network)
         num_hyperedges = network.hyperedge_dist[size]
         num_active = network.active_hyperedges[size]
         println(io,
                 "  size $size => $num_hyperedges hyperdeges, $num_active/$num_hyperedges active")
     end
     println(io, "motifs:")
-    for label in get_labels(get_max_hyperedge_size(network))
+    for label in get_labels(get_max_size(network))
         num_motifs = network.motif_count[label]
         println(io,
                 "  $label => $num_motifs motifs")
@@ -425,14 +425,14 @@ function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
 end
 
 """
-    get_max_hyperedge_size(network::HyperNetwork)
+    get_max_size(network::HyperNetwork)
 
 Return the maximum *historical* hyperedge size. 
 
 The "historical" part is important for example for functions which plot the evolution
 of hyperedge sizes over time. 
 """
-function get_max_hyperedge_size(network::HyperNetwork)
+function get_max_size(network::HyperNetwork)
     return maximum(keys(network.hyperedge_dist))
 end
 
@@ -482,7 +482,7 @@ TODO: make this more formal
 function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
     max_dim = length(num_hyperedges)
     n = get_num_nodes(network)
-    for size in 2:get_max_hyperedge_size(network)
+    for size in 2:get_max_size(network)
         network.active_hyperedges[size] = 0
         network.hyperedge_dist[size] = 0
     end

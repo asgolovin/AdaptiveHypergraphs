@@ -73,8 +73,8 @@ end
     @test get_num_hyperedges(network) == 2
     hyperedge_dist = get_hyperedge_dist(network)
     @test hyperedge_dist[4] == 0
-    # get_max_hyperedge_size still returns the historical max value
-    @test get_max_hyperedge_size(network) == 4
+    # get_max_size still returns the historical max value
+    @test get_max_size(network) == 4
 
     # removing a node from a hyperedge of size 2 deletes this hyperedge
     remove_node!(network, 2, 2)

@@ -50,7 +50,7 @@ function Makie.plot!(hgplot::HypergraphPlot)
     # indices of the nodes which belong to the same edge
     edges = Observable(NTuple{2,Int64}[])
     # historical maximum hyperdege size
-    max_hedge_size = get_max_hyperedge_size(network[])
+    max_hedge_size = get_max_size(network[])
     # coordinates of the nodes stacked on top of eack other max_hedge_size times.
     # We need this artificial dublication to draw hyperedges of different sizes in different colors.
     # stacked_node_pos = [1, 2, 3, ..., 1, 2, 3, ..., 1, 2, 3, ...]

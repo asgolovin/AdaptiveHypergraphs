@@ -35,7 +35,7 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToRandom, hyperedg
 
     function hyperedge_conditions(h)
         size = get_hyperedge_size(network, h)
-        max_size = get_max_hyperedge_size(network)
+        max_size = get_max_size(network)
         return h != hyperedge && # has to be a different hyperedge
                size < max_size # the size should not exceed the limit
     end
@@ -69,7 +69,7 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
 
     function hyperedge_conditions(h)
         size = get_hyperedge_size(network, h)
-        max_size = get_max_hyperedge_size(network)
+        max_size = get_max_size(network)
         nodes = get_nodes(network, h)
         return !is_active(network, h) &&  # all nodes of the hyperedge have to be in the same state
                get_state(network, nodes[1]) == required_state && # the state has to be equal to the state of the node

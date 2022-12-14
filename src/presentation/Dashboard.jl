@@ -84,7 +84,7 @@ function Dashboard(model::AbstractModel;
 
     panels = []
     graph_properties = Dict(:num_nodes => get_num_nodes(mo.network[]),
-                            :max_hyperedge_size => get_max_hyperedge_size(mo.network[]),
+                            :max_hyperedge_size => get_max_size(mo.network[]),
                             :num_hyperedges => get_num_hyperedges(mo.network[]))
 
     for (i, type) in enumerate(panel_types)

@@ -59,7 +59,7 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
     time = 0.0
     num_steps = 0
 
-    max_size = get_max_hyperedge_size(model.network)
+    max_size = get_max_size(model.network)
 
     # the required measurements from measurement_types might depend on other measurements. 
     # We need to add them to the list.
