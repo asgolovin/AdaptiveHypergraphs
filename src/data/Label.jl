@@ -73,11 +73,58 @@ function Label(str::String)
 end
 
 function Base.show(io::IO, l::Label)
-    if l.int.A != 0 || l.int.B != 0 || l.right.A != 0 || l.right.B != 0
+    if order(l) == 2
         return print("""Label("[ $(_to_str(l.left)) | $(_to_str(l.int)) | $(_to_str(l.right)) ]")""")
     else
         return print("""Label("[ $(_to_str(l.left)) ]")""")
     end
+end
+
+function order(l::Label)
+    if l.int.A != 0 || l.int.B != 0 || l.right.A != 0 || l.right.B != 0
+        return 2
+    end
+    return 1
+end
+
+function Base.size(l::Label)
+    if order(l) == 1
+        return (l.left.A + l.left.B,)
+    end
+    return (l.left.A + l.left.B + l.int.A + l.int.B,
+            l.right.A + l.right.B + l.int.A + l.int.B)
+end
+
+function all_labels(max_size::Int64)
+    @assert max_size >= 2
+
+    labels = Label[]
+
+    # [An Bm | A / B | Ai Bj]
+    for m in 0:max_size, n in 0:(max_size - m)
+        if n + m < 2
+            continue
+        end
+        # order one
+        push!(labels, Label("[A$n B$m]"))
+
+        # order two
+        for j in 0:(max_size - 1), i in 0:(max_size - 1 - j)
+            if i + j < 1
+                continue
+            end
+            # A in the intersection
+            if n > 0
+                push!(labels, Label("[A$(n-1) B$m | A | A$i B$j]"))
+            end
+            # B in the intersection
+            if m > 0
+                push!(labels, Label("[A$n B$(m-1) | B | A$i B$j]"))
+            end
+        end
+    end
+
+    return labels
 end
 
 function _to_int(m)
