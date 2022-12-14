@@ -29,7 +29,8 @@ function start_simulation(params::InputParams)
     mparams = param_vector[1].model_params
 
     n = nparams.num_nodes
-    network = HyperNetwork(n, nparams.infected_prob)
+    max_size = length(nparams.num_hyperdeges) + 1
+    network = HyperNetwork(n, nparams.infected_prob, max_size)
     build_RSC_hg!(network, nparams.num_hyperedges)
 
     model = _create_model(network, mparams)
@@ -51,7 +52,8 @@ function start_simulation(params::InputParams)
         for t in 1:(bparams.batch_size)
             # if a model was already created
             if !(t == 1 && i == 1)
-                network = HyperNetwork(n, nparams.infected_prob)
+                max_size = length(nparams.num_hyperdeges) + 1
+                network = HyperNetwork(n, nparams.infected_prob, max_size)
                 build_RSC_hg!(network, nparams.num_hyperedges)
                 model = _create_model(network, mparams)
                 reset!(dashboard, model)

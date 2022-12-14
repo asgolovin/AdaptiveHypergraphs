@@ -5,7 +5,7 @@ n = 500
 size = (1000, 1000, 1000)
 
 for b in 1:100
-    local network = HyperNetwork(n, 0.5)
+    local network = HyperNetwork(n, 0.5, 4)
     build_RSC_hg!(network, size)
 
     for he in 1:get_num_hyperedges(network)

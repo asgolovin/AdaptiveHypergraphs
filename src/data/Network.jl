@@ -4,7 +4,7 @@ using Random
 using Graphs
 using Combinatorics
 
-export State, HyperNetwork,
+export State, I, S, HyperNetwork,
        add_hyperedge!, include_node!, delete_hyperedge!, remove_node!, set_state!,
        get_nodes, get_hyperedges, get_state, get_state_map, get_state_count,
        get_hyperedge_dist, get_num_hyperedges, get_num_active_hyperedges,
@@ -34,11 +34,15 @@ mutable struct HyperNetwork
     # The underlying hypergraph
     hg::Hypergraph{Bool,State}
     # Number of nodes
-    num_nodes::Integer
+    num_nodes::Int64
+    # maximum allowed size of hyperedges 
+    max_size::Int64
+    # Motif -> number of motifs
+    motif_count::Dict{Label,Int64}
     # Size -> number of active hyperedges
     active_hyperedges::Dict{Int64,Int64}
     # Number of nodes in a particular state
-    state_count::Dict{State,Integer}
+    state_count::Dict{State,Int64}
     # Size -> number of hyperdeges
     hyperedge_dist::Dict{Int64,Int64}
     # A map of UIDs to the size of the hyperedege
@@ -61,26 +65,42 @@ end
 # ------------------------------- CONSTRUCTORS ---------------------------------------
 
 """
-    HyperNetwork(n::Integer, node_state::Vector{Union{Nothing, State}})
+    HyperNetwork(n::Integer, node_state::Vector{Union{Nothing, State}}, max_size::Int64)
 
 Create an empty network with `n` nodes and no hyperedges.
 `node_state` denotes the state of each node. 
+`max_size` is the maximum allowed hyperedge size. 
 """
-function HyperNetwork(n::Integer,
-                      node_state::Vector{Union{Nothing,State}})
+function HyperNetwork(n::Int64,
+                      node_state::Vector{Union{Nothing,State}},
+                      max_size::Int64)
     @assert length(node_state) == n
+    @assert max_size >= 2
+
+    # create the hypergraph
     matrix = Matrix{Union{Nothing,Bool}}(nothing, (n, 0))
     hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
-    active_hyperedges = Dict(2 => 0)
+
+    # initialize empty data structures
+    motif_count = Dict{Label,Int64}([l => 0 for l in all_labels(max_size)])
+    active_hyperedges = Dict([size => 0 for size in 2:max_size])
     state_count = countmap(node_state)
-    hyperedge_dist = Dict(2 => 0)
+    # fill the missing keys
+    if S ∉ keys(state_count)
+        state_count[S] = 0
+    end
+    if I ∉ keys(state_count)
+        state_count[I] = 0
+    end
+    hyperedge_dist = Dict([size => 0 for size in 2:max_size])
     hyperedge_size = Dict{Int64,Int64}()
     hyperedge_uid = Vector{Int64}()
     uid_to_mid = Dict{Int64,Int64}()
-    return HyperNetwork(hg, n, active_hyperedges,
-                        state_count, hyperedge_dist,
-                        hyperedge_size, hyperedge_uid,
-                        uid_to_mid, 0)
+
+    return HyperNetwork(hg, n, max_size, motif_count,
+                        active_hyperedges, state_count,
+                        hyperedge_dist, hyperedge_size,
+                        hyperedge_uid, uid_to_mid, 0)
 end
 
 """
@@ -89,20 +109,10 @@ end
 Create an empty network with `n` nodes and no hyperedges.
 All nodes are suseptible. 
 """
-function HyperNetwork(n::Integer)
+function HyperNetwork(n::Int64, max_size::Int64)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
     fill!(node_state, S)
-    matrix = Matrix{Union{Nothing,Bool}}(nothing, (n, 0))
-    hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
-    active_hyperedges = Dict(2 => 0)
-    hyperedge_dist = Dict(2 => 0)
-    hyperedge_size = Dict{Int64,Int64}()
-    hyperedge_uid = Vector{Int64}()
-    uid_to_mid = Dict{Int64,Int64}()
-    return HyperNetwork(hg, n, active_hyperedges,
-                        Dict(S => n, I => 0), hyperedge_dist,
-                        hyperedge_size, hyperedge_uid,
-                        uid_to_mid, 0)
+    return HyperNetwork(n, node_state, max_size)
 end
 
 """
@@ -111,12 +121,12 @@ end
 Create an empty network with n nodes and no hyperedges.
 Each node is infected with probability p0. 
 """
-function HyperNetwork(n::Integer, p0::AbstractFloat)
+function HyperNetwork(n::Integer, p0::AbstractFloat, max_size::Int64)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
     for i in 1:n
         rand() < p0 ? node_state[i] = I : node_state[i] = S
     end
-    return HyperNetwork(n, node_state)
+    return HyperNetwork(n, node_state, max_size)
 end
 
 function Base.show(io::IO, network::HyperNetwork)
@@ -154,18 +164,14 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     @assert all(nodes .<= get_num_nodes(network))
     @assert length(nodes) >= 2
     @assert allunique(nodes)
+    @assert length(nodes) <= network.max_size
 
     vertices = Dict([(n, true) for n in nodes])
     mid = SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
 
     # update hyperedge_dist
     new_size = length(nodes)
-    _increment!(network.hyperedge_dist, new_size)
-
-    # increment active hyperedges too to fill in the gap, but reset it for now
-    # this is really ugly, I know, I don't wanna fix it rn
-    _increment!(network.active_hyperedges, new_size)
-    network.active_hyperedges[new_size] -= 1
+    network.hyperedge_dist[new_size] += 1
 
     # update uid
     network.max_hyperedge_uid += 1
@@ -176,7 +182,7 @@ function add_hyperedge!(network::HyperNetwork, nodes)
 
     # update active_hyperedeges
     if is_active(network, network.max_hyperedge_uid)
-        _increment!(network.active_hyperedges, new_size)
+        network.active_hyperedges[new_size] += 1
     end
 
     return network.max_hyperedge_uid
@@ -190,12 +196,13 @@ Add an existing node to an existing hyperedge.
 function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     @assert 1 <= node <= get_num_nodes(network)
+    @assert length(get_nodes(network, hyperedge)) + 1 <= network.max_size
 
     # update hyperedge_dist
     old_size = get_hyperedge_size(network, hyperedge)
     network.hyperedge_dist[old_size] -= 1
     new_size = old_size + 1
-    _increment!(network.hyperedge_dist, new_size)
+    network.hyperedge_dist[new_size] += 1
     network.hyperedge_size[hyperedge] += 1
 
     active_before = is_active(network, hyperedge)
@@ -206,36 +213,14 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     # update active_hyperedeges if the hyperedge is now active
     if is_active(network, hyperedge)
         if active_before # if it was already active
-            _increment!(network.active_hyperedges, new_size)
+            network.active_hyperedges[new_size] += 1
             network.active_hyperedges[old_size] -= 1
         else # if it became active
-            _increment!(network.active_hyperedges, new_size)
+            network.active_hyperedges[new_size] += 1
         end
     end
 
     return network
-end
-
-"""
-    _increment!(hyperedge_dist::Dict, new_size::Integer)
-
-Increment the number of hyperedges of size `new_size` by one or add a new key to the dict 
-if it does not exist yet. Fill in the gaps in the dict to make sure that all keys in the 
-range 2:new_size exist. 
-"""
-function _increment!(hyperedge_dist::Dict, new_size::Integer)
-    if new_size in keys(hyperedge_dist)
-        hyperedge_dist[new_size] += 1
-    else
-        hyperedge_dist[new_size] = 1
-        # fill in all previous keys
-        for size in (new_size - 1):-1:2
-            if !(size in keys(hyperedge_dist))
-                hyperedge_dist[size] = 0
-            end
-        end
-    end
-    return hyperedge_dist
 end
 
 """
@@ -294,7 +279,7 @@ function remove_node!(network::HyperNetwork, node::Integer,
         network.hyperedge_dist[old_size] -= 1
         network.hyperedge_size[hyperedge] -= 1
         new_size = old_size - 1
-        _increment!(network.hyperedge_dist, new_size)
+        network.hyperedge_dist[new_size] += 1
         mid = network.uid_to_mid[hyperedge]
         network.hg[node, mid] = nothing
 
@@ -302,7 +287,7 @@ function remove_node!(network::HyperNetwork, node::Integer,
         if active_before
             if is_active(network, hyperedge) # stayed active
                 network.active_hyperedges[old_size] -= 1
-                _increment!(network.active_hyperedges, new_size)
+                network.active_hyperedges[new_size] += 1
             else # switched from active to inactive
                 network.active_hyperedges[old_size] -= 1
             end
@@ -331,7 +316,7 @@ function set_state!(network::HyperNetwork, node::Integer, state::State)
         size = get_hyperedge_size(network, h)
         if !active_before[i] && is_active(network, h)
             # if the edge switched from _inactive to active_
-            _increment!(network.active_hyperedges, size)
+            network.active_hyperedges[size] += 1
 
         elseif active_before[i] && !is_active(network, h)
             # if the edge switched from _active to inactive_
