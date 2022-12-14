@@ -12,6 +12,16 @@ export HyperNetwork,
        is_active, get_twosection_graph, build_regular_hg!, build_RSC_hg!
 
 """
+A node is included multiple times into a hyperdege.
+"""
+struct DegenerateHyperedge <: Exception end
+
+"""
+A hyperedge with this set of nodes exists already.
+"""
+struct ParallelHyperedge <: Exception end
+
+"""
     HyperNetwork
 
 A higher-order network where every node can be in a particular state.
@@ -216,14 +226,19 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     @assert 1 <= node <= get_num_nodes(network)
     @assert length(get_nodes(network, hyperedge)) + 1 <= network.max_size
+    if node in get_nodes(network, hyperedge)
+        throw(DegenerateHyperedge("Node $node already belongs to the hyperdege $hyperedege and cannot be added."))
+    end
 
     # update motif_count
     # first order
     int_state = get_state(network, node)
     statecount1 = get_state_count(network, hyperedge)
+    old_label = Label(statecount1)
     statecount1[int_state] += 1
-    label = Label(statecount1)
-    network.motif_count[label] += 1
+    new_label = Label(statecount1)
+    network.motif_count[old_label] -= 1
+    network.motif_count[new_label] += 1
 
     for neighbor in get_hyperedges(network, node)
         if neighbor == hyperedge
@@ -356,7 +371,6 @@ end
 
 Set the state of `node` to `state`.
 """
-# TODO_today
 function set_state!(network::HyperNetwork, node::Integer, state::State)
     @assert 1 <= node <= get_num_nodes(network)
 

@@ -174,4 +174,14 @@ end
                        network.motif_count[Label("[A2B2]")] +
                        network.motif_count[Label("[AB3]")]
     @test true_value == motif_prediction
+
+    # test that the total number of order-one motifs is equal to the number of hyperdeges
+    num_order_one_motifs = 0
+    for label in AdaptiveHypergraphs.all_labels(4)
+        if order(label) == 2
+            continue
+        end
+        num_order_one_motifs += network.motif_count[label]
+    end
+    @test get_num_hyperedges(network) == num_order_one_motifs
 end

@@ -1,6 +1,6 @@
 using AutoHashEquals
 
-export Hyperedge, Label, State
+export Hyperedge, Label, State, order, all_labels
 
 @enum State::Bool A = false B = true
 
@@ -105,7 +105,7 @@ function Label(str::String)
 end
 
 function Label(hyperedge::Hyperedge)
-    return Label(hyperedge, Dict(A => 0, B => 0), Dict(A => 0, B => 0))
+    return Label(copy(hyperedge), Dict(A => 0, B => 0), Dict(A => 0, B => 0))
 end
 
 function Label(hyperedge1::Hyperedge, hyperedge2::Hyperedge, int_state::State)
