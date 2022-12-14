@@ -369,7 +369,7 @@ function set_state!(network::HyperNetwork, node::Integer, state::State)
         # first order
         old_statecount1 = get_state_count(network, hyperedge)
         old_label = Label(old_statecount1)
-        new_statecount1 = old_statecount1
+        new_statecount1 = copy(old_statecount1)
         new_statecount1[old_state] -= 1
         new_statecount1[state] += 1
         new_label = Label(new_statecount1)
@@ -382,11 +382,11 @@ function set_state!(network::HyperNetwork, node::Integer, state::State)
                 continue
             end
             old_statecount2 = get_state_count(network, neighbor)
-            new_statecount2 = old_statecount2
+            new_statecount2 = copy(old_statecount2)
             new_statecount2[old_state] -= 1
             new_statecount2[state] += 1
             old_label = Label(old_statecount1, old_statecount2, old_state)
-            new_label = Label(new_statecount1, new_statecount2, new_label)
+            new_label = Label(new_statecount1, new_statecount2, state)
             network.motif_count[old_label] -= 1
             network.motif_count[new_label] += 1
         end

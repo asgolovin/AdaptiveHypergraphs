@@ -145,3 +145,33 @@ end
     @test hyperedge_dist == get_hyperedge_dist(network)
     @test countmap(values(hyperedge_size)) == hyperedge_dist
 end
+
+@testset "HyperNetwork: motif count" begin
+    n = 50
+    network = HyperNetwork(n, 0.4, 4)
+    build_RSC_hg!(network, (10, 20, 30))
+
+    # shuffle things around
+    for i in rand(1:50, 10)
+        state = rand(instances(State))
+        set_state!(network, i, state)
+    end
+
+    # check that the number of active size-2 edges is equal to [AB]
+    true_value = get_num_active_hyperedges(network, 2)
+    motif_prediction = network.motif_count[Label("[AB]")]
+    @test true_value == motif_prediction
+
+    # same but for size 3
+    true_value = get_num_active_hyperedges(network, 3)
+    motif_prediction = network.motif_count[Label("[A2B]")] +
+                       network.motif_count[Label("[AB2]")]
+    @test true_value == motif_prediction
+
+    # size 4
+    true_value = get_num_active_hyperedges(network, 4)
+    motif_prediction = network.motif_count[Label("[A3B]")] +
+                       network.motif_count[Label("[A2B2]")] +
+                       network.motif_count[Label("[AB3]")]
+    @test true_value == motif_prediction
+end
