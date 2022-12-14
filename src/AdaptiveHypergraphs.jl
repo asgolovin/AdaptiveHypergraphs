@@ -1,5 +1,6 @@
 module AdaptiveHypergraphs
 
+include("data/Label.jl")
 include("data/Network.jl")
 
 include("simulation/AdaptivityRule.jl")
