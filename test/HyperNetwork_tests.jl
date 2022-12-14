@@ -4,7 +4,7 @@ using StatsBase
 @testset "HyperNetwork: constructors" begin
     # create an empty network with all suseptible nodes
     n = 5
-    network = HyperNetwork(n)
+    network = HyperNetwork(n, 2)
     @test get_num_nodes(network) == n
     @test get_num_hyperedges(network) == 0
 
@@ -13,13 +13,13 @@ using StatsBase
     fill!(node_state, AdaptiveHypergraphs.S)
     node_state[2] = AdaptiveHypergraphs.I
     node_state[5] = AdaptiveHypergraphs.I
-    network = HyperNetwork(n, node_state)
+    network = HyperNetwork(n, node_state, 2)
     @test get_state_count(network)[AdaptiveHypergraphs.S] == n - 2
     @test get_state_count(network)[AdaptiveHypergraphs.I] == 2
 
     # an empty network with a certain probability of infection
     Random.seed!(42)
-    network = HyperNetwork(n, 0.5)
+    network = HyperNetwork(n, 0.5, 2)
     @test get_state_count(network)[AdaptiveHypergraphs.S] == 3
     @test get_state_count(network)[AdaptiveHypergraphs.I] == 2
 end
@@ -30,7 +30,7 @@ end
     fill!(node_state, AdaptiveHypergraphs.S)
     node_state[1] = AdaptiveHypergraphs.I
     node_state[3] = AdaptiveHypergraphs.I
-    network = HyperNetwork(n, node_state)
+    network = HyperNetwork(n, node_state, 4)
 
     add_hyperedge!(network, (1, 2))
     add_hyperedge!(network, (2, 3))
@@ -45,14 +45,21 @@ end
     @test hyperedge_dist[2] == 2
     @test hyperedge_dist[3] == 1
 
+    # not possible to add a hyperedge of size one
     @test_throws AssertionError add_hyperedge!(network, (1,))
+    # not possible to add degenerate hyperedges
     @test_throws AssertionError add_hyperedge!(network, (1, 1))
+    # not possible to use nodes not in the network
     @test_throws AssertionError add_hyperedge!(network, (42, 234))
+    # not possible to delete a non-existant hyperedge
     @test_throws AssertionError delete_hyperedge!(network, 213)
 
     include_node!(network, 3, 1)
     include_node!(network, 5, 3)
     # hyperedge 1: [1, 2, 3], hyperedge 2: [2, 3], hyperedge 3: [1, 3, 4, 5]
+
+    # not possible to create hyperedges bigger than max_size
+    @test_throws AssertionError include_node!(network, 2, 3)
 
     @test all([1, 2, 3] .∈ Ref(get_nodes(network, 1)))
     @test all([1, 3, 4, 5] .∈ Ref(get_nodes(network, 3)))
@@ -91,7 +98,7 @@ end
 
 @testset "Hypernetwork: graph info" begin
     n = 5
-    network = HyperNetwork(n)
+    network = HyperNetwork(n, 3)
     add_hyperedge!(network, (1, 3, 4))
 
     # test that all nodes are in the same state S (i.e., the hyperedge is not active)
@@ -118,7 +125,7 @@ end
 
 @testset "Hypernetwork: graph construction" begin
     n = 50
-    network = HyperNetwork(n, 0.4)
+    network = HyperNetwork(n, 0.4, 4)
     build_RSC_hg!(network, (10, 20, 30))
 
     @test get_num_hyperedges(network) == 60

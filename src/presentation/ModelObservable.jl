@@ -63,12 +63,12 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
 
     # the required measurements from measurement_types might depend on other measurements. 
     # We need to add them to the list.
-    buffer = measurement_types
-    measurement_types = []
+    buffer = copy(measurement_types)
+    measurement_types_expanded = []
     while length(buffer) > 0
         mtype = pop!(buffer)
-        if !(mtype in measurement_types)
-            push!(measurement_types, mtype)
+        if !(mtype in measurement_types_expanded)
+            push!(measurement_types_expanded, mtype)
         end
         for dependency in MEASUREMENT_DEPENDENCIES[mtype]
             push!(buffer, dependency)
@@ -79,7 +79,7 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
     measurements = Dict()
     log_params = Dict(:skip_points => skip_points,
                       :buffer_size => buffer_size)
-    for type in measurement_types
+    for type in measurement_types_expanded
         sym = Symbol(_snake_case("$type"))
         if type <: StateCount
             measurements[sym] = [StateCount(state; log_params...)
