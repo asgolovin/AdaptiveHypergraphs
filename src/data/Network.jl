@@ -150,6 +150,12 @@ function Base.show(io::IO, ::MIME"text/plain", network::HyperNetwork)
         println(io,
                 "  size $size => $num_hyperedges hyperdeges, $num_active/$num_hyperedges active")
     end
+    println(io, "motifs:")
+    for label in get_labels(get_max_hyperedge_size(network))
+        num_motifs = network.motif_count[label]
+        println(io,
+                "  $label => $num_motifs motifs")
+    end
 end
 
 # ====================================================================================
