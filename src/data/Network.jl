@@ -4,19 +4,17 @@ using Random
 using Graphs
 using Combinatorics
 
-export State, I, S, HyperNetwork,
+export HyperNetwork,
        add_hyperedge!, include_node!, delete_hyperedge!, remove_node!, set_state!,
        get_nodes, get_hyperedges, get_state, get_state_map, get_state_count,
        get_hyperedge_dist, get_num_hyperedges, get_num_active_hyperedges,
        get_num_nodes, get_node_degree, get_hyperedge_size, get_max_size,
        is_active, get_twosection_graph, build_regular_hg!, build_RSC_hg!
 
-@enum State::Bool I = false S = true
-
 """
     HyperNetwork
 
-A higher-order network where every node can be in a particular state (SIS or SIR).
+A higher-order network where every node can be in a particular state.
 
 The topology of the network is represented by a hypergraph: a graph, where every hyperedge can connect multiple vertices, and not just two. 
 
@@ -86,11 +84,10 @@ function HyperNetwork(n::Int64,
     active_hyperedges = Dict([size => 0 for size in 2:max_size])
     state_count = countmap(node_state)
     # fill the missing keys
-    if S ∉ keys(state_count)
-        state_count[S] = 0
-    end
-    if I ∉ keys(state_count)
-        state_count[I] = 0
+    for state in instances(State)
+        if state ∉ keys(state_count)
+            state_count[state] = 0
+        end
     end
     hyperedge_dist = Dict([size => 0 for size in 2:max_size])
     hyperedge_size = Dict{Int64,Int64}()
@@ -107,11 +104,11 @@ end
     HyperNetwork(n::Integer)
 
 Create an empty network with `n` nodes and no hyperedges.
-All nodes are suseptible. 
+All nodes have the oppinion A.
 """
 function HyperNetwork(n::Int64, max_size::Int64)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
-    fill!(node_state, S)
+    fill!(node_state, A)
     return HyperNetwork(n, node_state, max_size)
 end
 
@@ -119,12 +116,12 @@ end
     HyperNetwork(n::Integer, p0::AbstractFloat)
 
 Create an empty network with n nodes and no hyperedges.
-Each node is infected with probability p0. 
+Each node has oppinion B with probability p0. 
 """
 function HyperNetwork(n::Integer, p0::AbstractFloat, max_size::Int64)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
     for i in 1:n
-        rand() < p0 ? node_state[i] = I : node_state[i] = S
+        rand() < p0 ? node_state[i] = A : node_state[i] = B
     end
     return HyperNetwork(n, node_state, max_size)
 end
@@ -151,7 +148,7 @@ function Base.show(io::IO, ::MIME"text/plain", network::HyperNetwork)
                 "  size $size => $num_hyperedges hyperdeges, $num_active/$num_hyperedges active")
     end
     println(io, "motifs:")
-    for label in get_labels(get_max_size(network))
+    for label in all_labels(get_max_size(network))
         num_motifs = network.motif_count[label]
         println(io,
                 "  $label => $num_motifs motifs")
@@ -172,6 +169,22 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     @assert allunique(nodes)
     @assert length(nodes) <= network.max_size
 
+    # update motif_count
+    # first-order
+    statecount1 = countmap([get_state(network, node) for node in nodes])
+    label = Label(statecount1)
+    network.motif_count[label] += 1
+    # second order
+    for node in nodes
+        int_state = get_state(network, node)
+        for neighbor in get_hyperedges(network, node)
+            statecount2 = get_state_count(network, neighbor)
+            label = Label(statecount1, statecount2, int_state)
+            network.motif_count[label] += 1
+        end
+    end
+
+    # add the hyperedge to the hypergraph
     vertices = Dict([(n, true) for n in nodes])
     mid = SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
 
@@ -203,6 +216,23 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     @assert 1 <= node <= get_num_nodes(network)
     @assert length(get_nodes(network, hyperedge)) + 1 <= network.max_size
+
+    # update motif_count
+    # first order
+    int_state = get_state(network, node)
+    statecount1 = get_state_count(network, hyperedge)
+    statecount1[int_state] += 1
+    label = Label(statecount1)
+    network.motif_count[label] += 1
+
+    for neighbor in get_hyperedges(network, node)
+        if neighbor == hyperedge
+            continue
+        end
+        statecount2 = get_state_count(network, neighbor)
+        label = Label(statecount1, statecount2, int_state)
+        network.motif_count[label] += 1
+    end
 
     # update hyperedge_dist
     old_size = get_hyperedge_size(network, hyperedge)
@@ -237,6 +267,25 @@ Remove `hyperedge` from ̀`network`.
 function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     num_hyperedges = get_num_hyperedges(network)
+
+    # update motif_count
+    # first order
+    statecount1 = get_state_count(network, hyperedge)
+    label = Label(statecount1)
+    network.motif_count[label] -= 1
+
+    # second-order
+    for node in get_nodes(network, hyperedge)
+        int_state = get_state(network, node)
+        for neighbor in get_hyperedges(network, node)
+            if neighbor == hyperedge
+                continue
+            end
+            statecount2 = get_state_count(network, neighbor)
+            label = Label(statecount1, statecount2, int_state)
+            network.motif_count[label] -= 1
+        end
+    end
 
     # update hyperedge_dist
     old_size = get_hyperedge_size(network, hyperedge)
@@ -307,16 +356,49 @@ end
 
 Set the state of `node` to `state`.
 """
+# TODO_today
 function set_state!(network::HyperNetwork, node::Integer, state::State)
     @assert 1 <= node <= get_num_nodes(network)
 
     hyperedges = get_hyperedges(network, node)
     active_before = [is_active(network, h) for h in hyperedges]
-
     old_state = get_state(network, node)
+
+    # update motif_count
+    for hyperedge in hyperedges
+        # first order
+        old_statecount1 = get_state_count(network, hyperedge)
+        old_label = Label(old_statecount1)
+        new_statecount1 = old_statecount1
+        new_statecount1[old_state] -= 1
+        new_statecount1[state] += 1
+        new_label = Label(new_statecount1)
+        network.motif_count[old_label] -= 1
+        network.motif_count[new_label] += 1
+
+        # second order
+        for neighbor in get_hyperedges(network, node)
+            if neighbor == hyperedge
+                continue
+            end
+            old_statecount2 = get_state_count(network, neighbor)
+            new_statecount2 = old_statecount2
+            new_statecount2[old_state] -= 1
+            new_statecount2[state] += 1
+            old_label = Label(old_statecount1, old_statecount2, old_state)
+            new_label = Label(new_statecount1, new_statecount2, new_label)
+            network.motif_count[old_label] -= 1
+            network.motif_count[new_label] += 1
+        end
+    end
+
     set_vertex_meta!(network.hg, state, node)
+
     network.state_count[old_state] -= 1
     network.state_count[state] += 1
+
+    # update motif_count
+    # first-order
 
     for (i, h) in enumerate(hyperedges)
         size = get_hyperedge_size(network, h)
@@ -371,13 +453,15 @@ function get_state_map(network::HyperNetwork)
 end
 
 """
-    get_state_map(network::HyperNetwork)
+    get_state_map(network::HyperNetwork, hyperedge::Int64)
     
 Return a dict which maps every node in `hyperedge` to its state.
 """
-function get_state_map(network::HyperNetwork, hyperedge::Integer)
+function get_state_map(network::HyperNetwork, hyperedge::Int64)
     @assert hyperedge in network.hyperedge_uid
-    return Dict(node => get_state(network, node) for node in get_nodes(network, hyperedge))
+    statemap = Dict(node => get_state(network, node)
+                    for node in get_nodes(network, hyperedge))
+    return statemap
 end
 
 """
@@ -387,6 +471,22 @@ Return a dict which maps every state to the number of nodes in this state.
 """
 function get_state_count(network::HyperNetwork)
     return copy(network.state_count)
+end
+
+"""
+    get_state_count(network::HyperNetwork)
+
+Return a dict which maps every state of every node in a hyperdege to the number of nodes in this state. 
+"""
+function get_state_count(network::HyperNetwork, hyperedge::Int64)
+    nodes = get_nodes(network, hyperedge)
+    map = countmap([get_state(network, node) for node in nodes])
+    for state in instances(State)
+        if state ∉ keys(map)
+            map[state] = 0
+        end
+    end
+    return map
 end
 
 """

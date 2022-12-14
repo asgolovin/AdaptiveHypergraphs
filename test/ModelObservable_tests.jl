@@ -1,8 +1,8 @@
 n = 10
 node_state = Vector{Union{Nothing,State}}(nothing, n)
-fill!(node_state, AdaptiveHypergraphs.S)
-node_state[2] = AdaptiveHypergraphs.I
-node_state[5] = AdaptiveHypergraphs.I
+fill!(node_state, AdaptiveHypergraphs.A)
+node_state[2] = AdaptiveHypergraphs.B
+node_state[5] = AdaptiveHypergraphs.B
 network = HyperNetwork(n, node_state, 4)
 build_RSC_hg!(network, (3, 4, 5))
 
@@ -29,7 +29,7 @@ println(measurement_types)
 
 record_measurements!(mo, :step)
 for meas in mo.state_count
-    if meas.label == S
+    if meas.label == AdaptiveHypergraphs.A
         @test meas.values[] == [n - 2]
     else
         @test meas.values[] == [2]

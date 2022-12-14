@@ -283,7 +283,7 @@ end
 
 function record_measurement!(mo::ModelObservable, measurement::FinalMagnetization)
     state_count = get_state_count(mo.network[])
-    magnetization = state_count[S] - state_count[I]
+    magnetization = state_count[A] - state_count[B]
     record!(measurement.log, magnetization)
     return measurement
 end

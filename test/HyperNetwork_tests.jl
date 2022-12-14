@@ -10,26 +10,26 @@ using StatsBase
 
     # an empty network with a given distribution of infected nodes
     node_state = Vector{Union{Nothing,State}}(nothing, n)
-    fill!(node_state, AdaptiveHypergraphs.S)
-    node_state[2] = AdaptiveHypergraphs.I
-    node_state[5] = AdaptiveHypergraphs.I
+    fill!(node_state, AdaptiveHypergraphs.A)
+    node_state[2] = AdaptiveHypergraphs.B
+    node_state[5] = AdaptiveHypergraphs.B
     network = HyperNetwork(n, node_state, 2)
-    @test get_state_count(network)[AdaptiveHypergraphs.S] == n - 2
-    @test get_state_count(network)[AdaptiveHypergraphs.I] == 2
+    @test get_state_count(network)[AdaptiveHypergraphs.A] == n - 2
+    @test get_state_count(network)[AdaptiveHypergraphs.B] == 2
 
     # an empty network with a certain probability of infection
     Random.seed!(42)
     network = HyperNetwork(n, 0.5, 2)
-    @test get_state_count(network)[AdaptiveHypergraphs.S] == 3
-    @test get_state_count(network)[AdaptiveHypergraphs.I] == 2
+    @test get_state_count(network)[AdaptiveHypergraphs.A] == 2
+    @test get_state_count(network)[AdaptiveHypergraphs.B] == 3
 end
 
 @testset "Hypernetwork: graph manipulation" begin
     n = 5
     node_state = Vector{Union{Nothing,State}}(nothing, n)
-    fill!(node_state, AdaptiveHypergraphs.S)
-    node_state[1] = AdaptiveHypergraphs.I
-    node_state[3] = AdaptiveHypergraphs.I
+    fill!(node_state, AdaptiveHypergraphs.A)
+    node_state[1] = AdaptiveHypergraphs.B
+    node_state[3] = AdaptiveHypergraphs.B
     network = HyperNetwork(n, node_state, 4)
 
     add_hyperedge!(network, (1, 2))
@@ -101,26 +101,26 @@ end
     network = HyperNetwork(n, 3)
     add_hyperedge!(network, (1, 3, 4))
 
-    # test that all nodes are in the same state S (i.e., the hyperedge is not active)
+    # test that all nodes are in the same state A (i.e., the hyperedge is not active)
     @test is_active(network, 1) == false
     @test get_num_active_hyperedges(network) == 0
     @test get_state_count(network) ==
-          Dict(AdaptiveHypergraphs.S => 5, AdaptiveHypergraphs.I => 0)
+          Dict(AdaptiveHypergraphs.A => 5, AdaptiveHypergraphs.B => 0)
 
-    set_state!(network, 3, AdaptiveHypergraphs.I)
+    set_state!(network, 3, AdaptiveHypergraphs.B)
     # now this is no longer the case
     @test is_active(network, 1) == true
     @test get_num_active_hyperedges(network) == 1
 
     @test get_state_map(network) ==
-          Dict(1 => AdaptiveHypergraphs.S, 2 => AdaptiveHypergraphs.S,
-               3 => AdaptiveHypergraphs.I, 4 => AdaptiveHypergraphs.S,
-               5 => AdaptiveHypergraphs.S)
+          Dict(1 => AdaptiveHypergraphs.A, 2 => AdaptiveHypergraphs.A,
+               3 => AdaptiveHypergraphs.B, 4 => AdaptiveHypergraphs.A,
+               5 => AdaptiveHypergraphs.A)
     @test get_state_map(network, 1) ==
-          Dict(1 => AdaptiveHypergraphs.S, 3 => AdaptiveHypergraphs.I,
-               4 => AdaptiveHypergraphs.S)
+          Dict(1 => AdaptiveHypergraphs.A, 3 => AdaptiveHypergraphs.B,
+               4 => AdaptiveHypergraphs.A)
     @test get_state_count(network) ==
-          Dict(AdaptiveHypergraphs.S => 4, AdaptiveHypergraphs.I => 1)
+          Dict(AdaptiveHypergraphs.A => 4, AdaptiveHypergraphs.B => 1)
 end
 
 @testset "Hypernetwork: graph construction" begin

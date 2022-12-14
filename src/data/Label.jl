@@ -1,11 +1,42 @@
-export Hyperedge, Label
+using AutoHashEquals
 
-const Hyperedge = NamedTuple{(:A, :B)}
+export Hyperedge, Label, State
 
-struct Label
+@enum State::Bool A = false B = true
+
+const Hyperedge = Dict{State,Int64}
+
+@auto_hash_equals struct Label
     left::Hyperedge
     int::Hyperedge
     right::Hyperedge
+
+    function Label(left::Hyperedge, int::Hyperedge, right::Hyperedge)
+        # check that all dicts have all keys
+        for state in instances(State), hyperedge in [left, int, right]
+            if state ∉ keys(hyperedge)
+                hyperedge[state] = 0
+            end
+        end
+
+        # Switch the order of the left and right hyperedges such that 
+        # the hyperedge with the larger size comes first. 
+        # If both hyperedges have equal size, choose the one with more A-nodes. 
+        size_left = left[A] + left[B]
+        size_right = right[A] + right[B]
+
+        if size_left > size_right
+            return new(left, int, right)
+        elseif size_right > size_left
+            return new(right, int, left)
+        end
+
+        if left[A] >= right[A]
+            return new(left, int, right)
+        end
+
+        return new(right, int, left)
+    end
 end
 
 """
@@ -24,10 +55,10 @@ The patterns can be in any form of:
 
 # Examples:
     julia> Label("[AB]")
-    Label((A = 1, B = 1), (A = 0, B = 0), (A = 0, B = 0))
+    Label(Dict(A => 1, B => 1), Dict(A => 0, B => 0), Dict(A => 0, B => 0))
 
     julia> Label("[AB2 | B | A2B3]")
-    Label((A = 1, B = 2), (A = 0, B = 1), (A = 2, B = 3))
+    Label(Dict(A => 1, B => 2), Dict(A => 0, B => 1), Dict(A => 2, B => 3))
 
 """
 function Label(str::String)
@@ -52,7 +83,7 @@ function Label(str::String)
             if i == 1
                 throw(ArgumentError("The label $str could not be parsed: the first pattern not found."))
             else
-                hyperedge = (A=0, B=0)
+                hyperedge = Dict(A => 0, B => 0)
                 push!(hyperedges, hyperedge)
                 continue
             end
@@ -66,22 +97,42 @@ function Label(str::String)
         numA = _to_int(inner_match[2])
         numB = _to_int(inner_match[4])
 
-        hyperedge = (A=numA, B=numB)
+        hyperedge = Dict(A => numA, B => numB)
         push!(hyperedges, hyperedge)
     end
+
     return Label(hyperedges[1], hyperedges[2], hyperedges[3])
+end
+
+function Label(hyperedge::Hyperedge)
+    return Label(hyperedge, Dict(A => 0, B => 0), Dict(A => 0, B => 0))
+end
+
+function Label(hyperedge1::Hyperedge, hyperedge2::Hyperedge, int_state::State)
+    @assert hyperedge1[int_state] > 0
+    @assert hyperedge2[int_state] > 0
+
+    left = copy(hyperedge1)
+    left[int_state] -= 1
+    right = copy(hyperedge2)
+    right[int_state] -= 1
+    int = Dict(A => 0, B => 0)
+    int[int_state] = 1
+
+    return Label(left, int, right)
 end
 
 function Base.show(io::IO, l::Label)
     if order(l) == 2
-        return print("""Label("[ $(_to_str(l.left)) | $(_to_str(l.int)) | $(_to_str(l.right)) ]")""")
+        return print(io,
+                     """Label("[ $(_to_str(l.left)) | $(_to_str(l.int)) | $(_to_str(l.right)) ]")""")
     else
-        return print("""Label("[ $(_to_str(l.left)) ]")""")
+        return print(io, """Label("[ $(_to_str(l.left)) ]")""")
     end
 end
 
 function order(l::Label)
-    if l.int.A != 0 || l.int.B != 0 || l.right.A != 0 || l.right.B != 0
+    if l.int[A] != 0 || l.int[B] != 0 || l.right[A] != 0 || l.right[B] != 0
         return 2
     end
     return 1
@@ -89,10 +140,10 @@ end
 
 function Base.size(l::Label)
     if order(l) == 1
-        return (l.left.A + l.left.B,)
+        return (l.left[A] + l.left[B],)
     end
-    return (l.left.A + l.left.B + l.int.A + l.int.B,
-            l.right.A + l.right.B + l.int.A + l.int.B)
+    return (l.left[A] + l.left[B] + l.int[A] + l.int[B],
+            l.right[A] + l.right[B] + l.int[A] + l.int[B])
 end
 
 function all_labels(max_size::Int64)
@@ -124,7 +175,7 @@ function all_labels(max_size::Int64)
         end
     end
 
-    return labels
+    return unique(labels)
 end
 
 function _to_int(m)
@@ -140,20 +191,20 @@ function _to_str(h::Hyperedge)
     A_str = ""
     B_str = ""
 
-    if h.A == 0
+    if h[A] == 0
         A_str = ""
-    elseif h.A == 1
+    elseif h[A] == 1
         A_str = "A"
     else
-        A_str = "A$(h.A)"
+        A_str = "A$(h[A])"
     end
 
-    if h.B == 0
+    if h[B] == 0
         B_str = ""
-    elseif h.B == 1
+    elseif h[B] == 1
         B_str = "B"
     else
-        B_str = "B$(h.B)"
+        B_str = "B$(h[B])"
     end
 
     return "$(A_str)$(B_str)"
