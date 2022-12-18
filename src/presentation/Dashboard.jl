@@ -117,11 +117,11 @@ function Dashboard(model::AbstractModel;
 end
 
 """
-    run!(dashboard::Dashboard, num_steps::Integer)
+    run!(dashboard::Dashboard, num_steps::Int64)
 
 Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges.
 """
-function run!(dashboard::Dashboard, num_steps::Integer)
+function run!(dashboard::Dashboard, num_steps::Int64)
     mo = dashboard.mo
 
     active_lifetime = num_steps
