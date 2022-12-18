@@ -28,7 +28,7 @@ struct ProportionalVoting <: PropagationRule end
 
 """
     propagate!(network::HyperNetwork, majority_voting::MajorityVoting,
-               hyperedge::Integer)
+               hyperedge::Int64)
 
 All nodes within the hyperedge become convinced of the opinion of the majority. 
 In case of a tie, a decision is made randomly. 
@@ -36,7 +36,7 @@ In case of a tie, a decision is made randomly.
 Return a list of modified nodes.
 """
 function propagate!(network::HyperNetwork, majority_voting::MajorityVoting,
-                    hyperedge::Integer)
+                    hyperedge::Int64)
     nodes = get_nodes(network, hyperedge)
     node_to_state = get_state_map(network, hyperedge)
     state_count = countmap(values(node_to_state))
@@ -58,7 +58,7 @@ end
 
 """
     propagate!(network::HyperNetwork, proportional_voting::ProportionalVoting,
-               hyperedge::Integer)
+               hyperedge::Int64)
 
 An opinion is chosen with a probability that is proportional to 
 the share of nodes with this opinion. All nodes within the hyperedge
@@ -67,7 +67,7 @@ become convinced of this opinion.
 Return a list of modified nodes.
 """
 function propagate!(network::HyperNetwork, proportional_voting::ProportionalVoting,
-                    hyperedge::Integer)
+                    hyperedge::Int64)
     nodes = get_nodes(network, hyperedge)
     trendsetter = rand(nodes)
 
@@ -79,7 +79,7 @@ function propagate!(network::HyperNetwork, proportional_voting::ProportionalVoti
     return affected_nodes
 end
 
-function _convince!(network::HyperNetwork, hyperedge::Integer, state::State)
+function _convince!(network::HyperNetwork, hyperedge::Int64, state::State)
     affected_nodes = Int64[]
     nodes = get_nodes(network, hyperedge)
     for node in nodes

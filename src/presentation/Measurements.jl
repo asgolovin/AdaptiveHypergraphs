@@ -28,13 +28,14 @@ end
         auto_notify=true) where {IndexType,ValueType}
 
 # Arguments
-- `skip_points::Integer = 1` - if this is greater than one, then only every n-th point gets written to the observables. Only works if `buffer_size` > 1
-- `buffer_size::Integer = 0` - if this is greater than zero, then the points are written to a non-Observable buffer of given size. Once the buffer is full, they are pushed to the actual Observable. This improves performance if the updates are very frequent.
+- `skip_points::Int64 = 1` - if this is greater than one, then only every n-th point gets written to the observables. Only works if `buffer_size` > 1
+- `buffer_size::Int64 = 0` - if this is greater than zero, then the points are written to a non-Observable buffer of given size. Once the buffer is full, they are pushed to the actual Observable. This improves performance if the updates are very frequent.
 - `auto_notify::Bool = true` - if set to true, any operations which modify the observables will automatically notify them. In the other case, this has to be done explicitly using notify(log). This can be used in cases where plots depend on multiple different logs and it is important to ensure that all logs are updated with the new values before the observables are triggered. 
 """
-function MeasurementLog{IndexType,ValueType}(; skip_points=1,
-                                             buffer_size=0,
-                                             auto_notify=true) where {IndexType,ValueType}
+function MeasurementLog{IndexType,ValueType}(; skip_points::Int64=1,
+                                             buffer_size::Int64=0,
+                                             auto_notify::Bool=true) where {IndexType,
+                                                                            ValueType}
     indices = Observable(IndexType[])
     values = Observable(ValueType[])
     buffered_indices = IndexType[]

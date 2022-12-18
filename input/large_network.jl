@@ -12,13 +12,13 @@ params = InputParams(
         num_time_steps = Int64(1e8),
         adaptivity_rule = RewireToRandom(),
         propagation_rule = ProportionalVoting(),
-        adaptivity_prob = collect(0.1:0.1:0.9)
+        adaptivity_prob = 0.5
     ),
     VisualizationParams(
         skip_points = 100,
         buffer_size = 100000
     ),
     BatchParams(
-        batch_size = 1
+        batch_size = 3
     )
 )

@@ -30,7 +30,7 @@ either a different randomly chosen node or a different hyperedge.
 
 Return a list of modified hyperedges.
 """
-function adapt!(network::HyperNetwork, adaptivity_rule::RewireToRandom, hyperedge::Integer)
+function adapt!(network::HyperNetwork, adaptivity_rule::RewireToRandom, hyperedge::Int64)
     selected_node = rand(get_nodes(network, hyperedge))
 
     function hyperedge_conditions(h)
@@ -65,7 +65,7 @@ Similar to the RewireToRandom rule, but the selected node only connects to nodes
 Return a list of modified hyperedges.
 """
 function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
-                hyperedge::Integer)
+                hyperedge::Int64)
     selected_node = rand(get_nodes(network, hyperedge))
     required_state = get_state(network, selected_node)
 

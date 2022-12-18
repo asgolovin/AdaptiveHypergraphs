@@ -74,14 +74,14 @@ mutable struct HyperNetwork
     # A reverse map of UIDs to MIDs.
     uid_to_mid::Dict{Int64,Int64}
     # current highest hyperedge UID
-    max_hyperedge_uid::Integer
+    max_hyperedge_uid::Int64
 end
 
 # ====================================================================================
 # ------------------------------- CONSTRUCTORS ---------------------------------------
 
 """
-    HyperNetwork(n::Integer, node_state::Vector{Union{Nothing, State}}, max_size::Int64)
+    HyperNetwork(n::Int64, node_state::Vector{Union{Nothing, State}}, max_size::Int64)
 
 Create an empty network with `n` nodes and no hyperedges.
 `node_state` denotes the state of each node. 
@@ -119,7 +119,7 @@ function HyperNetwork(n::Int64,
 end
 
 """
-    HyperNetwork(n::Integer)
+    HyperNetwork(n::Int64)
 
 Create an empty network with `n` nodes and no hyperedges.
 All nodes have the oppinion A.
@@ -131,12 +131,12 @@ function HyperNetwork(n::Int64, max_size::Int64)
 end
 
 """
-    HyperNetwork(n::Integer, p0::AbstractFloat)
+    HyperNetwork(n::Int64, p0::AbstractFloat)
 
 Create an empty network with n nodes and no hyperedges.
 Each node has oppinion B with probability p0. 
 """
-function HyperNetwork(n::Integer, p0::AbstractFloat, max_size::Int64)
+function HyperNetwork(n::Int64, p0::AbstractFloat, max_size::Int64)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
     for i in 1:n
         rand() < p0 ? node_state[i] = A : node_state[i] = B
@@ -219,11 +219,11 @@ function add_hyperedge!(network::HyperNetwork, nodes)
 end
 
 """
-    include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
+    include_node!(network::HyperNetwork, node::Int64, hyperedge::Int64)
 
 Add an existing node to an existing hyperedge. 
 """
-function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
+function include_node!(network::HyperNetwork, node::Int64, hyperedge::Int64)
     @assert hyperedge in network.hyperedge_uid
     @assert 1 <= node <= get_num_nodes(network)
     @assert length(get_nodes(network, hyperedge)) + 1 <= network.max_size
@@ -272,11 +272,11 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
 end
 
 """
-    delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
+    delete_hyperedge!(network::HyperNetwork, hyperedge::Int64)
 
 Remove `hyperedge` from ̀`network`.
 """
-function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
+function delete_hyperedge!(network::HyperNetwork, hyperedge::Int64)
     @assert hyperedge in network.hyperedge_uid
     num_hyperedges = get_num_hyperedges(network)
 
@@ -315,8 +315,8 @@ function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
 end
 
 """
-    remove_node!(network::HyperNetwork, node::Integer,
-                        hyperedge::Integer)
+    remove_node!(network::HyperNetwork, node::Int64,
+                        hyperedge::Int64)
 
 Remove `node` from `hyperedge`.
 
@@ -324,8 +324,8 @@ If the hyperedge was of size two, it is deleted completely from the graph (hyper
 are not allowed). However, the node continues to exist even if it is not attached to any 
 hyperedeges anymore. 
 """
-function remove_node!(network::HyperNetwork, node::Integer,
-                      hyperedge::Integer)
+function remove_node!(network::HyperNetwork, node::Int64,
+                      hyperedge::Int64)
     old_size = get_hyperedge_size(network, hyperedge)
     if old_size == 2
         delete_hyperedge!(network, hyperedge)
@@ -367,7 +367,7 @@ function remove_node!(network::HyperNetwork, node::Integer,
 end
 
 """
-    set_state!(network::HyperNetwork, node::Integer, state::State)
+    set_state!(network::HyperNetwork, node::Int64, state::State)
 
 Set the state of `node` to `state`.
 """
@@ -423,7 +423,7 @@ function get_nodes(network::HyperNetwork)
     return collect(1:(network.num_nodes))
 end
 
-function get_nodes(network::HyperNetwork, hyperedge::Integer)
+function get_nodes(network::HyperNetwork, hyperedge::Int64)
     @assert hyperedge in network.hyperedge_uid
     mid = network.uid_to_mid[hyperedge]
     return collect(keys(filter(d -> d.second, getvertices(network.hg, mid))))
@@ -595,12 +595,12 @@ function get_num_nodes(network::HyperNetwork)
     return network.num_nodes
 end
 
-function get_node_degree(network::HyperNetwork, node::Integer)
+function get_node_degree(network::HyperNetwork, node::Int64)
     @assert 1 <= node <= get_num_nodes(network)
     return sum(values(network.hg.v2he[node]))
 end
 
-function get_hyperedge_size(network::HyperNetwork, hyperedge::Integer)
+function get_hyperedge_size(network::HyperNetwork, hyperedge::Int64)
     # @assert hyperedge in network.hyperedge_uid
     return network.hyperedge_size[hyperedge]
 end
@@ -618,11 +618,11 @@ function get_max_size(network::HyperNetwork)
 end
 
 """
-    is_active(network::HyperNetwork, hyperedge::Integer)
+    is_active(network::HyperNetwork, hyperedge::Int64)
 
 Return true if the hyperedge contains nodes in different states, false if all states are equal. 
 """
-function is_active(network::HyperNetwork, hyperedge::Integer)
+function is_active(network::HyperNetwork, hyperedge::Int64)
     nodes = get_nodes(network, hyperedge)
     states = [get_state(network, n) for n in nodes]
     return length(unique(states)) > 1
@@ -646,7 +646,7 @@ end
 # ----------------------------- GRAPH CONSTRUCTION -----------------------------------
 
 """
-    build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
+    build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Int64}})
 
 Populate the hypergraph with randomly distributed hyperedges of different dimensions. 
 
@@ -658,7 +658,7 @@ It is assumed that the hypergraph is empty; otherwise, the hyperedges will be ad
 
 The algorithm roughly follows the Iacopini paper, but uses the absolute number of hyperdeges instead of p_d and <k_d>.
 """
-function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
+function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Int64}})
     max_dim = length(num_hyperedges)
     n = get_num_nodes(network)
     for size in 2:get_max_size(network)
@@ -688,7 +688,7 @@ The effect is the same, only the algorithm is different.
 
 Slower than `build_RSC_hg!`. 
 """
-function build_RSC_hg_new!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
+function build_RSC_hg_new!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Int64}})
     max_dim = length(num_hyperedges)
     n = get_num_nodes(network)
     for d in 1:max_dim
@@ -714,7 +714,7 @@ This function computes the reverse mapping: given an index, it finds the corresp
 
 See https://en.wikipedia.org/wiki/Combinatorial_number_system#Finding_the_k-combination_for_a_given_number
 """
-function _index_to_combination(index::Integer, size::Integer)
+function _index_to_combination(index::Int64, size::Int64)
     @assert index ≥ binomial(size - 1, size)
     combination = []
     for k in size:-1:1
@@ -732,10 +732,10 @@ function _index_to_combination(index::Integer, size::Integer)
 end
 
 """
-    build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
+    build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Int64}})
 
 Populate the hypergraph with hyperedges such that every node has degrees {d_1, d_2, ...}. 
 """
-function build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Integer}})
+function build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Int64}})
     # TODO
 end
