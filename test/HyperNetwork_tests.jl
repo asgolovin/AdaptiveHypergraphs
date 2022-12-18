@@ -149,12 +149,48 @@ end
 @testset "HyperNetwork: motif count" begin
     n = 50
     network = HyperNetwork(n, 0.4, 4)
-    build_RSC_hg!(network, (10, 20, 30))
+    build_RSC_hg!(network, (20, 20, 20))
 
     # shuffle things around
-    for i in rand(1:50, 10)
+    for node in rand(1:50, 50)
         state = rand(instances(State))
-        set_state!(network, i, state)
+        set_state!(network, node, state)
+    end
+
+    # rewire some edges to other edges
+    for i in 1:60
+        hyperedge = rand(get_hyperedges(network))
+        node = rand(get_nodes(network, hyperedge))
+        remove_node!(network, node, hyperedge)
+        hyperedge_found = false
+        while !hyperedge_found
+            new_hyperedge = rand(get_hyperedges(network))
+            if length(get_nodes(network, new_hyperedge)) == network.max_size
+                continue
+            end
+            try
+                include_node!(network, node, new_hyperedge)
+            catch DegenerateHyperedge
+                continue
+            end
+            hyperedge_found = true
+        end
+    end
+
+    # rewire some edges to nodes
+    for i in 1:10
+        hyperedge = rand(get_hyperedges(network))
+        node = rand(get_nodes(network, hyperedge))
+        remove_node!(network, node, hyperedge)
+        node_found = false
+        while !node_found
+            new_node = rand(1:n)
+            if new_node == node
+                continue
+            end
+            add_hyperedge!(network, (node, new_node))
+            node_found = true
+        end
     end
 
     # check that the number of active size-2 edges is equal to [AB]
@@ -177,11 +213,64 @@ end
 
     # test that the total number of order-one motifs is equal to the number of hyperdeges
     num_order_one_motifs = 0
-    for label in AdaptiveHypergraphs.all_labels(4)
+    for label in all_labels(4)
         if order(label) == 2
             continue
         end
         num_order_one_motifs += network.motif_count[label]
     end
     @test get_num_hyperedges(network) == num_order_one_motifs
+
+    # count all tripples explicitly and check that we get the correct number
+
+    # prepare the data structure
+    explicit_results = Dict{Label,Int64}()
+    for label in all_labels(4)
+        if order(label) == 2
+            explicit_results[label] = 0
+        end
+    end
+
+    # COUNT THEM ALL
+    for hyperedge in get_hyperedges(network)
+        statecount1 = get_state_count(network, hyperedge)
+        for node in get_nodes(network, hyperedge)
+            int_state = get_state(network, node)
+            for neighbor in get_hyperedges(network, node)
+                if neighbor == hyperedge
+                    continue
+                end
+                statecount2 = get_state_count(network, neighbor)
+                label = Label(statecount1, statecount2, int_state)
+                explicit_results[label] += 1
+            end
+        end
+    end
+
+    # the tripples are counted twice, so divide the numbers by two
+    for label in keys(explicit_results)
+        explicit_results[label] ÷= 2
+    end
+
+    for label in keys(explicit_results)
+        println("Comparing $label with $(explicit_results[label])")
+        @test explicit_results[label] == network.motif_count[label]
+    end
 end
+
+# [A2B | A | A]   8 == 7    >
+# [A2B | A | AB]  15 == 16  <
+# [A2B | A | AB2] 11 == 12  <
+# [A2B | B | B]   6 == 7    <
+# [A2B | B | A2]  7 == 8    <
+# [A2B | B | AB2] 7 == 8    <
+# [A2B | B | A2B] 5 == 4    >
+# 
+# [AB2 | A | B]   8 == 9    <
+# [AB2 | B | B3]  3 == 2    >
+# [AB2 | B | AB2] 1 == 2    <
+# [AB2 | B | AB]  7 == 6    >
+# 
+# [A3 | B | A]    4 == 3    >
+# [A3 | A | A2]   3 == 2    >
+# [A3 | A | A2B]  3 == 2    >

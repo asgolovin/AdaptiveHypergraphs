@@ -14,7 +14,15 @@ export HyperNetwork,
 """
 A node is included multiple times into a hyperdege.
 """
-struct DegenerateHyperedge <: Exception end
+struct DegenerateHyperedge <: Exception
+    node::Int64
+    hyperedge::Int64
+end
+
+function Base.showerror(io::IO, e::DegenerateHyperedge)
+    return print(io,
+                 "Node $(e.node) already belongs to the hyperdege $(e.hyperedge) and cannot be added again.")
+end
 
 """
 A hyperedge with this set of nodes exists already.
@@ -179,21 +187,6 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     @assert allunique(nodes)
     @assert length(nodes) <= network.max_size
 
-    # update motif_count
-    # first-order
-    statecount1 = countmap([get_state(network, node) for node in nodes])
-    label = Label(statecount1)
-    network.motif_count[label] += 1
-    # second order
-    for node in nodes
-        int_state = get_state(network, node)
-        for neighbor in get_hyperedges(network, node)
-            statecount2 = get_state_count(network, neighbor)
-            label = Label(statecount1, statecount2, int_state)
-            network.motif_count[label] += 1
-        end
-    end
-
     # add the hyperedge to the hypergraph
     vertices = Dict([(n, true) for n in nodes])
     mid = SimpleHypergraphs.add_hyperedge!(network.hg; vertices=vertices)
@@ -208,10 +201,18 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     push!(network.hyperedge_uid, uid)
     network.uid_to_mid[uid] = mid
     network.hyperedge_size[uid] = length(nodes)
+    hyperedge = uid
 
     # update active_hyperedeges
-    if is_active(network, network.max_hyperedge_uid)
+    if is_active(network, hyperedge)
         network.active_hyperedges[new_size] += 1
+    end
+
+    # increase new values in motif count
+    label = _get_1st_order_label(network, hyperedge)
+    network.motif_count[label] += 1
+    for label in _get_2nd_order_labels(network, hyperedge)
+        network.motif_count[label] += 1
     end
 
     return network.max_hyperedge_uid
@@ -227,26 +228,14 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
     @assert 1 <= node <= get_num_nodes(network)
     @assert length(get_nodes(network, hyperedge)) + 1 <= network.max_size
     if node in get_nodes(network, hyperedge)
-        throw(DegenerateHyperedge("Node $node already belongs to the hyperdege $hyperedege and cannot be added."))
+        throw(DegenerateHyperedge(node, hyperedge))
     end
 
-    # update motif_count
-    # first order
-    int_state = get_state(network, node)
-    statecount1 = get_state_count(network, hyperedge)
-    old_label = Label(statecount1)
-    statecount1[int_state] += 1
-    new_label = Label(statecount1)
-    network.motif_count[old_label] -= 1
-    network.motif_count[new_label] += 1
-
-    for neighbor in get_hyperedges(network, node)
-        if neighbor == hyperedge
-            continue
-        end
-        statecount2 = get_state_count(network, neighbor)
-        label = Label(statecount1, statecount2, int_state)
-        network.motif_count[label] += 1
+    # decrease old values in motif_count
+    label = _get_1st_order_label(network, hyperedge)
+    network.motif_count[label] -= 1
+    for label in _get_2nd_order_labels(network, hyperedge)
+        network.motif_count[label] -= 1
     end
 
     # update hyperedge_dist
@@ -258,8 +247,16 @@ function include_node!(network::HyperNetwork, node::Integer, hyperedge::Integer)
 
     active_before = is_active(network, hyperedge)
 
+    # update the network
     mid = network.uid_to_mid[hyperedge]
     network.hg[node, mid] = true
+
+    # increase new values in motif_count
+    label = _get_1st_order_label(network, hyperedge)
+    network.motif_count[label] += 1
+    for label in _get_2nd_order_labels(network, hyperedge)
+        network.motif_count[label] += 1
+    end
 
     # update active_hyperedeges if the hyperedge is now active
     if is_active(network, hyperedge)
@@ -283,23 +280,11 @@ function delete_hyperedge!(network::HyperNetwork, hyperedge::Integer)
     @assert hyperedge in network.hyperedge_uid
     num_hyperedges = get_num_hyperedges(network)
 
-    # update motif_count
-    # first order
-    statecount1 = get_state_count(network, hyperedge)
-    label = Label(statecount1)
+    # decrease old values in motif_count
+    label = _get_1st_order_label(network, hyperedge)
     network.motif_count[label] -= 1
-
-    # second-order
-    for node in get_nodes(network, hyperedge)
-        int_state = get_state(network, node)
-        for neighbor in get_hyperedges(network, node)
-            if neighbor == hyperedge
-                continue
-            end
-            statecount2 = get_state_count(network, neighbor)
-            label = Label(statecount1, statecount2, int_state)
-            network.motif_count[label] -= 1
-        end
+    for label in _get_2nd_order_labels(network, hyperedge)
+        network.motif_count[label] -= 1
     end
 
     # update hyperedge_dist
@@ -344,23 +329,38 @@ function remove_node!(network::HyperNetwork, node::Integer,
     old_size = get_hyperedge_size(network, hyperedge)
     if old_size == 2
         delete_hyperedge!(network, hyperedge)
-    else
-        active_before = is_active(network, hyperedge)
-        network.hyperedge_dist[old_size] -= 1
-        network.hyperedge_size[hyperedge] -= 1
-        new_size = old_size - 1
-        network.hyperedge_dist[new_size] += 1
-        mid = network.uid_to_mid[hyperedge]
-        network.hg[node, mid] = nothing
+        return network
+    end
 
-        # update active_hyperedeges if it was active before
-        if active_before
-            if is_active(network, hyperedge) # stayed active
-                network.active_hyperedges[old_size] -= 1
-                network.active_hyperedges[new_size] += 1
-            else # switched from active to inactive
-                network.active_hyperedges[old_size] -= 1
-            end
+    # decrease old values in motif_count
+    label = _get_1st_order_label(network, hyperedge)
+    network.motif_count[label] -= 1
+    for label in _get_2nd_order_labels(network, hyperedge)
+        network.motif_count[label] -= 1
+    end
+
+    active_before = is_active(network, hyperedge)
+    network.hyperedge_dist[old_size] -= 1
+    network.hyperedge_size[hyperedge] -= 1
+    new_size = old_size - 1
+    network.hyperedge_dist[new_size] += 1
+    mid = network.uid_to_mid[hyperedge]
+    network.hg[node, mid] = nothing
+
+    # increase new values in motif_count
+    label = _get_1st_order_label(network, hyperedge)
+    network.motif_count[label] += 1
+    for label in _get_2nd_order_labels(network, hyperedge)
+        network.motif_count[label] += 1
+    end
+
+    # update active_hyperedeges if it was active before
+    if active_before
+        if is_active(network, hyperedge) # stayed active
+            network.active_hyperedges[old_size] -= 1
+            network.active_hyperedges[new_size] += 1
+        else # switched from active to inactive
+            network.active_hyperedges[old_size] -= 1
         end
     end
     return network
@@ -371,39 +371,20 @@ end
 
 Set the state of `node` to `state`.
 """
-function set_state!(network::HyperNetwork, node::Integer, state::State)
+function set_state!(network::HyperNetwork, node::Int64, state::State)
     @assert 1 <= node <= get_num_nodes(network)
 
     hyperedges = get_hyperedges(network, node)
     active_before = [is_active(network, h) for h in hyperedges]
     old_state = get_state(network, node)
 
-    # update motif_count
-    for hyperedge in hyperedges
-        # first order
-        old_statecount1 = get_state_count(network, hyperedge)
-        old_label = Label(old_statecount1)
-        new_statecount1 = copy(old_statecount1)
-        new_statecount1[old_state] -= 1
-        new_statecount1[state] += 1
-        new_label = Label(new_statecount1)
-        network.motif_count[old_label] -= 1
-        network.motif_count[new_label] += 1
-
-        # second order
-        for neighbor in get_hyperedges(network, node)
-            if neighbor == hyperedge
-                continue
-            end
-            old_statecount2 = get_state_count(network, neighbor)
-            new_statecount2 = copy(old_statecount2)
-            new_statecount2[old_state] -= 1
-            new_statecount2[state] += 1
-            old_label = Label(old_statecount1, old_statecount2, old_state)
-            new_label = Label(new_statecount1, new_statecount2, state)
-            network.motif_count[old_label] -= 1
-            network.motif_count[new_label] += 1
-        end
+    # decrease old values in motif_count
+    for hyperedge in get_hyperedges(network, node)
+        label = _get_1st_order_label(network, hyperedge)
+        network.motif_count[label] -= 1
+    end
+    for label in _get_2nd_order_node_labels(network, node)
+        network.motif_count[label] -= 1
     end
 
     set_vertex_meta!(network.hg, state, node)
@@ -411,8 +392,14 @@ function set_state!(network::HyperNetwork, node::Integer, state::State)
     network.state_count[old_state] -= 1
     network.state_count[state] += 1
 
-    # update motif_count
-    # first-order
+    # increase old values in motif_count
+    for hyperedge in get_hyperedges(network, node)
+        label = _get_1st_order_label(network, hyperedge)
+        network.motif_count[label] += 1
+    end
+    for label in _get_2nd_order_node_labels(network, node)
+        network.motif_count[label] += 1
+    end
 
     for (i, h) in enumerate(hyperedges)
         size = get_hyperedge_size(network, h)
@@ -446,13 +433,93 @@ function get_hyperedges(network::HyperNetwork)
     return copy(network.hyperedge_uid)
 end
 
-function get_hyperedges(network::HyperNetwork, node::Integer)
+function get_hyperedges(network::HyperNetwork, node::Int64)
     @assert 1 <= node <= get_num_nodes(network)
     mids = collect(keys(filter(d -> d.second, gethyperedges(network.hg, node))))
     return network.hyperedge_uid[mids]
 end
 
-function get_state(network::HyperNetwork, node::Integer)
+function _get_1st_order_label(network::HyperNetwork, hyperedge::Int64)
+    statecount = get_state_count(network, hyperedge)
+    return Label(statecount)
+end
+
+"""
+Return all second-order labels which contain the hyperedge and intersect in the node `int_node`.
+"""
+function _get_2nd_order_labels(network::HyperNetwork, hyperedge::Int64, int_node::Int64)
+    labels = []
+    int_state = get_state(network, int_node)
+    statecount1 = get_state_count(network, hyperedge)
+    for neighbor in get_hyperedges(network, int_node)
+        if neighbor == hyperedge
+            continue
+        end
+        statecount2 = get_state_count(network, neighbor)
+        label = Label(statecount1, statecount2, int_state)
+        push!(labels, label)
+    end
+    return labels
+end
+
+"""
+Return all second-order labels which contain the hyperedge. 
+"""
+function _get_2nd_order_labels(network::HyperNetwork, hyperedge::Int64)
+    labels = []
+    for int_node in get_nodes(network, hyperedge)
+        append!(labels, _get_2nd_order_labels(network, hyperedge, int_node))
+    end
+    return labels
+end
+
+"""
+Return all second-order labels which contain the given node.
+"""
+function _get_2nd_order_node_labels(network::HyperNetwork, node::Int64)
+    labels = []
+    # hyperedges which include the node
+    hyperedges = get_hyperedges(network, node)
+
+    # add all tripples which intersect in the node
+    int_state = get_state(network, node)
+    for (i, he1) in enumerate(hyperedges)
+        statecount1 = get_state_count(network, he1)
+        for he2 in hyperedges[(i + 1):end]
+            statecount2 = get_state_count(network, he2)
+            push!(labels, Label(statecount1, statecount2, int_state))
+        end
+    end
+
+    # add all tripples which *do not* intersect in the node
+    for he1 in hyperedges
+        statecount1 = get_state_count(network, he1)
+        for int_node in get_nodes(network, he1)
+            if int_node == node
+                continue
+            end
+            int_state = get_state(network, int_node)
+            neighbors = get_hyperedges(network, int_node)
+            for he2 in neighbors
+                if he2 == he1
+                    continue
+                end
+                # A tiny edge case: if the hyperedges intersect in more than one node AND 
+                # one of those nodes is the node under consideration, then the label will 
+                # be counted twice. To prevent this, we only count the label in the case 
+                # where he1 < he2. 
+                if he2 ∈ hyperedges && node in get_nodes(network, he2) && he1 > he2
+                    continue
+                end
+                statecount2 = get_state_count(network, he2)
+                push!(labels, Label(statecount1, statecount2, int_state))
+            end
+        end
+    end
+    return labels
+end
+
+function get_state(network::HyperNetwork, node::Int64)
     @assert 1 <= node <= get_num_nodes(network)
     return SimpleHypergraphs.get_vertex_meta(network.hg, node)
 end
@@ -590,8 +657,6 @@ It is however possible that some hyperedges will be subsets of others.
 It is assumed that the hypergraph is empty; otherwise, the hyperedges will be added, but the conditions above are not guaranteed. 
 
 The algorithm roughly follows the Iacopini paper, but uses the absolute number of hyperdeges instead of p_d and <k_d>.
-
-TODO: make this more formal
 """
 function build_RSC_hg!(network::HyperNetwork, num_hyperedges::Tuple{Vararg{Integer}})
     max_dim = length(num_hyperedges)
