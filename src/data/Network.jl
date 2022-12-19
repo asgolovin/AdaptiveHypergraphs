@@ -618,6 +618,15 @@ function get_max_size(network::HyperNetwork)
 end
 
 """
+    get_motif_count(network::HyperNetwork)
+
+Return a dict mapping motifs to the number of occurances.
+"""
+function get_motif_count(network::HyperNetwork)
+    return network.motif_count
+end
+
+"""
     is_active(network::HyperNetwork, hyperedge::Int64)
 
 Return true if the hyperedge contains nodes in different states, false if all states are equal. 

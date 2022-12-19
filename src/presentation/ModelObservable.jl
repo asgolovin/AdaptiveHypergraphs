@@ -11,10 +11,11 @@ MEASUREMENT_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         StateCount              => [],
         HyperedgeCount          => [],
         ActiveHyperedgeCount    => [],
+        MotifCount              => [],
         ActiveLifetime          => [],
         AvgHyperedgeCount       => [HyperedgeCount, ActiveHyperedgeCount],
         FinalMagnetization      => [],
-        SlowManifoldFit        => [StateCount, ActiveHyperedgeCount])
+        SlowManifoldFit         => [StateCount, ActiveHyperedgeCount])
 #! format: on
 
 """
@@ -47,6 +48,7 @@ To add a new measurement:
     state_count::Vector{StateCount} = StateCount[]
     hyperedge_count::Vector{HyperedgeCount} = HyperedgeCount[]
     active_hyperedge_count::Vector{ActiveHyperedgeCount} = ActiveHyperedgeCount[]
+    motif_count::Vector{MotifCount} = MotifCount[]
     active_lifetime::Vector{ActiveLifetime} = ActiveLifetime[]
     final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
     avg_hyperedge_count::Vector{AvgHyperedgeCount} = AvgHyperedgeCount[]
@@ -87,6 +89,9 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
         elseif type <: HyperedgeCount || type <: ActiveHyperedgeCount
             measurements[sym] = [type(size; log_params...)
                                  for size in 2:max_size]
+        elseif type <: MotifCount
+            measurements[sym] = [type(label; log_params...)
+                                 for label in all_labels(max_size)]
         elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
             measurements[sym] = [type(size) for size in 2:max_size]
         else
@@ -272,6 +277,13 @@ end
 function record_measurement!(mo::ModelObservable, measurement::ActiveHyperedgeCount)
     size = measurement.label
     count = get_num_active_hyperedges(mo.network[], size)
+    record!(measurement.log, mo.time, count)
+    return measurement
+end
+
+function record_measurement!(mo::ModelObservable, measurement::MotifCount)
+    label = measurement.label
+    count = get_motif_count(mo.network[])[label]
     record!(measurement.log, mo.time, count)
     return measurement
 end

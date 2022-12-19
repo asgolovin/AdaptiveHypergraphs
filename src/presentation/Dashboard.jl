@@ -11,6 +11,8 @@ PANEL_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         StateDistPanel                => [StateCount],
         HyperedgeDistPanel            => [HyperedgeCount, AvgHyperedgeCount],
         ActiveHyperedgeDistPanel      => [ActiveHyperedgeCount],
+        FirstOrderMotifCountPanel     => [MotifCount],
+        SecondOrderMotifCountPanel    => [MotifCount],
         ActiveRatioPanel              => [ActiveHyperedgeCount],
         SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount, SlowManifoldFit],
         ActiveLifetimePanel           => [ActiveLifetime],
@@ -48,11 +50,10 @@ function Dashboard(model::AbstractModel;
                    panel_types=[StateDistPanel,
                                 HyperedgeDistPanel,
                                 ActiveHyperedgeDistPanel,
-                                ActiveRatioPanel,
+                                FirstOrderMotifCountPanel,
+                                SecondOrderMotifCountPanel,
                                 SlowManifoldPanel,
-                                ActiveLifetimePanel,
-                                FinalMagnetizationPanel,
-                                AvgHyperedgeCountPanel],
+                                ],
                    vparams::VisualizationParams)
     #! format: on
     fig = Figure(; resolution=(1200, 800))
@@ -130,9 +131,7 @@ function run!(dashboard::Dashboard, num_steps::Int64)
         num_active_hyperedges = get_num_active_hyperedges(mo.network[])
         if i % mo.buffer_size == 0 || num_active_hyperedges == 0
             for panel in dashboard.panels
-                if !(typeof(panel) <: ActiveLifetimePanel)
-                    set_lims!(panel)
-                end
+                set_lims!(panel)
             end
         end
 

@@ -62,7 +62,7 @@ function _plot_time_series(box::GridPosition, measurements::Vector{<:AbstractMea
         if labels != []
             kwargs[:label] = labels[i]
         end
-        if linecolors != nothing
+        if linecolors !== nothing
             kwargs[:color] = linecolors[i]
         end
         log = measurement.log
@@ -195,6 +195,107 @@ function ActiveHyperedgeDistPanel(box::GridPosition,
 
     return ActiveHyperedgeDistPanel(logs, ax, lines, xlow, xhigh,
                                     ylow, yhigh)
+end
+
+mutable struct FirstOrderMotifCountPanel <: AbstractTimeSeriesPanel
+    measurement_logs::Vector{MeasurementLog}
+    axes::Axis
+    lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function FirstOrderMotifCountPanel(box::GridPosition,
+                                   measurements::Dict,
+                                   graph_properties::Dict,
+                                   vparams::VisualizationParams)
+    motif_count = measurements[:motif_count]
+    max_size = graph_properties[:max_hyperedge_size]
+    num_hyperedges = graph_properties[:num_hyperedges]
+    node_colormap = vparams.node_colormap
+
+    xlow, xhigh = (0, nothing)
+    ylow, yhigh = (-0.05num_hyperedges, nothing)
+    lims = (xlow, xhigh, ylow, yhigh)
+
+    title = "Number of first-order motifs"
+    first_order_motif_count = filter(x -> order(x.label) == 1, motif_count)
+    labels = ["$(m.label)" for m in first_order_motif_count]
+
+    linecolors = []
+    colorscheme = colorschemes[node_colormap]
+    for meas in first_order_motif_count
+        label = meas.label
+        numA = label.left[A] + label.int[A] + label.right[A]
+        numB = label.left[B] + label.int[B] + label.right[B]
+        ratio = numB / (numA + numB)
+        linecolor = get(colorscheme, ratio)
+        push!(linecolors, linecolor)
+    end
+
+    ax, lines, logs = _plot_time_series(box, first_order_motif_count, lims; title,
+                                        linecolors, labels)
+
+    return FirstOrderMotifCountPanel(logs, ax, lines, xlow, xhigh,
+                                     ylow, yhigh)
+end
+
+mutable struct SecondOrderMotifCountPanel <: AbstractTimeSeriesPanel
+    measurement_logs::Vector{Vector{MeasurementLog}}
+    axes::Vector{Axis}
+    lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function SecondOrderMotifCountPanel(box::GridPosition,
+                                    measurements::Dict,
+                                    graph_properties::Dict,
+                                    vparams::VisualizationParams)
+    motif_count = measurements[:motif_count]
+    max_size = graph_properties[:max_hyperedge_size]
+    num_hyperedges = graph_properties[:num_hyperedges]
+    node_colormap = vparams.node_colormap
+
+    xlow, xhigh = (0, nothing)
+    ylow, yhigh = (-0.05num_hyperedges, nothing)
+
+    axes = Axis[]
+    lines = Lines[]
+    logs = Vector{Vector{MeasurementLog}}()
+    colorscheme = colorschemes[node_colormap]
+
+    for size in 2:max_size
+        title = "Number of second-order motifs of size $size"
+        size_logs = MeasurementLog[]
+        ax = Axis(box[size - 1, 1]; title=title)
+        if size != max_size
+            hidexdecorations!(ax)
+        end
+        fixed_size_motif_count = filter(x -> order(x.label) == 2, motif_count)
+        fixed_size_motif_count = filter(x -> x.label.left[A] + x.label.left[B] +
+                                             x.label.int[A] + x.label.int[B] == size,
+                                        fixed_size_motif_count)
+        for (i, meas) in enumerate(fixed_size_motif_count)
+            label = meas.label
+            numA = label.left[A] + label.int[A] + label.right[A]
+            numB = label.left[B] + label.int[B] + label.right[B]
+            ratio = numB / (numA + numB)
+            linecolor = get(colorscheme, ratio)
+            l = lines!(ax, meas.indices, meas.values; label="$label", color=linecolor)
+            push!(lines, l)
+            push!(size_logs, meas.log)
+        end
+        push!(axes, ax)
+        push!(logs, size_logs)
+    end
+
+    return SecondOrderMotifCountPanel(logs, axes, lines, xlow, xhigh,
+                                      ylow, yhigh)
 end
 
 mutable struct ActiveRatioPanel <: AbstractTimeSeriesPanel
@@ -453,6 +554,23 @@ function deactivate_lines!(panel::SlowManifoldPanel)
     return panel
 end
 
+function deactivate_lines!(panel::SecondOrderMotifCountPanel)
+    for (i, ax) in enumerate(panel.axes)
+        for log in panel.measurement_logs[i]
+            lines!(ax,
+                   log.indices[],
+                   log.values[];
+                   linewidth=1,
+                   color=(:gray, 0.5))
+        end
+    end
+    # Bring the lines tied to observables in front of the gray lines
+    for line in panel.lines
+        translate!(line, 0, 0, 1)
+    end
+    return panel
+end
+
 function deactivate_lines!(panel::AbstractTimeSeriesPanel)
     for log in panel.measurement_logs
         lines!(panel.axes,
@@ -471,5 +589,13 @@ end
 function set_lims!(panel::AbstractPanel)
     xlims!(panel.axes; low=panel.xlow, high=panel.xhigh)
     ylims!(panel.axes; low=panel.ylow, high=panel.yhigh)
+    return panel
+end
+
+function set_lims!(panel::SecondOrderMotifCountPanel)
+    for ax in panel.axes
+        xlims!(ax; low=panel.xlow, high=panel.xhigh)
+        ylims!(ax; low=panel.ylow, high=panel.yhigh)
+    end
     return panel
 end

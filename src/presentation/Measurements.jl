@@ -1,4 +1,5 @@
-export ActiveHyperedgeCount, StateCount, FinalMagnetization, HyperedgeCount, ActiveLifetime,
+export ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization, HyperedgeCount,
+       ActiveLifetime,
        AvgHyperedgeCount, SlowManifoldFit
 
 using GLMakie
@@ -259,6 +260,16 @@ end
 function ActiveHyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0)
     log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return ActiveHyperedgeCount(log, size)
+end
+
+mutable struct MotifCount <: AbstractStepMeasurement
+    log::MeasurementLog{Float64,Int64}
+    label::Label
+end
+
+function MotifCount(label::Label; skip_points::Int64=1, buffer_size::Int64=0)
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
+    return MotifCount(log, label)
 end
 
 # ====================================================================================
