@@ -3,3 +3,4 @@ videos
 plots
 *.pb.gz
 .vscode
+*.so
