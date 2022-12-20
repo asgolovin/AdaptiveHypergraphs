@@ -127,7 +127,7 @@ function Dashboard(model::AbstractModel;
                                     vparams)
         else
             # add the dependent measurements to the arg list
-            measurement_types = PANEL_DEPENDENCIES[type]
+            measurement_types = PANEL_DEPENDENCIES[panel]
             measurements = Dict()
             for type in measurement_types
                 sym = Symbol(_snake_case("$type"))
