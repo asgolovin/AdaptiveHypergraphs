@@ -1,5 +1,6 @@
 export AbstractPanel, AbstractTimeSeriesPanel, HypergraphPanel, StateDistPanel,
-       HyperedgeDistPanel, ActiveHyperedgeDistPanel, SlowManifoldPanel, deactivate_lines!,
+       HyperedgeDistPanel, MomentClosurePanel, ActiveHyperedgeDistPanel, SlowManifoldPanel,
+       deactivate_lines!,
        set_lims!
 
 """
@@ -53,7 +54,8 @@ function _plot_time_series(box::GridPosition, measurements::Vector{<:AbstractMea
                            lims;
                            title::String="",
                            linecolors::Union{Vector,Nothing}=nothing,
-                           labels::Vector{String}=String[])
+                           labels::Vector{String}=String[],
+                           plot_legend::Bool=true)
     ax = Axis(box[1, 1]; title=title)
     lines = []
     logs = MeasurementLog[]
@@ -75,7 +77,7 @@ function _plot_time_series(box::GridPosition, measurements::Vector{<:AbstractMea
     (xlow, xhigh, ylow, yhigh) = lims
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
-    if length(labels) > 0
+    if length(labels) > 0 && plot_legend
         axislegend(ax; labelsize=12)
     end
     return ax, lines, logs
@@ -228,8 +230,8 @@ function FirstOrderMotifCountPanel(box::GridPosition,
     colorscheme = colorschemes[node_colormap]
     for meas in first_order_motif_count
         label = meas.label
-        numA = label.left[A] + label.int[A] + label.right[A]
-        numB = label.left[B] + label.int[B] + label.right[B]
+        numA = label.left_total[A] + label.right[A]
+        numB = label.left_total[B] + label.right[B]
         ratio = numB / (numA + numB)
         linecolor = get(colorscheme, ratio)
         push!(linecolors, linecolor)
@@ -282,8 +284,8 @@ function SecondOrderMotifCountPanel(box::GridPosition,
                                         fixed_size_motif_count)
         for (i, meas) in enumerate(fixed_size_motif_count)
             label = meas.label
-            numA = label.left[A] + label.int[A] + label.right[A]
-            numB = label.left[B] + label.int[B] + label.right[B]
+            numA = label.left_total[A] + label.right[A]
+            numB = label.left_total[B] + label.right[B]
             ratio = numB / (numA + numB)
             linecolor = get(colorscheme, ratio)
             l = lines!(ax, meas.indices, meas.values; label="$label", color=linecolor)
@@ -296,6 +298,137 @@ function SecondOrderMotifCountPanel(box::GridPosition,
 
     return SecondOrderMotifCountPanel(logs, axes, lines, xlow, xhigh,
                                       ylow, yhigh)
+end
+
+mutable struct MomentClosurePanel <: AbstractTimeSeriesPanel
+    measurement_logs::Vector{Vector{MeasurementLog}}
+    axes::Axis
+    lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function MomentClosurePanel(box::GridPosition,
+                            measurements::Dict,
+                            graph_properties::Dict,
+                            vparams::VisualizationParams)
+    motif_count = measurements[:motif_count]
+    state_count = measurements[:state_count]
+    num_hyperedges = graph_properties[:num_hyperedges]
+    colormap = vparams.misc_colormap
+
+    xlow, xhigh = (0, nothing)
+    ylow, yhigh = (-0.05num_hyperedges, nothing)
+
+    title = "Moment closure prediction vs measurement"
+    ax = Axis(box; title=title)
+
+    # to reduce the number of options, consider only tripples which:
+    # - are of order 2, otherwise they are not tripples
+    # - intersect in an A-node (B-nodes should behave symmetrically)
+    # - the left hyperedge is active (only such terms appear in equations)
+    tripples = filter(x -> order(x.label) == 2, motif_count)
+    filter!(x -> x.label.int[A] == 1, tripples)
+    #filter!(x -> x.label.left_total[B] > 0, tripples)
+    filter!(x -> x.label == Label("[A2 | A | A]"), tripples)
+
+    num_A_nodes = filter(x -> x.label == A, state_count)[1].values
+    num_tripples = length(tripples)
+    linecolors = get(colorschemes[colormap], 1:num_tripples, (1, num_tripples))
+
+    lines = Lines[]
+    logs = Vector{Vector{MeasurementLog}}()
+
+    for (i, tripple) in enumerate(tripples)
+        label = tripple.label
+
+        # The moment closure is done by replacing [X|Y|Z] by [XY] * [YZ] / [Y]. 
+        # Here, we determine XY and YZ and the corresponding labels.
+        numA_left = label.left_total[A]
+        numB_left = label.left_total[B]
+        numA_right = label.right_total[A]
+        numB_right = label.right_total[B]
+        label_left = Label("[A$numA_left B$numB_left]")
+        label_right = Label("[A$numA_right B$numB_right]")
+
+        # [XY]
+        left_motif = filter(x -> x.label == label_left, motif_count)[1].values
+        # [YZ]
+        right_motif = filter(x -> x.label == label_right, motif_count)[1].values
+
+        # The resulting closure approximation
+        prediction = @lift 5.0 .* $left_motif .* $right_motif ./ $num_A_nodes
+        l1 = lines!(ax, tripple.indices, prediction;
+                    label="$label_left * $label_right / [ A ]",
+                    color=linecolors[i])
+        # The actual number of tripples
+        l2 = lines!(ax, tripple.indices, tripple.values;
+                    label="$label", color=linecolors[i] * 0.5)
+
+        push!(lines, l1)
+        push!(lines, l2)
+        tripple_log = MeasurementLog[]
+        prediction_log = MeasurementLog{Float64,Float64}(tripple.indices, prediction)
+        push!(tripple_log, prediction_log)
+        push!(tripple_log, tripple.log)
+        push!(logs, tripple_log)
+        axislegend()
+    end
+
+    return MomentClosurePanel(logs, ax, lines, xlow, xhigh,
+                              ylow, yhigh)
+end
+
+mutable struct FakeDiffEqPanel <: AbstractTimeSeriesPanel
+    measurement_logs::Vector{MeasurementLog}
+    axes::Axis
+    lines::Vector{Lines}
+    xlow::Union{Real,Nothing}
+    xhigh::Union{Real,Nothing}
+    ylow::Union{Real,Nothing}
+    yhigh::Union{Real,Nothing}
+end
+
+function FakeDiffEqPanel(box::GridPosition,
+                         measurements::Dict,
+                         graph_properties::Dict,
+                         vparams::VisualizationParams)
+    fake_diff_eq = measurements[:fake_diff_eq]
+    motif_count = measurements[:motif_count]
+    num_hyperedges = graph_properties[:num_hyperedges]
+    colormap = vparams.misc_colormap
+
+    xlow, xhigh = (0, nothing)
+    ylow, yhigh = (-0.05num_hyperedges, nothing)
+    lims = (xlow, xhigh, ylow, yhigh)
+
+    labels = ["Fake ode for $(m.label)" for m in fake_diff_eq]
+    title = "Fake differential equation"
+
+    order_one_motifs = filter(x -> order(x.label) == 1, motif_count)
+    filter!(x -> x.label.left[A] > 0 && x.label.left[B] > 0, order_one_motifs)
+    num_motifs = length(order_one_motifs)
+
+    linecolors = get(colorschemes[colormap], 1:num_motifs, (1, num_motifs))
+
+    ax, lines, logs = _plot_time_series(box, fake_diff_eq, lims; title,
+                                        linecolors, labels, plot_legend=false)
+
+    # plot the true values
+    for (i, motif) in enumerate(order_one_motifs)
+        l = lines!(ax, motif.indices, motif.values;
+                   color=linecolors[i] * 0.6,
+                   label="True value for $(motif.label)")
+        push!(lines, l)
+        push!(logs, motif.log)
+    end
+
+    axislegend()
+
+    return FakeDiffEqPanel(logs, ax, lines, xlow, xhigh,
+                           ylow, yhigh)
 end
 
 mutable struct ActiveRatioPanel <: AbstractTimeSeriesPanel
@@ -539,6 +672,13 @@ function AvgHyperedgeCountPanel(box::GridPosition,
                                   yhigh)
 end
 
+function _bring_to_front!(lines::Vector{Lines})
+    # Bring the lines tied to observables in front of the gray lines
+    for line in lines
+        translate!(line, 0, 0, 1)
+    end
+end
+
 function deactivate_lines!(panel::SlowManifoldPanel)
     for i in 2:length(panel.measurement_logs)
         lines!(panel.axes,
@@ -547,10 +687,7 @@ function deactivate_lines!(panel::SlowManifoldPanel)
                linewidth=1,
                color=(:gray, 0.5))
     end
-    # Bring the lines tied to observables in front of the gray lines
-    for line in panel.lines
-        translate!(line, 0, 0, 1)
-    end
+    _bring_to_front!(panel.lines)
     return panel
 end
 
@@ -564,25 +701,24 @@ function deactivate_lines!(panel::SecondOrderMotifCountPanel)
                    color=(:gray, 0.5))
         end
     end
-    # Bring the lines tied to observables in front of the gray lines
-    for line in panel.lines
-        translate!(line, 0, 0, 1)
-    end
+    _bring_to_front!(panel.lines)
     return panel
 end
 
 function deactivate_lines!(panel::AbstractTimeSeriesPanel)
-    for log in panel.measurement_logs
+    if typeof(panel.measurement_logs) <: Vector{Vector{MeasurementLogs}}
+        logs = reduce(vcat, panel.measurement_logs)
+    else
+        logs = panel.measurement_logs
+    end
+    for log in logs
         lines!(panel.axes,
                log.indices[],
                log.values[];
                linewidth=1,
                color=(:gray, 0.5))
     end
-    # Bring the lines tied to observables in front of the gray lines
-    for line in panel.lines
-        translate!(line, 0, 0, 1)
-    end
+    _bring_to_front!(panel.lines)
     return panel
 end
 

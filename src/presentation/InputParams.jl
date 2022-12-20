@@ -25,6 +25,7 @@ end
     buffer_size::Int64 = 100
     node_colormap::Symbol = :RdYlGn_6
     hyperedge_colormap::Symbol = :thermal
+    misc_colormap::Symbol = :Dark2_3
 end
 
 @with_kw struct BatchParams

@@ -12,6 +12,7 @@ MEASUREMENT_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         HyperedgeCount          => [],
         ActiveHyperedgeCount    => [],
         MotifCount              => [],
+        FakeDiffEq              => [],
         ActiveLifetime          => [],
         AvgHyperedgeCount       => [HyperedgeCount, ActiveHyperedgeCount],
         FinalMagnetization      => [],
@@ -49,6 +50,7 @@ To add a new measurement:
     hyperedge_count::Vector{HyperedgeCount} = HyperedgeCount[]
     active_hyperedge_count::Vector{ActiveHyperedgeCount} = ActiveHyperedgeCount[]
     motif_count::Vector{MotifCount} = MotifCount[]
+    fake_diff_eq::Vector{FakeDiffEq} = FakeDiffEq[]
     active_lifetime::Vector{ActiveLifetime} = ActiveLifetime[]
     final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
     avg_hyperedge_count::Vector{AvgHyperedgeCount} = AvgHyperedgeCount[]
@@ -91,7 +93,13 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
                                  for size in 2:max_size]
         elseif type <: MotifCount
             measurements[sym] = [type(label; log_params...)
-                                 for label in all_labels(max_size)]
+                                 for label in all_labels(max_size)
+                                 if order(label) > 0]
+        elseif type <: FakeDiffEq
+            measurements[sym] = [type(label; log_params...)
+                                 for label in all_labels(max_size)
+                                 if order(label) == 1 && label.left[A] > 0 &&
+                                    label.left[B] > 0]
         elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
             measurements[sym] = [type(size) for size in 2:max_size]
         else
@@ -285,6 +293,83 @@ function record_measurement!(mo::ModelObservable, measurement::MotifCount)
     label = measurement.label
     count = get_motif_count(mo.network[])[label]
     record!(measurement.log, mo.time, count)
+    return measurement
+end
+
+function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
+    label = measurement.label
+    if mo.num_steps == 1
+        value = Float64(get_motif_count(mo.network[])[label])
+        record!(measurement.log, mo.time, value)
+        return measurement
+    end
+
+    k = label.left_total[A]
+    h = label.left_total[B]
+    p = mo.model[].adaptivity_prob
+    max_size = get_max_size(mo.network[])
+
+    hyperedge_dist = get_hyperedge_dist(mo.network[])
+    # number of hyperedges which can be rewired to, i.e., those which are not of max size
+    num_small_hyperedges = sum([x.second for x in hyperedge_dist if x.first != max_size])
+    num_nodes = get_num_nodes(mo.network[])
+    # total number of candidates which can be rewired to
+    num_candidates = num_small_hyperedges + num_nodes
+
+    motif_dict = get_motif_count(mo.network[])
+
+    # the difference between the value at t and t+Δt
+    update = 0
+
+    # PROPAGATION
+
+    prop_update = 0.0
+
+    for n in 1:max_size, m in 1:(max_size - n)
+        if n + m == 1
+            continue
+        end
+        prop_update += n / (n + m) * (motif_dict[Label("[A$(n) B$(m-1)|B|A$(k-1)B$(h)]")] -
+                                      motif_dict[Label("[A$(n) B$(m-1)|B|A$(k)B$(h-1)]")])
+        prop_update += m / (n + m) * (motif_dict[Label("[A$(n-1) B$(m)|A|A$(k)B$(h-1)]")] -
+                                      motif_dict[Label("[A$(n-1) B$(m)|A|A$(k-1)B$(h)]")])
+    end
+    # symmetric terms
+    #! format: off
+    prop_update += (k - 1) / (k + h) * motif_dict[Label("[A$(k-1)B$(h)|B|A$(k-1)B$(h)]")] -
+                         k / (k + h) * motif_dict[Label("[A$(k)B$(h-1)|B|A$(k)B$(h-1)]")] +
+                   (h - 1) / (k + h) * motif_dict[Label("[A$(k)B$(h-1)|A|A$(k)B$(h-1)]")] -
+                         h / (k + h) * motif_dict[Label("[A$(k-1)B$(h)|A|A$(k-1)B$(h)]")]
+
+    
+    # ADAPTIVITY
+    adapt_update = 0.0
+
+    for n in 1:max_size, m in 1:(max_size - n)
+        if n + m == 1
+            continue
+        end
+        AnBm = motif_dict[Label("[A$(n)B$(m)]")]
+
+        adapt_update += n / (n + m) * motif_dict[Label("[A$(k-1)B$(h)]")] * AnBm / num_candidates +
+                        m / (n + m) * motif_dict[Label("[A$(k)B$(h-1)]")] * AnBm / num_candidates -
+                        motif_dict[Label("[A$(k-1)B$(h)]")] * AnBm / num_candidates
+    end
+
+    if k + h < max_size
+        adapt_update += (k + 1) / (k + h + 1) * motif_dict[Label("[A$(k+1)B$(h)]")]
+        adapt_update += (h + 1) / (k + h + 1) * motif_dict[Label("[A$(k)B$(h+1)]")]
+    end
+
+    #! format: on
+    last_meas = measurement.log.last_value
+    num_hyperedges = get_num_hyperedges(mo.network[])
+    update = ((1 - p) * prop_update + p * adapt_update - last_meas) / num_hyperedges
+
+    value = last_meas + update
+
+    record!(measurement.log, mo.time, value)
+
     return measurement
 end
 

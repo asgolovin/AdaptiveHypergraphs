@@ -12,7 +12,9 @@ PANEL_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         HyperedgeDistPanel            => [HyperedgeCount, AvgHyperedgeCount],
         ActiveHyperedgeDistPanel      => [ActiveHyperedgeCount],
         FirstOrderMotifCountPanel     => [MotifCount],
+        MomentClosurePanel            => [MotifCount, StateCount],
         SecondOrderMotifCountPanel    => [MotifCount],
+        FakeDiffEqPanel               => [FakeDiffEq, MotifCount],
         ActiveRatioPanel              => [ActiveHyperedgeCount],
         SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount, SlowManifoldFit],
         ActiveLifetimePanel           => [ActiveLifetime],
@@ -31,12 +33,7 @@ end
 #! format: off
 """
     function Dashboard(model::AbstractModel;
-                       panel_types=[StateDistPanel,
-                                   HyperedgeDistPanel,
-                                   ActiveHyperedgeDistPanel,
-                                   SlowManifoldPanel,
-                                   ActiveLifetimePanel,
-                                   FinalMagnetizationPanel],
+                       panel_types,
                        vparams::VisualizationParams)
 
 A visualization of the evolution of the hypergraph during the simulation.
@@ -53,6 +50,8 @@ function Dashboard(model::AbstractModel;
                                 FirstOrderMotifCountPanel,
                                 SecondOrderMotifCountPanel,
                                 SlowManifoldPanel,
+                                FakeDiffEqPanel,
+                                MomentClosurePanel,
                                 ],
                    vparams::VisualizationParams)
     #! format: on

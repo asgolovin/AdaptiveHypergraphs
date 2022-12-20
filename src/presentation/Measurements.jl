@@ -1,5 +1,5 @@
 export ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization, HyperedgeCount,
-       ActiveLifetime,
+       ActiveLifetime, FakeDiffEq,
        AvgHyperedgeCount, SlowManifoldFit
 
 using GLMakie
@@ -21,6 +21,7 @@ mutable struct MeasurementLog{IndexType,ValueType} # TODO: rename?
     auto_notify::Bool
     remainder::Int64
     num_points::Int64
+    last_value::Union{ValueType,Nothing}
 end
 
 """
@@ -43,8 +44,9 @@ function MeasurementLog{IndexType,ValueType}(; skip_points::Int64=1,
     buffered_values = ValueType[]
     remainder = 0
     num_points = 0
+    last_value = nothing
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
-                          buffer_size, auto_notify, remainder, num_points)
+                          buffer_size, auto_notify, remainder, num_points, last_value)
 end
 
 function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexType}},
@@ -58,8 +60,9 @@ function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexTyp
     auto_notify = true
     remainder = 0
     num_points = length(indices[])
+    last_value = nothing
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
-                          buffer_size, auto_notify, remainder, num_points)
+                          buffer_size, auto_notify, remainder, num_points, last_value)
 end
 
 function Base.show(io::IO, log::MeasurementLog)
@@ -92,6 +95,7 @@ Push a new pair of (`index`, `value`) into the log.
 """
 function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
                  value::ValueType) where {IndexType,ValueType}
+    log.last_value = value
     if log.buffer_size > 0
         # write the values to the buffer
         push!(log.buffered_indices, index)
@@ -270,6 +274,16 @@ end
 function MotifCount(label::Label; skip_points::Int64=1, buffer_size::Int64=0)
     log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
     return MotifCount(log, label)
+end
+
+mutable struct FakeDiffEq <: AbstractStepMeasurement
+    log::MeasurementLog{Float64,Float64}
+    label::Label
+end
+
+function FakeDiffEq(label::Label; skip_points::Int64=1, buffer_size::Int64=0)
+    log = MeasurementLog{Float64,Float64}(; skip_points, buffer_size, auto_notify=false)
+    return FakeDiffEq(log, label)
 end
 
 # ====================================================================================
