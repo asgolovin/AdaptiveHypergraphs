@@ -22,19 +22,56 @@ PANEL_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         AvgHyperedgeCountPanel        => [AvgHyperedgeCount, SlowManifoldFit])
 #! format: on
 
-struct Dashboard
+abstract type AbstractDashboard end
+
+"""
+    NinjaDashboard <: AbstractDashboard
+
+A dashboard, but it's so stealthy, that you will never see it. 
+It does not use any graphical libraries. 
+It will never display anything at all, just compute the data in the darkness of the night. 
+"""
+struct NinjaDashboard <: AbstractDashboard
+    mo::ModelObservable
+    measurement_types::Vector{DataType}
+end
+
+"""
+    Dashboard <: AbstractDashboard
+
+A dashboard that actually visualizes stuff.
+"""
+struct Dashboard <: AbstractDashboard
     fig::Figure
     panels::Vector{AbstractPanel}
     mo::ModelObservable
     measurement_types::Vector{DataType}
-    is_discrete::Bool
+end
+
+"""
+    NinjaDashboard(model::AbstractModel)
+
+# Arguments
+- `model::AbstractModel` - the model on which the dashboard is based on. 
+"""
+function NinjaDashboard(model::AbstractModel, panel_types::Vector{DataType}, vparams)
+    # collect a list of the measurements on which the panels depend on
+    measurements = Vector{DataType}()
+    for panel in panel_types
+        append!(measurements, PANEL_DEPENDENCIES[panel])
+    end
+    measurement_types = unique(measurements)
+
+    mo = ModelObservable(model, measurement_types;
+                         skip_points=1,
+                         buffer_size=vparams.buffer_size)
+    return NinjaDashboard(mo, measurement_types)
 end
 
 #! format: off
 """
-    function Dashboard(model::AbstractModel;
-                       panel_types,
-                       vparams::VisualizationParams)
+    Dashboard(model::AbstractModel;
+              vparams::VisualizationParams)
 
 A visualization of the evolution of the hypergraph during the simulation.
 
@@ -44,15 +81,7 @@ A visualization of the evolution of the hypergraph during the simulation.
 - `vparams::VisualizationParams` - parameters used for visualization
 """
 function Dashboard(model::AbstractModel;
-                   panel_types=[StateDistPanel,
-                                HyperedgeDistPanel,
-                                ActiveHyperedgeDistPanel,
-                                FirstOrderMotifCountPanel,
-                                SecondOrderMotifCountPanel,
-                                SlowManifoldPanel,
-                                FakeDiffEqPanel,
-                                MomentClosurePanel,
-                                ],
+                    panel_types::Vector{DataType},
                    vparams::VisualizationParams)
     #! format: on
     fig = Figure(; resolution=(1200, 800))
@@ -65,7 +94,6 @@ function Dashboard(model::AbstractModel;
     end
     measurement_types = unique(measurements)
 
-    is_discrete = typeof(model) <: DiscrModel
     mo = ModelObservable(model, measurement_types;
                          skip_points=vparams.skip_points,
                          buffer_size=vparams.buffer_size)
@@ -113,7 +141,9 @@ function Dashboard(model::AbstractModel;
     # ==========================================================================================
     # ------------------------------------ INFO BOX---------------------------------------------
 
-    return Dashboard(fig, panels, mo, measurement_types, is_discrete)
+    # TODO
+
+    return Dashboard(fig, panels, mo, measurement_types)
 end
 
 """
@@ -121,16 +151,18 @@ end
 
 Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges.
 """
-function run!(dashboard::Dashboard, num_steps::Int64)
+function run!(dashboard::AbstractDashboard, num_steps::Int64)
     mo = dashboard.mo
 
     active_lifetime = num_steps
     for i in 1:num_steps
         step!(mo)
         num_active_hyperedges = get_num_active_hyperedges(mo.network[])
-        if i % mo.buffer_size == 0 || num_active_hyperedges == 0
-            for panel in dashboard.panels
-                set_lims!(panel)
+        if typeof(dashboard) <: Dashboard
+            if i % mo.buffer_size == 0 || num_active_hyperedges == 0
+                for panel in dashboard.panels
+                    set_lims!(panel)
+                end
             end
         end
 
@@ -174,13 +206,14 @@ Reset the dashboard to run the next simulation from the batch.
 The old history plot lines are made inactive and are grayed out. 
 The observables in the ModelObservable are reset to track the new data from `model`.
 """
-function reset!(dashboard::Dashboard, model::AbstractModel)
-
-    # gray out the history plot lines
-    for panel in dashboard.panels
-        if typeof(panel) <: AbstractTimeSeriesPanel ||
-           typeof(panel) <: SlowManifoldPanel
-            deactivate_lines!(panel)
+function reset!(dashboard::AbstractDashboard, model::AbstractModel)
+    if typeof(dashboard) <: Dashboard
+        # gray out the history plot lines
+        for panel in dashboard.panels
+            if typeof(panel) <: AbstractTimeSeriesPanel ||
+               typeof(panel) <: SlowManifoldPanel
+                deactivate_lines!(panel)
+            end
         end
     end
 

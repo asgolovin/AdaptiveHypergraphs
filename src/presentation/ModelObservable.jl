@@ -184,8 +184,18 @@ function step!(mo::ModelObservable)
     if mo.num_steps % mo.buffer_size == 0
         sleep(0.001)
         notify(mo)
+        println(mo.time)
     end
     return mo
+end
+
+"""
+    write(mo::ModelObservable)
+
+Save the new data collected since the last save to csv files.
+"""
+function checkpoint_save(mo::ModelObservable)
+    # TODO
 end
 
 """

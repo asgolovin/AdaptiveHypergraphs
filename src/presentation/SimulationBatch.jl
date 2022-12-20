@@ -35,7 +35,17 @@ function start_simulation(params::InputParams)
 
     model = _create_model(network, mparams)
 
-    dashboard = Dashboard(model; vparams)
+    panel_types = [StateDistPanel,
+                   HyperedgeDistPanel,
+                   ActiveHyperedgeDistPanel,
+                   FirstOrderMotifCountPanel,
+                   SecondOrderMotifCountPanel,
+                   SlowManifoldPanel,
+                   FakeDiffEqPanel,
+                   MomentClosurePanel]
+
+    #dashboard = Dashboard(model; panel_types, vparams)
+    dashboard = NinjaDashboard(model, panel_types, vparams)
 
     for (i, param) in enumerate(param_vector)
         println("\nExecuting batch $i/$(length(param_vector))")
@@ -64,8 +74,7 @@ function start_simulation(params::InputParams)
     end
 
     if save_to_file
-        rules = "$(typeof(mparams.propagation_rule))_$(typeof(mparams.adaptivity_rule))"
-        save(dashboard, output_folder, "$rules.png")
+        save(dashboard, output_folder, "dashboard.png")
     end
     return nothing
 end
