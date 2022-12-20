@@ -706,7 +706,7 @@ function deactivate_lines!(panel::SecondOrderMotifCountPanel)
 end
 
 function deactivate_lines!(panel::AbstractTimeSeriesPanel)
-    if typeof(panel.measurement_logs) <: Vector{Vector{MeasurementLogs}}
+    if typeof(panel.measurement_logs) <: Vector{Vector{MeasurementLog}}
         logs = reduce(vcat, panel.measurement_logs)
     else
         logs = panel.measurement_logs
