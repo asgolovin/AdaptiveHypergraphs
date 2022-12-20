@@ -27,6 +27,7 @@ params = InputParams(
                   :MomentClosurePanel]
     ),
     BatchParams(
-        batch_size = 1
+        batch_size = 4,
+        with_mpi = false
     )
 )

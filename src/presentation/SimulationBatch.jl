@@ -3,6 +3,7 @@ using StructTypes
 using DrWatson
 using Dates
 using REPL.TerminalMenus
+using MPI
 
 export start_simulation
 
@@ -10,12 +11,30 @@ function start_simulation(params::InputParams)
     bparams = params.batch_params
     vparams = params.visualization_params
 
+    if bparams.with_mpi
+        MPI.Init()
+        comm = MPI.COMM_WORLD
+        rank = MPI.Comm_rank(comm)
+        size = MPI.Comm_size(comm)
+    else
+        rank = 0
+        size = 1
+    end
+
     # turns on a prompt if the data should be saved. 
+    save_to_file = false
     if bparams.prompt_for_save
-        save_to_file = _prompt_for_save()
-        if save_to_file
-            output_folder = _create_batch_folder()
-            _save_params(params, output_folder)
+        if rank == 0
+            save_to_file = _prompt_for_save()
+            if save_to_file
+                output_folder = _create_batch_folder()
+                _save_params(params, output_folder)
+            end
+        end
+
+        # [MPI] broadcast the answer to all ranks
+        if bparams.with_mpi
+            save_to_file = MPI.Bcast!(save_to_file, 0, comm)
         end
     else
         save_to_file = false
@@ -35,24 +54,33 @@ function start_simulation(params::InputParams)
 
     model = _create_model(network, mparams)
 
-    #dashboard = Dashboard(model; vparams)
-    dashboard = NinjaDashboard(model, vparams)
+    # only create a visible dashboard on rank 0 (or always without MPI)
+    if false # rank == 0
+        dashboard = Dashboard(model; vparams)
+    else
+        dashboard = NinjaDashboard(model, vparams)
+    end
 
     for (i, param) in enumerate(param_vector)
-        println("\nExecuting batch $i/$(length(param_vector))")
         nparams = param.network_params
         mparams = param.model_params
 
+        println("\n[rank $rank] Executing batch $i/$(length(param_vector))")
         for param in expandable_params[:nparams]
-            println("$param = $(getfield(nparams, param))")
+            println("[rank $rank] $param = $(getfield(nparams, param))")
         end
         for param in expandable_params[:mparams]
-            println("$param = $(getfield(mparams, param))")
+            println("[rank $rank] $param = $(getfield(mparams, param))")
         end
 
-        for t in 1:(bparams.batch_size)
-            # if a model was already created
-            if !(t == 1 && i == 1)
+        # indices of simulations which are executed on the rank
+        simulations_on_rank = (rank + 1):size:(bparams.batch_size)
+
+        for t in simulations_on_rank
+            println("[rank $rank] executing t = $t")
+            # check if a model was already created and needs to be reset
+            reset_needed = false
+            if reset_needed
                 max_size = length(nparams.num_hyperedges) + 1
                 network = HyperNetwork(n, nparams.infected_prob, max_size)
                 build_RSC_hg!(network, nparams.num_hyperedges)
@@ -61,6 +89,7 @@ function start_simulation(params::InputParams)
             end
             run!(dashboard, mparams.num_time_steps)
             sleep(0.1)
+            reset_needed = true
         end
     end
 

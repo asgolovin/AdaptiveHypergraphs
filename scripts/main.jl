@@ -1,4 +1,5 @@
 using AdaptiveHypergraphs
+using MPI
 
 include("../input/large_network.jl")
 

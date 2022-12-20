@@ -4,3 +4,4 @@ plots
 *.pb.gz
 .vscode
 *.so
+LocalPreferences.toml

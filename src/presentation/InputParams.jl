@@ -35,6 +35,7 @@ end
     # turns on a prompt if the data should be saved. The prompt is a bit annoying, 
     # so it can be turned off completely with this option. 
     prompt_for_save::Bool = false
+    with_mpi::Bool = false
 end
 
 @with_kw struct InputParams
