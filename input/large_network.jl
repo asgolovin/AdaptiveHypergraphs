@@ -5,7 +5,7 @@ using AdaptiveHypergraphs
 params = InputParams(
     NetworkParams(
         num_nodes = 1000,
-        num_hyperedges = (2000, 200, 20),
+        num_hyperedges = (2000, 200),
         infected_prob = 0.5
     ),
     ModelParams(
@@ -16,7 +16,7 @@ params = InputParams(
     ),
     VisualizationParams(
         skip_points = 100,
-        buffer_size = 100000
+        buffer_size = 10000
     ),
     BatchParams(
         batch_size = 3
