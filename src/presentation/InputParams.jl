@@ -26,6 +26,7 @@ end
     node_colormap::Symbol = :RdYlGn_6
     hyperedge_colormap::Symbol = :thermal
     misc_colormap::Symbol = :Dark2_3
+    panels::Vector{Symbol} = [:StateCount, :HyperedgeCount, :ActiveHyperedgeCount]
 end
 
 @with_kw struct BatchParams

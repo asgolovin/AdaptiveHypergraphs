@@ -35,17 +35,8 @@ function start_simulation(params::InputParams)
 
     model = _create_model(network, mparams)
 
-    panel_types = [StateDistPanel,
-                   HyperedgeDistPanel,
-                   ActiveHyperedgeDistPanel,
-                   FirstOrderMotifCountPanel,
-                   SecondOrderMotifCountPanel,
-                   SlowManifoldPanel,
-                   FakeDiffEqPanel,
-                   MomentClosurePanel]
-
-    #dashboard = Dashboard(model; panel_types, vparams)
-    dashboard = NinjaDashboard(model, panel_types, vparams)
+    #dashboard = Dashboard(model; vparams)
+    dashboard = NinjaDashboard(model, vparams)
 
     for (i, param) in enumerate(param_vector)
         println("\nExecuting batch $i/$(length(param_vector))")

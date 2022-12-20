@@ -6,20 +6,20 @@ using DrWatson
 """
 A list of dependencies of Panels on Measurements. 
 """
-PANEL_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
-        HypergraphPanel               => [],
-        StateDistPanel                => [StateCount],
-        HyperedgeDistPanel            => [HyperedgeCount, AvgHyperedgeCount],
-        ActiveHyperedgeDistPanel      => [ActiveHyperedgeCount],
-        FirstOrderMotifCountPanel     => [MotifCount],
-        MomentClosurePanel            => [MotifCount, StateCount],
-        SecondOrderMotifCountPanel    => [MotifCount],
-        FakeDiffEqPanel               => [FakeDiffEq, MotifCount],
-        ActiveRatioPanel              => [ActiveHyperedgeCount],
-        SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount, SlowManifoldFit],
-        ActiveLifetimePanel           => [ActiveLifetime],
-        FinalMagnetizationPanel       => [FinalMagnetization],
-        AvgHyperedgeCountPanel        => [AvgHyperedgeCount, SlowManifoldFit])
+PANEL_DEPENDENCIES = Dict{Symbol, Vector{DataType}}(
+        :HypergraphPanel               => [],
+        :StateDistPanel                => [StateCount],
+        :HyperedgeDistPanel            => [HyperedgeCount, AvgHyperedgeCount],
+        :ActiveHyperedgeDistPanel      => [ActiveHyperedgeCount],
+        :FirstOrderMotifCountPanel     => [MotifCount],
+        :MomentClosurePanel            => [MotifCount, StateCount],
+        :SecondOrderMotifCountPanel    => [MotifCount],
+        :FakeDiffEqPanel               => [FakeDiffEq, MotifCount],
+        :ActiveRatioPanel              => [ActiveHyperedgeCount],
+        :SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount, SlowManifoldFit],
+        :ActiveLifetimePanel           => [ActiveLifetime],
+        :FinalMagnetizationPanel       => [FinalMagnetization],
+        :AvgHyperedgeCountPanel        => [AvgHyperedgeCount, SlowManifoldFit])
 #! format: on
 
 abstract type AbstractDashboard end
@@ -27,9 +27,9 @@ abstract type AbstractDashboard end
 """
     NinjaDashboard <: AbstractDashboard
 
-A dashboard, but it's so stealthy, that you will never see it. 
+A dashboard, but it's so stealthy that you will never see it. 
 It does not use any graphical libraries. 
-It will never display anything at all, just compute the data in the darkness of the night. 
+It never displays anything at all, just computes the data in the darkness of the night. 
 """
 struct NinjaDashboard <: AbstractDashboard
     mo::ModelObservable
@@ -54,10 +54,10 @@ end
 # Arguments
 - `model::AbstractModel` - the model on which the dashboard is based on. 
 """
-function NinjaDashboard(model::AbstractModel, panel_types::Vector{DataType}, vparams)
+function NinjaDashboard(model::AbstractModel, vparams)
     # collect a list of the measurements on which the panels depend on
     measurements = Vector{DataType}()
-    for panel in panel_types
+    for panel in vparams.panels
         append!(measurements, PANEL_DEPENDENCIES[panel])
     end
     measurement_types = unique(measurements)
@@ -77,19 +77,18 @@ A visualization of the evolution of the hypergraph during the simulation.
 
 # Arguments
 - `model::AbstractModel` - the model on which the dashboard is based on. 
-- `panel_types::Vector{DataType}` - a list of types of `Panel`s to plot. 
 - `vparams::VisualizationParams` - parameters used for visualization
 """
 function Dashboard(model::AbstractModel;
-                    panel_types::Vector{DataType},
                    vparams::VisualizationParams)
     #! format: on
     fig = Figure(; resolution=(1200, 800))
     display(fig)
 
     # collect a list of the measurements on which the panels depend on
+    panel_symbols = vparams.panels
     measurements = Vector{DataType}()
-    for panel in panel_types
+    for panel in panel_symbols
         append!(measurements, PANEL_DEPENDENCIES[panel])
     end
     measurement_types = unique(measurements)
@@ -106,7 +105,7 @@ function Dashboard(model::AbstractModel;
     # -------------------------------------- PLOTS ---------------------------------------------
 
     # determine the number of rows and columns 
-    num_panels = length(panel_types)
+    num_panels = length(panel_symbols)
     nrows = Int64(floor(sqrt(num_panels)))
     ncols = Int64(ceil(sqrt(num_panels)))
 
@@ -115,13 +114,14 @@ function Dashboard(model::AbstractModel;
                             :max_hyperedge_size => get_max_size(mo.network[]),
                             :num_hyperedges => get_num_hyperedges(mo.network[]))
 
-    for (i, type) in enumerate(panel_types)
+    for (i, panel) in enumerate(panel_symbols)
+        panel_type = eval(panel)
         col = mod1(i, ncols)
         row = (i - 1) ÷ ncols + 1
 
         # HypergraphPanel doesn't take a Measurement and instead needs the network, so 
         # we treat it separately
-        if type <: HypergraphPanel
+        if panel_type <: HypergraphPanel
             panel = HypergraphPanel(plot_box[col, row], mo.network,
                                     graph_properties,
                                     vparams)
@@ -133,7 +133,7 @@ function Dashboard(model::AbstractModel;
                 sym = Symbol(_snake_case("$type"))
                 measurements[sym] = getfield(mo, sym)
             end
-            panel = type(plot_box[col, row], measurements, graph_properties, vparams)
+            panel = panel_type(plot_box[col, row], measurements, graph_properties, vparams)
         end
         push!(panels, panel)
     end
