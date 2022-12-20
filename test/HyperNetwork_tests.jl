@@ -214,10 +214,9 @@ end
     # test that the total number of order-one motifs is equal to the number of hyperdeges
     num_order_one_motifs = 0
     for label in all_labels(4)
-        if order(label) == 2
-            continue
+        if order(label) == 1
+            num_order_one_motifs += network.motif_count[label]
         end
-        num_order_one_motifs += network.motif_count[label]
     end
     @test get_num_hyperedges(network) == num_order_one_motifs
 

@@ -125,9 +125,19 @@ end
 function Base.show(io::IO, l::Label)
     if order(l) == 2
         return print(io,
-                     """Label("[ $(_to_str(l.left)) | $(_to_str(l.int)) | $(_to_str(l.right)) ]")""")
+                     "[ $(_to_str(l.left)) | $(_to_str(l.int)) | $(_to_str(l.right))]")
     else
-        return print(io, """Label("[ $(_to_str(l.left)) ]")""")
+        return print(io, "[ $(_to_str(l.left)) ]")
+    end
+end
+
+function Base.getproperty(obj::Label, sym::Symbol)
+    if sym === :left_total
+        return Dict(A => obj.left[A] + obj.int[A], B => obj.left[B] + obj.int[B])
+    elseif sym === :right_total
+        return Dict(A => obj.right[A] + obj.int[A], B => obj.right[B] + obj.int[B])
+    else
+        return getfield(obj, sym)
     end
 end
 
@@ -135,7 +145,10 @@ function order(l::Label)
     if l.int[A] != 0 || l.int[B] != 0 || l.right[A] != 0 || l.right[B] != 0
         return 2
     end
-    return 1
+    if l.left[A] + l.left[B] > 1
+        return 1
+    end
+    return 0
 end
 
 function Base.size(l::Label)
@@ -150,6 +163,10 @@ function all_labels(max_size::Int64)
     @assert max_size >= 2
 
     labels = Label[]
+
+    # order zero
+    push!(labels, Label("[A]"))
+    push!(labels, Label("[B]"))
 
     # [An Bm | A / B | Ai Bj]
     for m in 0:max_size, n in 0:(max_size - m)

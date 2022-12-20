@@ -107,6 +107,8 @@ function HyperNetwork(n::Int64,
             state_count[state] = 0
         end
     end
+    motif_count[Label("[A]")] = state_count[A]
+    motif_count[Label("[B]")] = state_count[B]
     hyperedge_dist = Dict([size => 0 for size in 2:max_size])
     hyperedge_size = Dict{Int64,Int64}()
     hyperedge_uid = Vector{Int64}()
@@ -168,8 +170,7 @@ function Base.show(io::IO, ::MIME"text/plain", network::HyperNetwork)
     println(io, "motifs:")
     for label in all_labels(get_max_size(network))
         num_motifs = network.motif_count[label]
-        println(io,
-                "  $label => $num_motifs motifs")
+        println(io, "  $label => $num_motifs motifs")
     end
 end
 
@@ -391,6 +392,8 @@ function set_state!(network::HyperNetwork, node::Int64, state::State)
 
     network.state_count[old_state] -= 1
     network.state_count[state] += 1
+    network.motif_count[Label("[A]")] = network.state_count[A]
+    network.motif_count[Label("[B]")] = network.state_count[B]
 
     # increase old values in motif_count
     for hyperedge in get_hyperedges(network, node)
