@@ -263,7 +263,7 @@ function rebind_model!(mo::ModelObservable, model::AbstractModel)
     mo.num_steps = 0
     mo.model[] = model
     mo.network[] = model.network
-    return record_measurements!(mo, :step)
+    return mo
 end
 
 """

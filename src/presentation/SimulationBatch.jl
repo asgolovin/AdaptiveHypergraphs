@@ -40,8 +40,9 @@ function start_simulation(params::InputParams)
         save_to_file = false
     end
 
-    # a vector with all possible combinations of all sweeped params
+    # a vector of params which can be expanded
     expandable_params = get_expandable_params(params)
+    # a vector with all possible combinations of all sweeped params
     param_vector = expand(params)
 
     nparams = param_vector[1].network_params
@@ -54,42 +55,45 @@ function start_simulation(params::InputParams)
 
     model = _create_model(network, mparams)
 
-    # only create a visible dashboard on rank 0 (or always without MPI)
-    if false # rank == 0
-        dashboard = Dashboard(model; vparams)
-    else
+    # create an invisible dashboard on all ranks with MPI and a normal one without
+    if bparams.with_mpi
         dashboard = NinjaDashboard(model, vparams)
+    else
+        dashboard = Dashboard(model; vparams)
     end
 
     for (i, param) in enumerate(param_vector)
         nparams = param.network_params
         mparams = param.model_params
 
-        println("\n[rank $rank] Executing batch $i/$(length(param_vector))")
-        for param in expandable_params[:nparams]
-            println("[rank $rank] $param = $(getfield(nparams, param))")
-        end
-        for param in expandable_params[:mparams]
-            println("[rank $rank] $param = $(getfield(mparams, param))")
-        end
-
-        # indices of simulations which are executed on the rank
-        simulations_on_rank = (rank + 1):size:(bparams.batch_size)
-
-        for t in simulations_on_rank
-            println("[rank $rank] executing t = $t")
-            # check if a model was already created and needs to be reset
-            reset_needed = false
-            if reset_needed
-                max_size = length(nparams.num_hyperedges) + 1
-                network = HyperNetwork(n, nparams.infected_prob, max_size)
-                build_RSC_hg!(network, nparams.num_hyperedges)
-                model = _create_model(network, mparams)
-                reset!(dashboard, model)
+        if rank == 0
+            println("\nExecuting batch $i/$(length(param_vector))")
+            for param in expandable_params[:nparams]
+                println("$param = $(getfield(nparams, param))")
             end
+            for param in expandable_params[:mparams]
+                println("$param = $(getfield(mparams, param))")
+            end
+        end
+
+        for t in 1:(bparams.batch_size)
+            # Split the work among MPI ranks
+            if mod((i - 1) * bparams.batch_size + t, size) != rank
+                continue
+            end
+
+            num_batches = length(param_vector)
+            batch_size = bparams.batch_size
+            println("[rank $rank] executing batch $i/$num_batches, iteration $t/$batch_size")
+
+            max_size = length(nparams.num_hyperedges) + 1
+            network = HyperNetwork(n, nparams.infected_prob, max_size)
+            build_RSC_hg!(network, nparams.num_hyperedges)
+            model = _create_model(network, mparams)
+            reset!(dashboard, model)
+
             run!(dashboard, mparams.num_time_steps)
-            sleep(0.1)
-            reset_needed = true
+            sleep(0.01)
         end
     end
 
