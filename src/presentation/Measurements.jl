@@ -397,7 +397,7 @@ end
 
 function _create_save_file(save_folder::Union{Nothing,String}, meas::String,
                            label="")
-    if typeof(save_folder) <: Nothing
+    if isnothing(save_folder)
         return nothing
     end
     filename = if (label != "")
