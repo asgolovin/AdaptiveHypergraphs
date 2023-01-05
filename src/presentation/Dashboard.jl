@@ -54,7 +54,8 @@ end
 # Arguments
 - `model::AbstractModel` - the model on which the dashboard is based on. 
 """
-function NinjaDashboard(model::AbstractModel, vparams)
+function NinjaDashboard(model::AbstractModel, vparams::VisualizationParams;
+                        save_folder::Union{Nothing,String})
     # collect a list of the measurements on which the panels depend on
     measurements = Vector{DataType}()
     for panel in vparams.panels
@@ -64,7 +65,8 @@ function NinjaDashboard(model::AbstractModel, vparams)
 
     mo = ModelObservable(model, measurement_types;
                          skip_points=1,
-                         buffer_size=vparams.buffer_size)
+                         buffer_size=vparams.buffer_size,
+                         save_folder=save_folder)
     return NinjaDashboard(mo, measurement_types)
 end
 
@@ -79,8 +81,8 @@ A visualization of the evolution of the hypergraph during the simulation.
 - `model::AbstractModel` - the model on which the dashboard is based on. 
 - `vparams::VisualizationParams` - parameters used for visualization
 """
-function Dashboard(model::AbstractModel;
-                   vparams::VisualizationParams)
+function Dashboard(model::AbstractModel,
+                   vparams::VisualizationParams; save_folder::Union{Nothing,String})
     #! format: on
     fig = Figure(; resolution=(1200, 800))
     display(fig)
@@ -95,7 +97,8 @@ function Dashboard(model::AbstractModel;
 
     mo = ModelObservable(model, measurement_types;
                          skip_points=vparams.skip_points,
-                         buffer_size=vparams.buffer_size)
+                         buffer_size=vparams.buffer_size,
+                         save_folder=save_folder)
 
     # Display plots in the left part of the figure and the info box on the right. 
     plot_box = fig[1, 1] = GridLayout()
@@ -206,7 +209,8 @@ Reset the dashboard to run the next simulation from the batch.
 The old history plot lines are made inactive and are grayed out. 
 The observables in the ModelObservable are reset to track the new data from `model`.
 """
-function reset!(dashboard::AbstractDashboard, model::AbstractModel)
+function reset!(dashboard::AbstractDashboard, model::AbstractModel,
+                save_folder::Union{Nothing,String})
     if typeof(dashboard) <: Dashboard
         # gray out the history plot lines
         for panel in dashboard.panels
@@ -218,7 +222,7 @@ function reset!(dashboard::AbstractDashboard, model::AbstractModel)
     end
 
     # reset observables
-    rebind_model!(dashboard.mo, model)
+    rebind_model!(dashboard.mo, model, save_folder)
     return dashboard
 end
 

@@ -27,8 +27,7 @@ function start_simulation(params::InputParams)
         if rank == 0
             save_to_file = _prompt_for_save()
             if save_to_file
-                output_folder = _create_batch_folder()
-                _save_params(params, output_folder)
+                root_save_folder = _create_save_folder()
             end
         end
 
@@ -57,9 +56,9 @@ function start_simulation(params::InputParams)
 
     # create an invisible dashboard on all ranks with MPI and a normal one without
     if bparams.with_mpi
-        dashboard = NinjaDashboard(model, vparams)
+        dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
     else
-        dashboard = Dashboard(model; vparams)
+        dashboard = Dashboard(model, vparams; save_folder=nothing)
     end
 
     for (i, param) in enumerate(param_vector)
@@ -76,6 +75,11 @@ function start_simulation(params::InputParams)
             end
         end
 
+        if save_to_file
+            batch_folder = joinpath(root_save_folder, "batch_$(lpad(i, 3, '0'))")
+            _save_params(param, batch_folder)
+        end
+
         for t in 1:(bparams.batch_size)
             # Split the work among MPI ranks
             if mod((i - 1) * bparams.batch_size + t, size) != rank
@@ -85,12 +89,17 @@ function start_simulation(params::InputParams)
             num_batches = length(param_vector)
             batch_size = bparams.batch_size
             println("[rank $rank] executing batch $i/$num_batches, iteration $t/$batch_size")
+            if save_to_file
+                run_folder = joinpath(batch_folder, "run_$(lpad(t, 3, '0'))")
+            else
+                run_folder = nothing
+            end
 
             max_size = length(nparams.num_hyperedges) + 1
             network = HyperNetwork(n, nparams.infected_prob, max_size)
             build_RSC_hg!(network, nparams.num_hyperedges)
             model = _create_model(network, mparams)
-            reset!(dashboard, model)
+            reset!(dashboard, model, run_folder)
 
             run!(dashboard, mparams.num_time_steps)
             sleep(0.01)
@@ -98,7 +107,7 @@ function start_simulation(params::InputParams)
     end
 
     if save_to_file
-        save(dashboard, output_folder, "dashboard.png")
+        save(dashboard, root_save_folder, "dashboard.png")
     end
     return nothing
 end
@@ -124,12 +133,13 @@ function _create_model(network, mparams)
 end
 
 function _save_params(params::InputParams, folder)
+    mkpath(folder)
     open(joinpath(folder, "input_params.json"), "w") do io
         return save_json(io, params)
     end
 end
 
-function _create_batch_folder()
+function _create_save_folder()
     println("Enter a tag to name the data folder: ")
     tag = readline()
     # replace all spaces by underscores and throw out all non-alphanumeric characters

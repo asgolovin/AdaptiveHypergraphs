@@ -22,6 +22,7 @@ mutable struct MeasurementLog{IndexType,ValueType} # TODO: rename?
     remainder::Int64
     num_points::Int64
     last_value::Union{ValueType,Nothing}
+    save_file::Union{Nothing,String}
 end
 
 """
@@ -36,6 +37,7 @@ end
 """
 function MeasurementLog{IndexType,ValueType}(; skip_points::Int64=1,
                                              buffer_size::Int64=0,
+                                             save_file::Union{Nothing,String}=nothing,
                                              auto_notify::Bool=true) where {IndexType,
                                                                             ValueType}
     indices = Observable(IndexType[])
@@ -46,12 +48,15 @@ function MeasurementLog{IndexType,ValueType}(; skip_points::Int64=1,
     num_points = 0
     last_value = nothing
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
-                          buffer_size, auto_notify, remainder, num_points, last_value)
+                          buffer_size, auto_notify, remainder, num_points, last_value,
+                          save_file)
 end
 
 function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexType}},
-                                             values::Observable{Vector{ValueType}}) where {IndexType,
-                                                                                           ValueType}
+                                             values::Observable{Vector{ValueType}};
+                                             save_file::Union{Nothing,String}=nothing) where
+         {IndexType,
+          ValueType}
     @assert length(indices[]) == length(values[])
     buffered_indices = IndexType[]
     buffered_values = ValueType[]
@@ -62,7 +67,8 @@ function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexTyp
     num_points = length(indices[])
     last_value = nothing
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
-                          buffer_size, auto_notify, remainder, num_points, last_value)
+                          buffer_size, auto_notify, remainder, num_points, last_value,
+                          save_file)
 end
 
 function Base.show(io::IO, log::MeasurementLog)
@@ -113,6 +119,12 @@ function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
             notify(log.indices)
             notify(log.values)
         end
+        # write to file
+        if typeof(log.save_file) <: String
+            open(log.save_file, "a") do io
+                return write(io, "$(log.num_points + 1), $index, $value\n")
+            end
+        end
     end
     log.num_points += 1
     return log
@@ -130,6 +142,17 @@ end
 Write the values in the buffers to the observables. If `auto_notify` is set to `true`, the observables are notified after the update. 
 """
 function flush_buffers!(log::MeasurementLog)
+    # write the contents of the buffer to file
+    if typeof(log.save_file) <: String
+        open(log.save_file, "a") do io
+            point_id = log.num_points - length(log.buffered_indices) + 1
+            for (index, value) in zip(log.buffered_indices, log.buffered_values)
+                write(io, "$point_id, $index, $value\n")
+                point_id += 1
+            end
+        end
+    end
+
     # crazy mod magic to account for the fact that skip_points might not divide buffer_size
     skip = log.skip_points
     start = mod1(skip - log.remainder + 1, skip)
@@ -148,20 +171,6 @@ end
 function GLMakie.notify(log::MeasurementLog)
     GLMakie.notify(log.indices)
     GLMakie.notify(log.values)
-    return nothing
-end
-
-"""
-    save(io::IO, log::MeasurementLog)
-
-Write the log into the IO stream as a CSV table separated by comma. 
-"""
-function save(io::IO, log::MeasurementLog)
-    indices = log.indices[]
-    values = log.values[]
-    for (index, value) in zip(indices, values)
-        println(io, "$index, $value")
-    end
     return nothing
 end
 
@@ -230,8 +239,11 @@ struct StateCount <: AbstractStepMeasurement
     label::State
 end
 
-function StateCount(state::State; skip_points::Int64=1, buffer_size::Int64=0)
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
+function StateCount(state::State; skip_points::Int64=1, buffer_size::Int64=0,
+                    save_folder::Union{Nothing,String}=nothing)
+    save_file = _create_save_file(save_folder, "state_count", state)
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+                                        auto_notify=false)
     return StateCount(log, state)
 end
 
@@ -245,8 +257,11 @@ mutable struct HyperedgeCount <: AbstractStepMeasurement
     label::Int64
 end
 
-function HyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0)
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
+function HyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0,
+                        save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "hyperedge_count", size)
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+                                        auto_notify=false)
     return HyperedgeCount(log, size)
 end
 
@@ -261,8 +276,11 @@ mutable struct ActiveHyperedgeCount <: AbstractStepMeasurement
     label::Int64
 end
 
-function ActiveHyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0)
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
+function ActiveHyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0,
+                              save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "active_hyperedge_count", size)
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+                                        auto_notify=false)
     return ActiveHyperedgeCount(log, size)
 end
 
@@ -271,8 +289,11 @@ mutable struct MotifCount <: AbstractStepMeasurement
     label::Label
 end
 
-function MotifCount(label::Label; skip_points::Int64=1, buffer_size::Int64=0)
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, auto_notify=false)
+function MotifCount(label::Label; skip_points::Int64=1, buffer_size::Int64=0,
+                    save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "motif_count", "$label")
+    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+                                        auto_notify=false)
     return MotifCount(log, label)
 end
 
@@ -281,8 +302,11 @@ mutable struct FakeDiffEq <: AbstractStepMeasurement
     label::Label
 end
 
-function FakeDiffEq(label::Label; skip_points::Int64=1, buffer_size::Int64=0)
-    log = MeasurementLog{Float64,Float64}(; skip_points, buffer_size, auto_notify=false)
+function FakeDiffEq(label::Label; skip_points::Int64=1, buffer_size::Int64=0,
+                    save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "fake_diff_eq", "$label")
+    log = MeasurementLog{Float64,Float64}(; skip_points, buffer_size, save_file,
+                                          auto_notify=false)
     return FakeDiffEq(log, label)
 end
 
@@ -296,7 +320,11 @@ struct ActiveLifetime <: AbstractRunMeasurement
     log::MeasurementLog{Int64,Float64}
 end
 
-ActiveLifetime() = ActiveLifetime(MeasurementLog{Int64,Float64}())
+function ActiveLifetime(; save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "active_lifetime")
+    log = MeasurementLog{Int64,Float64}(; save_file=save_file)
+    return ActiveLifetime(log)
+end
 
 """
 Measures the magnetization in the end of the simulation. 
@@ -305,15 +333,20 @@ struct FinalMagnetization <: AbstractRunMeasurement
     log::MeasurementLog{Int64,Int64}
 end
 
-FinalMagnetization() = FinalMagnetization(MeasurementLog{Int64,Int64}())
+function FinalMagnetization(; save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "final_magnetization")
+    log = MeasurementLog{Int64,Float64}(; save_file=save_file)
+    return FinalMagnetization(log)
+end
 
 struct AvgHyperedgeCount <: AbstractRunMeasurement
     log::MeasurementLog{Int64,Float64}
     label::Int64
 end
 
-function AvgHyperedgeCount(size::Int64)
-    return AvgHyperedgeCount(MeasurementLog{Int64,Float64}(), size)
+function AvgHyperedgeCount(size::Int64; save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "avg_hyperedge_count")
+    return AvgHyperedgeCount(MeasurementLog{Int64,Float64}(; save_file=save_file), size)
 end
 
 struct SlowManifoldFit <: AbstractRunMeasurement
@@ -321,7 +354,55 @@ struct SlowManifoldFit <: AbstractRunMeasurement
     label::Int64
 end
 
-function SlowManifoldFit(size::Int64)
-    log = MeasurementLog{Int64,NTuple{3,Float64}}()
+function SlowManifoldFit(size::Int64; save_folder::Union{Nothing,String})
+    save_file = _create_save_file(save_folder, "slow_manifold_fit")
+    log = MeasurementLog{Int64,NTuple{3,Float64}}(; save_file=save_file)
     return SlowManifoldFit(log, size)
+end
+
+"""
+_snake_case(str:S) where S <: AbstractString
+
+Helper function to convert type names in CamelCase to property names in snake_case.
+    
+    Copied from: https://stackoverflow.com/questions/70007955/julia-implementation-for-converting-string-to-snake-case-camelcase
+    """
+function _snake_case(str::S) where {S<:AbstractString}
+    wordpat = r"
+    ^[a-z]+ |                  #match initial lower case part
+    [A-Z][a-z]+ |              #match Words Like This
+    \d*([A-Z](?=[A-Z]|$))+ |   #match ABBREV 30MW 
+    \d+                        #match 1234 (numbers without units)
+    "x
+
+    smartlower(word) = any(islowercase, word) ? lowercase(word) : word
+    words = [smartlower(m.match) for m in eachmatch(wordpat, str)]
+
+    return join(words, "_")
+end
+
+function set_save_file!(meas::AbstractMeasurement, save_folder::Union{Nothing,String})
+    meas_str = _snake_case("$(typeof(meas))")
+    label = :label in fieldnames(typeof(meas)) ? getfield(meas, :label) : ""
+    save_file = _create_save_file(save_folder, meas_str, label)
+    meas.log.save_file = save_file
+    return meas
+end
+
+function _create_save_file(save_folder::Union{Nothing,String}, meas::String,
+                           label="")
+    if typeof(save_folder) <: Nothing
+        return nothing
+    end
+    filename = if (label != "")
+        "$(meas)_$label.csv"
+    else
+        "$meas.csv"
+    end
+    save_file = joinpath(save_folder, filename)
+    mkpath(save_folder)
+    open(save_file, "w") do io
+        return write(io, "id, index, value\n")
+    end
+    return save_file
 end

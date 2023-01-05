@@ -58,8 +58,8 @@ To add a new measurement:
 end
 
 function ModelObservable(model::AbstractModel, measurement_types::Vector{DataType};
-                         skip_points=1,
-                         buffer_size=1)
+                         skip_points=1, buffer_size=1,
+                         save_folder::Union{Nothing,String}=nothing)
     time = 0.0
     num_steps = 0
 
@@ -84,26 +84,30 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
     log_params = Dict(:skip_points => skip_points,
                       :buffer_size => buffer_size)
     for type in measurement_types_expanded
-        sym = Symbol(_snake_case("$type"))
+        type_str = _snake_case("$type")
+        sym = Symbol(type_str)
+        if typeof(save_folder) <: String
+            save_folder = joinpath([save_folder, type_str])
+        end
         if type <: StateCount
-            measurements[sym] = [StateCount(state; log_params...)
+            measurements[sym] = [StateCount(state; save_folder=save_folder, log_params...)
                                  for state in instances(State)]
         elseif type <: HyperedgeCount || type <: ActiveHyperedgeCount
-            measurements[sym] = [type(size; log_params...)
+            measurements[sym] = [type(size; save_folder=save_folder, log_params...)
                                  for size in 2:max_size]
         elseif type <: MotifCount
-            measurements[sym] = [type(label; log_params...)
+            measurements[sym] = [type(label; save_folder=save_folder, log_params...)
                                  for label in all_labels(max_size)
                                  if order(label) > 0]
         elseif type <: FakeDiffEq
-            measurements[sym] = [type(label; log_params...)
+            measurements[sym] = [type(label; save_folder=save_folder, log_params...)
                                  for label in all_labels(max_size)
                                  if order(label) == 1 && label.left[A] > 0 &&
                                     label.left[B] > 0]
         elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
-            measurements[sym] = [type(size) for size in 2:max_size]
+            measurements[sym] = [type(size; save_folder=save_folder) for size in 2:max_size]
         else
-            measurements[sym] = [type()]
+            measurements[sym] = [type(; save_folder=save_folder)]
         end
     end
 
@@ -147,27 +151,6 @@ function Base.getproperty(obj::ModelObservable, sym::Symbol)
     else
         return getfield(obj, sym)
     end
-end
-
-"""
-    _snake_case(str:S) where S <: AbstractString
-
-Helper function to convert type names in CamelCase to property names in snake_case.
-
-Copied from: https://stackoverflow.com/questions/70007955/julia-implementation-for-converting-string-to-snake-case-camelcase
-"""
-function _snake_case(str::S) where {S<:AbstractString}
-    wordpat = r"
-    ^[a-z]+ |                  #match initial lower case part
-    [A-Z][a-z]+ |              #match Words Like This
-    \d*([A-Z](?=[A-Z]|$))+ |   #match ABBREV 30MW 
-    \d+                        #match 1234 (numbers without units)
-    "x
-
-    smartlower(word) = any(islowercase, word) ? lowercase(word) : word
-    words = [smartlower(m.match) for m in eachmatch(wordpat, str)]
-
-    return join(words, "_")
 end
 
 """
@@ -257,12 +240,18 @@ end
 
 Rebind the observables to track the new `model`.
 """
-function rebind_model!(mo::ModelObservable, model::AbstractModel)
+function rebind_model!(mo::ModelObservable, model::AbstractModel,
+                       save_folder::Union{Nothing,String})
     clear!(mo)
     mo.time = 0.0
     mo.num_steps = 0
     mo.model[] = model
     mo.network[] = model.network
+
+    for measurement in mo.measurements
+        set_save_file!(measurement, save_folder)
+    end
+
     return mo
 end
 
