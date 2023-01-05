@@ -84,11 +84,13 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
     log_params = Dict(:skip_points => skip_points,
                       :buffer_size => buffer_size)
     for type in measurement_types_expanded
-        type_str = _snake_case("$type")
-        sym = Symbol(type_str)
-        if typeof(save_folder) <: String
-            save_folder = joinpath([save_folder, type_str])
+        sym = Symbol(_snake_case("$type"))
+
+        # save run measurements in the batch folder instead of the run folder
+        if !(isnothing(save_folder)) && type <: AbstractRunMeasurement
+            save_folder = joinpath(splitpath(save_folder)[1:(end - 1)])
         end
+
         if type <: StateCount
             measurements[sym] = [StateCount(state; save_folder=save_folder, log_params...)
                                  for state in instances(State)]
@@ -248,8 +250,19 @@ function rebind_model!(mo::ModelObservable, model::AbstractModel,
     mo.model[] = model
     mo.network[] = model.network
 
-    for measurement in mo.measurements
+    for measurement in mo.step_measurements
         set_save_file!(measurement, save_folder)
+    end
+
+    # save run measurements in the batch folder instead of the run folder
+    if !isnothing(save_folder)
+        batch_folder = joinpath(splitpath(save_folder)[1:(end - 1)])
+    else
+        batch_folder = nothing
+    end
+
+    for measurement in mo.run_measurements
+        set_save_file!(measurement, batch_folder)
     end
 
     return mo

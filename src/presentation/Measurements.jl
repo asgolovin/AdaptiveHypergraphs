@@ -382,6 +382,12 @@ function _snake_case(str::S) where {S<:AbstractString}
 end
 
 function set_save_file!(meas::AbstractMeasurement, save_folder::Union{Nothing,String})
+    # don't do anything if the folder didn't change
+    old_path = meas.log.save_file
+    if !isnothing(old_path) && save_folder == splitdir(old_path)[1]
+        return meas
+    end
+
     meas_str = _snake_case("$(typeof(meas))")
     label = :label in fieldnames(typeof(meas)) ? getfield(meas, :label) : ""
     save_file = _create_save_file(save_folder, meas_str, label)
