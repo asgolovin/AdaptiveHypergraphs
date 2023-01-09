@@ -8,7 +8,7 @@ export HyperNetwork,
        add_hyperedge!, include_node!, delete_hyperedge!, remove_node!, set_state!,
        get_nodes, get_hyperedges, get_state, get_state_map, get_state_count,
        get_hyperedge_dist, get_num_hyperedges, get_num_active_hyperedges,
-       get_num_nodes, get_node_degree, get_hyperedge_size, get_max_size,
+       get_num_nodes, get_node_degree, get_hyperedge_size, get_max_size, get_motif_count,
        is_active, get_twosection_graph, build_regular_hg!, build_RSC_hg!
 
 """
@@ -136,7 +136,7 @@ end
     HyperNetwork(n::Int64, p0::AbstractFloat)
 
 Create an empty network with n nodes and no hyperedges.
-Each node has oppinion B with probability p0. 
+Each node has oppinion A with probability p0. 
 """
 function HyperNetwork(n::Int64, p0::AbstractFloat, max_size::Int64)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
