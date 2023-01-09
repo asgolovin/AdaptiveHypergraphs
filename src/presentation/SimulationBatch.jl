@@ -22,18 +22,20 @@ function start_simulation(params::InputParams)
     end
 
     # turns on a prompt if the data should be saved. 
-    save_to_file = false
-    if bparams.prompt_for_save
-        if rank == 0
-            save_to_file = _prompt_for_save()
-            if save_to_file
-                root_save_folder = _create_save_folder()
-            end
-        end
+    save_to_file::Bool = false
+    root_save_folder::String = ""
 
-        # [MPI] broadcast the answer to all ranks
-        if bparams.with_mpi
-            save_to_file = MPI.Bcast!(save_to_file, 0, comm)
+    # if with MPI, always save the results, because there is no visual output. 
+    if bparams.with_mpi
+        save_to_file = true
+        if rank == 0
+            root_save_folder = _create_save_folder(; tag=bparams.save_tag)
+        end
+        root_save_folder = MPI.bcast(root_save_folder, 0, comm)
+    elseif bparams.prompt_for_save # without MPI, ask if the results should be saved
+        save_to_file = _prompt_for_save()
+        if save_to_file
+            root_save_folder = _create_save_folder()
         end
     else
         save_to_file = false
@@ -139,9 +141,11 @@ function _save_params(params::InputParams, folder)
     end
 end
 
-function _create_save_folder()
-    println("Enter a tag to name the data folder: ")
-    tag = readline()
+function _create_save_folder(; tag::Union{Nothing,String}=nothing)
+    if isnothing(tag)
+        println("Enter a tag to name the data folder: ")
+        tag = readline()
+    end
     # replace all spaces by underscores and throw out all non-alphanumeric characters
     tag = replace(tag, " " => "_", r"[^\p{L}\p{N},_]" => "")
     timestamp = Dates.format(now(), "YYYY-mm-dd_HH-MM-SS")
