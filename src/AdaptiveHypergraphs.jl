@@ -6,6 +6,7 @@ include("data/Network.jl")
 include("simulation/AdaptivityRule.jl")
 include("simulation/PropagationRule.jl")
 include("simulation/Model.jl")
+include("simulation/MomentExpansion.jl")
 
 include("presentation/InputParams.jl")
 include("presentation/HypergraphPlot.jl")

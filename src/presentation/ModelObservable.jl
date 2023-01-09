@@ -365,7 +365,7 @@ function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
 
         adapt_update += n / (n + m) * motif_dict[Label("[A$(k-1)B$(h)]")] * AnBm / num_candidates +
                         m / (n + m) * motif_dict[Label("[A$(k)B$(h-1)]")] * AnBm / num_candidates -
-                        motif_dict[Label("[A$(k-1)B$(h)]")] * AnBm / num_candidates
+                        motif_dict[Label("[A$(k)B$(h)]")] * AnBm / num_candidates
     end
 
     if k + h < max_size
