@@ -5,3 +5,4 @@ plots
 .vscode
 *.so
 LocalPreferences.toml
+results/*
