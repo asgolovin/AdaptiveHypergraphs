@@ -7,9 +7,9 @@ size = MPI.Comm_size(comm)
 println("Hello world, I am $(rank) of $(size)")
 MPI.Barrier(comm)
 
-secret = nothing
+secret = ""
 if rank == 0
-    secret = 42
+    secret = "my very secret secret"
 end
 
 secret = MPI.bcast(secret, 0, comm)
