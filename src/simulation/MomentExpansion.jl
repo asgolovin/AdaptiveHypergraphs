@@ -2,48 +2,50 @@ export moment_expansion, rhs, moment_closure
 
 using DifferentialEquations
 
-function moment_expansion(initial_motif_count::Dict, params, tspan)
+function moment_expansion(initial_motif_count::Dict, params, tspan,
+                          moment_closure::Function)
     nparams = params.network_params
 
     max_size = length(nparams.num_hyperedges) + 1
 
-    labels = filter(x -> order(x) <= 1, all_labels(max_size))
-    x0 = zeros(length(labels))
-    for label in labels
-        x0[label_to_id(label, max_size)] = initial_motif_count[label]
-    end
+    x0 = motif_dict_to_vector(initial_motif_count, max_size)
 
-    problem = ODEProblem(rhs!, x0, tspan, params)
+    p = (moment_closure, params)
+
+    problem = ODEProblem(rhs!, x0, tspan, p)
 
     sol = solve(problem)
 
-    t = sol.t 
+    t = sol.t
     x = sol.u
 
-    label_to_solution = Dict{Label, Vector{Float64}}()
+    label_to_solution = Dict{Label,Vector{Float64}}()
 
     solution_matrix = hcat(sol.u...)
 
     for label in labels
         id = label_to_id(label, max_size)
-        label_to_solution[label] =  solution_matrix[id, 1:end]
+        label_to_solution[label] = solution_matrix[id, 1:end]
     end
 
     return t, label_to_solution
 end
 
-
-function rhs!(dx, x, params, t)
+function rhs!(dx, x, p, t)
+    moment_closure, params = p
 
     nparams = params.network_params
+    mparams = params.model_params
 
+    adaptivity_prob = mparams.adaptivity_prob
+    num_nodes = nparams.num_nodes
     max_size = length(nparams.num_hyperedges) + 1
 
     for i in 1:length(x)
         label = id_to_label(i, max_size)
 
-        prop_dx = prop_term(label, x, params, max_size)
-        adapt_dx = adapt_term(label, x, params, max_size)
+        prop_dx = prop_term(moment_closure, label, x, adaptivity_prob, max_size)
+        adapt_dx = adapt_term(label, x, adaptivity_prob, num_nodes, max_size)
 
         dx[i] = prop_dx + adapt_dx
     end
@@ -51,12 +53,12 @@ function rhs!(dx, x, params, t)
     return dx
 end
 
-function prop_term(label, x, params, max_size)
+function prop_term(moment_closure, label, x, adaptivity_prob, max_size)
     # TODO: support for other rules. Only proportional voting is implemented at the moment! 
 
     # the rhs of zero-order labels is equal to zero
     if order(label) == 0
-        return 0.
+        return 0.0
     end
 
     k = label.left_total[A]
@@ -64,7 +66,7 @@ function prop_term(label, x, params, max_size)
     size = k + h
 
     prop_dx = 0.0
-    p = params.model_params.adaptivity_prob
+    p = adaptivity_prob
 
     # first-order term
     if k != 0 && h != 0 # active hyperedge
@@ -86,12 +88,20 @@ function prop_term(label, x, params, max_size)
             continue
         end
         if k > 0
-            prop_dx += n / (n + m) * (moment_closure(Label("[A$(n) B$(m-1)|B|A$(k-1)B$(h)]"), x, max_size))
-            prop_dx -= m / (n + m) * (moment_closure(Label("[A$(n-1) B$(m)|A|A$(k-1)B$(h)]"), x, max_size))
+            prop_dx += n / (n + m) *
+                       (moment_closure(Label("[A$(n) B$(m-1)|B|A$(k-1)B$(h)]"), x,
+                                       max_size))
+            prop_dx -= m / (n + m) *
+                       (moment_closure(Label("[A$(n-1) B$(m)|A|A$(k-1)B$(h)]"), x,
+                                       max_size))
         end
         if h > 0
-            prop_dx -= n / (n + m) * (moment_closure(Label("[A$(n) B$(m-1)|B|A$(k)B$(h-1)]"), x, max_size))
-            prop_dx += m / (n + m) * (moment_closure(Label("[A$(n-1) B$(m)|A|A$(k)B$(h-1)]"), x, max_size))
+            prop_dx -= n / (n + m) *
+                       (moment_closure(Label("[A$(n) B$(m-1)|B|A$(k)B$(h-1)]"), x,
+                                       max_size))
+            prop_dx += m / (n + m) *
+                       (moment_closure(Label("[A$(n-1) B$(m)|A|A$(k)B$(h-1)]"), x,
+                                       max_size))
         end
     end
 
@@ -110,27 +120,26 @@ function prop_term(label, x, params, max_size)
     return prop_dx * (1 - p)
 end
 
-function adapt_term(label, x, params, max_size)
+function adapt_term(label, x, adaptivity_prob, num_nodes, max_size)
     # TODO: support for other rules. Only rewire-to-random is implemented at the moment! 
 
     # the rhs of zero-order labels is equal to zero
     if order(label) == 0
-        return 0.
+        return 0.0
     end
 
     k = label.left_total[A]
     h = label.left_total[B]
 
     adapt_dx = 0.0
-    p = params.model_params.adaptivity_prob
+    p = adaptivity_prob
 
     # first-order term
     if k != 0 && h != 0 # active hyperedge
         adapt_dx -= x[label_to_id(label, max_size)]
     end
-    
+
     # compute number of nodes or hyperedges which can be rewired to
-    num_nodes = params.network_params.num_nodes
     small_labels = filter(x -> order(x) == 1 && size(x) != max_size, all_labels(max_size))
     num_small_hyperedges = sum([x[label_to_id(label, max_size)] for label in small_labels])
     num_candidates = num_nodes + num_small_hyperedges
@@ -142,20 +151,34 @@ function adapt_term(label, x, params, max_size)
         AnBm = x[label_to_id(Label("[A$(n)B$(m)]"), max_size)]
 
         if k > 0
-            adapt_dx -= x[label_to_id(Label("[A$(k)B$(h)]"), max_size)] * AnBm / num_candidates
-            adapt_dx += n / (n + m) * x[label_to_id(Label("[A$(k-1)B$(h)]"), max_size)] * AnBm / num_candidates
+            adapt_dx -= x[label_to_id(Label("[A$(k)B$(h)]"), max_size)] * AnBm /
+                        num_candidates
+            adapt_dx += n / (n + m) * x[label_to_id(Label("[A$(k-1)B$(h)]"), max_size)] *
+                        AnBm / num_candidates
         end
         if h > 0
-            adapt_dx += m / (n + m) * x[label_to_id(Label("[A$(k)B$(h-1)]"), max_size)] * AnBm / num_candidates
+            adapt_dx += m / (n + m) * x[label_to_id(Label("[A$(k)B$(h-1)]"), max_size)] *
+                        AnBm / num_candidates
         end
     end
 
     if k > 0 && h > 0 && k + h < max_size
-        adapt_dx += (k + 1) / (k + h + 1) * x[label_to_id(Label("[A$(k+1)B$(h)]"), max_size)]
-        adapt_dx += (h + 1) / (k + h + 1) * x[label_to_id(Label("[A$(k)B$(h+1)]"), max_size)]
+        adapt_dx += (k + 1) / (k + h + 1) *
+                    x[label_to_id(Label("[A$(k+1)B$(h)]"), max_size)]
+        adapt_dx += (h + 1) / (k + h + 1) *
+                    x[label_to_id(Label("[A$(k)B$(h+1)]"), max_size)]
     end
 
     return adapt_dx * p
+end
+
+function motif_dict_to_vector(motif_count::Dict, max_size::Int64)
+    labels = filter(x -> order(x) <= 1, all_labels(max_size))
+    x = zeros(length(labels))
+    for label in labels
+        x[label_to_id(label, max_size)] = motif_count[label]
+    end
+    return x
 end
 
 function moment_closure(high_order_label::Label, x::Vector{Float64}, max_size::Int64)
@@ -174,9 +197,9 @@ end
 
 # the let-block immitates static variables which are saved between function calls. 
 # This way, the hash table can be cached and doesn't have to be recomputed again between function calls.
-let label_dict::Union{Dict, Nothing} = nothing,
-    id_dict::Union{Dict, Nothing} = nothing,
-    cached_max_size::Union{Int64, Nothing} = nothing
+let label_dict::Union{Dict,Nothing} = nothing,
+    id_dict::Union{Dict,Nothing} = nothing,
+    cached_max_size::Union{Int64,Nothing} = nothing
 
     """
     Return the index of the label in the vector x if the maximum size of a hyperedge is `max_size`.
@@ -202,4 +225,3 @@ let label_dict::Union{Dict, Nothing} = nothing,
         return id_dict[id]
     end
 end
-

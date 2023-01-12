@@ -16,12 +16,12 @@ network = HyperNetwork(n, nparams.infected_prob, max_size)
 build_RSC_hg!(network, nparams.num_hyperedges)
 motif_count = get_motif_count(network)
 
-t, sol = moment_expansion(motif_count, params, (0., 1000.))
+t, sol = moment_expansion(motif_count, params, (0.0, 1000.0), moment_closure)
 
 # PLOTTING
 
-fig = Figure()
-ax = Axis(fig[1, 1])
+fig2 = Figure()
+ax = Axis(fig2[1, 1])
 
 node_colormap = params.visualization_params.node_colormap
 
@@ -38,9 +38,10 @@ for label in keys(sol)
 end
 
 for label in keys(sol)
-    lines!(t, sol[label], color=linecolors[label], label = "$label", linestyle = linestyles[label])
+    lines!(t, sol[label]; color=linecolors[label], label="$label",
+           linestyle=linestyles[label])
 end
 
-Legend(fig[1, 2], ax)
+Legend(fig2[1, 2], ax)
 
-fig
+fig2
