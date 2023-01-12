@@ -136,6 +136,14 @@ function Base.getproperty(obj::Label, sym::Symbol)
         return Dict(A => obj.left[A] + obj.int[A], B => obj.left[B] + obj.int[B])
     elseif sym === :right_total
         return Dict(A => obj.right[A] + obj.int[A], B => obj.right[B] + obj.int[B])
+    elseif sym === :int_state
+        if obj.int[A] > 0 && obj.int[B] == 0
+            return A
+        elseif obj.int[B] > 0 && obj.int[A] == 0
+            return B
+        else
+            return nothing
+        end
     else
         return getfield(obj, sym)
     end
@@ -159,40 +167,53 @@ function Base.size(l::Label)
             l.right[A] + l.right[B] + l.int[A] + l.int[B])
 end
 
-function all_labels(max_size::Int64)
-    @assert max_size >= 2
+let cache::Union{Vector{Label},Nothing} = nothing,
+    cached_size::Union{Int64,Nothing} = nothing
 
-    labels = Label[]
-
-    # order zero
-    push!(labels, Label("[A]"))
-    push!(labels, Label("[B]"))
-
-    # [An Bm | A / B | Ai Bj]
-    for m in 0:max_size, n in 0:(max_size - m)
-        if n + m < 2
-            continue
+    global function all_labels(max_size::Int64)
+        if !isnothing(cache) && max_size == cached_size
+            return cache
         end
-        # order one
-        push!(labels, Label("[A$n B$m]"))
 
-        # order two
-        for j in 0:(max_size - 1), i in 0:(max_size - 1 - j)
-            if i + j < 1
+        @assert max_size >= 2
+
+        labels = Label[]
+
+        # order zero
+        push!(labels, Label("[A]"))
+        push!(labels, Label("[B]"))
+
+        # [An Bm | A / B | Ai Bj]
+        for m in 0:max_size, n in 0:(max_size - m)
+            if n + m < 2
                 continue
             end
-            # A in the intersection
-            if n > 0
-                push!(labels, Label("[A$(n-1) B$m | A | A$i B$j]"))
-            end
-            # B in the intersection
-            if m > 0
-                push!(labels, Label("[A$n B$(m-1) | B | A$i B$j]"))
+            # order one
+            push!(labels, Label("[A$n B$m]"))
+
+            # order two
+            for j in 0:(max_size - 1), i in 0:(max_size - 1 - j)
+                if i + j < 1
+                    continue
+                end
+                # A in the intersection
+                if n > 0
+                    push!(labels, Label("[A$(n-1) B$m | A | A$i B$j]"))
+                end
+                # B in the intersection
+                if m > 0
+                    push!(labels, Label("[A$n B$(m-1) | B | A$i B$j]"))
+                end
             end
         end
-    end
 
-    return unique(labels)
+        labels = unique(labels)
+
+        cache = labels
+        cached_size = max_size
+
+        return labels
+    end
 end
 
 function _to_int(m)
