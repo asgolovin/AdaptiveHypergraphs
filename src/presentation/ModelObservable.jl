@@ -1,4 +1,5 @@
 using Statistics, Parameters, Polynomials
+using GLMakie
 
 export ModelObservable, step!, flush_buffers!, notify, record_measurements!,
        rebind_model!, clear!
@@ -16,7 +17,8 @@ MEASUREMENT_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         ActiveLifetime          => [],
         AvgHyperedgeCount       => [HyperedgeCount, ActiveHyperedgeCount],
         FinalMagnetization      => [],
-        SlowManifoldFit         => [StateCount, ActiveHyperedgeCount])
+        SlowManifoldFit         => [StateCount, ActiveHyperedgeCount],
+        KappaApproximation      => [MotifCount, StateCount])
 #! format: on
 
 """
@@ -55,6 +57,7 @@ To add a new measurement:
     final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
     avg_hyperedge_count::Vector{AvgHyperedgeCount} = AvgHyperedgeCount[]
     slow_manifold_fit::Vector{SlowManifoldFit} = SlowManifoldFit[]
+    kappa_approximation::Vector{KappaApproximation} = KappaApproximation[]
 end
 
 function ModelObservable(model::AbstractModel, measurement_types::Vector{DataType};
@@ -108,6 +111,10 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
                                     label.left[B] > 0]
         elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
             measurements[sym] = [type(size; save_folder=save_folder) for size in 2:max_size]
+        elseif type <: KappaApproximation
+            measurements[sym] = [type(label; save_folder=save_folder)
+                                 for label in all_labels(max_size)
+                                 if order(label) == 2]
         else
             measurements[sym] = [type(; save_folder=save_folder)]
         end
@@ -316,67 +323,29 @@ function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
         return measurement
     end
 
-    k = label.left_total[A]
-    h = label.left_total[B]
+    motif_count = get_motif_count(mo.network[])
+
+    # A "moment closure" function that just returns the simulated number of tripples
+    @inline function tripples(label::Label, x::Vector{Float64}, max_size::Int64)
+        return motif_count[label]
+    end
+
     p = mo.model[].adaptivity_prob
+    num_nodes = get_num_nodes(mo.network[])
     max_size = get_max_size(mo.network[])
 
-    hyperedge_dist = get_hyperedge_dist(mo.network[])
-    # number of hyperedges which can be rewired to, i.e., those which are not of max size
-    num_small_hyperedges = sum([x.second for x in hyperedge_dist if x.first != max_size])
-    num_nodes = get_num_nodes(mo.network[])
-    # total number of candidates which can be rewired to
-    num_candidates = num_small_hyperedges + num_nodes
+    x = motif_dict_to_vector(motif_count, max_size)
 
-    motif_dict = get_motif_count(mo.network[])
-
-    # the difference between the value at t and t+Δt
-    update = 0
-
-    # PROPAGATION
-
-    prop_update = 0.0
-
-    for n in 1:max_size, m in 1:(max_size - n)
-        if n + m == 1
-            continue
-        end
-        prop_update += n / (n + m) * (motif_dict[Label("[A$(n) B$(m-1)|B|A$(k-1)B$(h)]")] -
-                                      motif_dict[Label("[A$(n) B$(m-1)|B|A$(k)B$(h-1)]")])
-        prop_update += m / (n + m) * (motif_dict[Label("[A$(n-1) B$(m)|A|A$(k)B$(h-1)]")] -
-                                      motif_dict[Label("[A$(n-1) B$(m)|A|A$(k-1)B$(h)]")])
-    end
-    # symmetric terms
-    #! format: off
-    prop_update += (k - 1) / (k + h) * motif_dict[Label("[A$(k-1)B$(h)|B|A$(k-1)B$(h)]")] -
-                         k / (k + h) * motif_dict[Label("[A$(k)B$(h-1)|B|A$(k)B$(h-1)]")] +
-                   (h - 1) / (k + h) * motif_dict[Label("[A$(k)B$(h-1)|A|A$(k)B$(h-1)]")] -
-                         h / (k + h) * motif_dict[Label("[A$(k-1)B$(h)|A|A$(k-1)B$(h)]")]
-
-    
-    # ADAPTIVITY
-    adapt_update = 0.0
-
-    for n in 1:max_size, m in 1:(max_size - n)
-        if n + m == 1
-            continue
-        end
-        AnBm = motif_dict[Label("[A$(n)B$(m)]")]
-
-        adapt_update += n / (n + m) * motif_dict[Label("[A$(k-1)B$(h)]")] * AnBm / num_candidates +
-                        m / (n + m) * motif_dict[Label("[A$(k)B$(h-1)]")] * AnBm / num_candidates -
-                        motif_dict[Label("[A$(k)B$(h)]")] * AnBm / num_candidates
-    end
-
-    if k + h < max_size
-        adapt_update += (k + 1) / (k + h + 1) * motif_dict[Label("[A$(k+1)B$(h)]")]
-        adapt_update += (h + 1) / (k + h + 1) * motif_dict[Label("[A$(k)B$(h+1)]")]
-    end
+    prop_update = prop_term(tripples, label, x, p, max_size)
+    adapt_update = adapt_term(label, x, p, num_nodes, max_size)
 
     #! format: on
     last_meas = measurement.log.last_value
     num_hyperedges = get_num_hyperedges(mo.network[])
-    update = ((1 - p) * prop_update + p * adapt_update - last_meas) / num_hyperedges
+
+    current_value = get_motif_count(mo.network[])[label]
+    update = ((1 - p) * prop_update + p * adapt_update + current_value - last_meas) /
+             num_hyperedges
 
     value = last_meas + update
 
@@ -420,5 +389,52 @@ function record_measurement!(mo::ModelObservable, measurement::SlowManifoldFit)
     peak = a + b * x_peak + c * x_peak^2
     println("size: $size, peak at $peak")
     record!(measurement.log, (a, b, c))
+    return measurement
+end
+
+function record_measurement!(mo::ModelObservable, measurement::KappaApproximation)
+    label = measurement.label
+    motif_count = mo.motif_count
+    state_count = mo.state_count
+    tripples = filter(x -> x.label == label, motif_count)[1].values[]
+
+    # Calculate the array of predictions.
+    # The moment closure is done by replacing [X|Y|Z] by [XY] * [YZ] / [Y]. 
+    # Here, we determine XY and YZ and the corresponding labels.
+    numA_left = label.left_total[A]
+    numB_left = label.left_total[B]
+    numA_right = label.right_total[A]
+    numB_right = label.right_total[B]
+    label_left = Label("[A$numA_left B$numB_left]")
+    label_right = Label("[A$numA_right B$numB_right]")
+    # [XY]
+    left_motif = filter(x -> x.label == label_left, motif_count)[1].values[]
+    # [YZ]
+    right_motif = filter(x -> x.label == label_right, motif_count)[1].values[]
+    # [Y]
+    int_state = label.int_state
+    int_motif = filter(x -> x.label == int_state, state_count)[1].values[]
+
+    # The resulting closure approximation
+    prediction = left_motif .* right_motif ./ int_motif
+    # Ratio between the true value and the approximation
+    ratio = tripples ./ prediction
+
+    # Remove high-noise regions of the ratio with a sliding std
+    window_size = length(ratio) ÷ 100
+    sliding_std = [std(ratio[i:(i + window_size)])
+                   for i in 1:(length(ratio) - window_size)]
+    # filter out all values with the sliding std smaller than some threshold
+    mask = BitArray(zeros(length(ratio)))
+    mask[1:(end - window_size)] = sliding_std .< sliding_std[window_size] * 2.0
+    println("$label: fraction of datapoints used: $(sum(mask) / length(mask))")
+    final_mean = mean(ratio[mask])
+    record!(measurement.log, final_mean)
+
+    if label == Label("[A | A | B ]")
+        fig = current_figure()
+        mask_ax = Axis(fig[1, 1][3, 3])
+        scatter!(mask_ax, mask)
+    end
     return measurement
 end

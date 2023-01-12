@@ -316,11 +316,12 @@ function MomentClosurePanel(box::GridPosition,
                             vparams::VisualizationParams)
     motif_count = measurements[:motif_count]
     state_count = measurements[:state_count]
+    kappa_approx = measurements[:kappa_approximation]
     num_hyperedges = graph_properties[:num_hyperedges]
     colormap = vparams.misc_colormap
 
     xlow, xhigh = (0, nothing)
-    ylow, yhigh = (-0.05num_hyperedges, nothing)
+    ylow, yhigh = (0, nothing)
 
     title = "Moment closure prediction vs measurement"
     ax = Axis(box; title=title)
@@ -332,7 +333,8 @@ function MomentClosurePanel(box::GridPosition,
     tripples = filter(x -> order(x.label) == 2, motif_count)
     filter!(x -> x.label.int[A] == 1, tripples)
     #filter!(x -> x.label.left_total[B] > 0, tripples)
-    filter!(x -> x.label == Label("[A2 | A | A]"), tripples)
+    filter!(x -> x.label.left_total[A] + x.label.left_total[B] == 2, tripples)
+    #filter!(x -> x.label == Label("[A | A | A]"), tripples)
 
     num_A_nodes = filter(x -> x.label == A, state_count)[1].values
     num_tripples = length(tripples)
@@ -359,23 +361,41 @@ function MomentClosurePanel(box::GridPosition,
         right_motif = filter(x -> x.label == label_right, motif_count)[1].values
 
         # The resulting closure approximation
-        prediction = @lift 5.0 .* $left_motif .* $right_motif ./ $num_A_nodes
-        l1 = lines!(ax, tripple.indices, prediction;
-                    label="$label_left * $label_right / [ A ]",
+        prediction = @lift $left_motif .* $right_motif ./ $num_A_nodes
+        ratio = lift(tripple.values, prediction) do values, prediction
+            return values ./ prediction
+        end
+
+        #@lift $tripple.values .* $prediction
+
+        l1 = lines!(ax, tripple.indices, ratio;
+                    label="$label",
                     color=linecolors[i])
-        # The actual number of tripples
-        l2 = lines!(ax, tripple.indices, tripple.values;
-                    label="$label", color=linecolors[i] * 0.5)
+
+        kappa = filter(x -> x.label == label, kappa_approx)[1].values
+        last_kappa = @lift length($kappa) == 0 ? 0.0 : ($kappa)[end]
+        hlines!(ax, last_kappa; color=:gray)
+
+        #l1 = lines!(ax, tripple.indices, prediction;
+        #             label="$label_left * $label_right / [ A ]",
+        #             color=linecolors[i])
+        # # The actual number of tripples
+        # l2 = lines!(ax, tripple.indices, tripple.values;
+        #             label="$label", color=linecolors[i] * 0.5)
 
         push!(lines, l1)
-        push!(lines, l2)
+        #push!(lines, l2)
         tripple_log = MeasurementLog[]
-        prediction_log = MeasurementLog{Float64,Float64}(tripple.indices, prediction)
-        push!(tripple_log, prediction_log)
-        push!(tripple_log, tripple.log)
+        ratio_log = MeasurementLog{Float64,Float64}(tripple.indices, ratio)
+        push!(tripple_log, ratio_log)
+
+        #prediction_log = MeasurementLog{Float64,Float64}(tripple.indices, prediction)
+        #push!(tripple_log, prediction_log)
+        #push!(tripple_log, tripple.log)
         push!(logs, tripple_log)
-        axislegend()
     end
+
+    axislegend()
 
     return MomentClosurePanel(logs, ax, lines, xlow, xhigh,
                               ylow, yhigh)
