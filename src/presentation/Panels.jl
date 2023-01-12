@@ -317,13 +317,12 @@ function MomentClosurePanel(box::GridPosition,
     motif_count = measurements[:motif_count]
     state_count = measurements[:state_count]
     kappa_approx = measurements[:kappa_approximation]
-    num_hyperedges = graph_properties[:num_hyperedges]
     colormap = vparams.misc_colormap
 
     xlow, xhigh = (0, nothing)
     ylow, yhigh = (0, nothing)
 
-    title = "Moment closure prediction vs measurement"
+    title = "Ratio between the true moment closure and the approximation"
     ax = Axis(box; title=title)
 
     # to reduce the number of options, consider only tripples which:
