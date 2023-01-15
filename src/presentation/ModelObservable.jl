@@ -17,8 +17,7 @@ MEASUREMENT_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         ActiveLifetime          => [],
         AvgHyperedgeCount       => [HyperedgeCount, ActiveHyperedgeCount],
         FinalMagnetization      => [],
-        SlowManifoldFit         => [StateCount, ActiveHyperedgeCount],
-        KappaApproximation      => [MotifCount, StateCount])
+        SlowManifoldFit         => [StateCount, ActiveHyperedgeCount])
 #! format: on
 
 """
@@ -57,7 +56,6 @@ To add a new measurement:
     final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
     avg_hyperedge_count::Vector{AvgHyperedgeCount} = AvgHyperedgeCount[]
     slow_manifold_fit::Vector{SlowManifoldFit} = SlowManifoldFit[]
-    kappa_approximation::Vector{KappaApproximation} = KappaApproximation[]
 end
 
 function ModelObservable(model::AbstractModel, measurement_types::Vector{DataType};
@@ -111,10 +109,6 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
                                     label.left[B] > 0]
         elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
             measurements[sym] = [type(size; save_folder=save_folder) for size in 2:max_size]
-        elseif type <: KappaApproximation
-            measurements[sym] = [type(label; save_folder=save_folder)
-                                 for label in all_labels(max_size)
-                                 if order(label) == 2]
         else
             measurements[sym] = [type(; save_folder=save_folder)]
         end
@@ -389,52 +383,5 @@ function record_measurement!(mo::ModelObservable, measurement::SlowManifoldFit)
     peak = a + b * x_peak + c * x_peak^2
     println("size: $size, peak at $peak")
     record!(measurement.log, (a, b, c))
-    return measurement
-end
-
-function record_measurement!(mo::ModelObservable, measurement::KappaApproximation)
-    label = measurement.label
-    motif_count = mo.motif_count
-    state_count = mo.state_count
-    tripples = filter(x -> x.label == label, motif_count)[1].values[]
-
-    # Calculate the array of predictions.
-    # The moment closure is done by replacing [X|Y|Z] by [XY] * [YZ] / [Y]. 
-    # Here, we determine XY and YZ and the corresponding labels.
-    numA_left = label.left_total[A]
-    numB_left = label.left_total[B]
-    numA_right = label.right_total[A]
-    numB_right = label.right_total[B]
-    label_left = Label("[A$numA_left B$numB_left]")
-    label_right = Label("[A$numA_right B$numB_right]")
-    # [XY]
-    left_motif = filter(x -> x.label == label_left, motif_count)[1].values[]
-    # [YZ]
-    right_motif = filter(x -> x.label == label_right, motif_count)[1].values[]
-    # [Y]
-    int_state = label.int_state
-    int_motif = filter(x -> x.label == int_state, state_count)[1].values[]
-
-    # The resulting closure approximation
-    prediction = left_motif .* right_motif ./ int_motif
-    # Ratio between the true value and the approximation
-    ratio = tripples ./ prediction
-
-    # Remove high-noise regions of the ratio with a sliding std
-    window_size = length(ratio) ÷ 100
-    sliding_std = [std(ratio[i:(i + window_size)])
-                   for i in 1:(length(ratio) - window_size)]
-    # filter out all values with the sliding std smaller than some threshold
-    mask = BitArray(zeros(length(ratio)))
-    mask[1:(end - window_size)] = sliding_std .< sliding_std[window_size] * 2.0
-    println("$label: fraction of datapoints used: $(sum(mask) / length(mask))")
-    final_mean = mean(ratio[mask])
-    record!(measurement.log, final_mean)
-
-    if label == Label("[A | A | B ]")
-        fig = current_figure()
-        mask_ax = Axis(fig[1, 1][3, 3])
-        scatter!(mask_ax, mask)
-    end
     return measurement
 end

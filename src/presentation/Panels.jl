@@ -316,7 +316,6 @@ function MomentClosurePanel(box::GridPosition,
                             vparams::VisualizationParams)
     motif_count = measurements[:motif_count]
     state_count = measurements[:state_count]
-    kappa_approx = measurements[:kappa_approximation]
     colormap = vparams.misc_colormap
 
     xlow, xhigh = (0, nothing)
@@ -330,12 +329,12 @@ function MomentClosurePanel(box::GridPosition,
     # - intersect in an A-node (B-nodes should behave symmetrically)
     # - the left hyperedge is active (only such terms appear in equations)
     tripples = filter(x -> order(x.label) == 2, motif_count)
-    filter!(x -> x.label.int[A] == 1, tripples)
-    #filter!(x -> x.label.left_total[B] > 0, tripples)
-    filter!(x -> x.label.left_total[A] + x.label.left_total[B] == 2, tripples)
-    #filter!(x -> x.label == Label("[A | A | A]"), tripples)
+    filter!(x -> x.label.int[B] == 1, tripples)
+    filter!(x -> x.label.left_total[B] > 0 && x.label.left_total[A] > 0, tripples)
+    filter!(x -> x.label.left_total[B] == 2, tripples)
+    #filter!(x -> x.label.left_total[A] + x.label.left_total[B] == 2, tripples)
 
-    num_A_nodes = filter(x -> x.label == A, state_count)[1].values
+    num_A_nodes = filter(x -> x.label == B, state_count)[1].values
     num_tripples = length(tripples)
     linecolors = get(colorschemes[colormap], 1:num_tripples, (1, num_tripples))
 
@@ -359,38 +358,39 @@ function MomentClosurePanel(box::GridPosition,
         # [YZ]
         right_motif = filter(x -> x.label == label_right, motif_count)[1].values
 
+        # compute the combinatorical prefactor
+        int_state = label.int_state
+        left_count = label.left_total[int_state]
+        right_count = label.right_total[int_state]
+        issymmetrical = label_left == label_right ? 0.5 : 1.0
+        prefactor = issymmetrical * left_count * right_count
+
         # The resulting closure approximation
-        prediction = @lift $left_motif .* $right_motif ./ $num_A_nodes
-        ratio = lift(tripple.values, prediction) do values, prediction
-            return values ./ prediction
-        end
+        prediction = @lift prefactor * $left_motif .* $right_motif ./ $num_A_nodes
+        #ratio = lift(tripple.values, prediction) do values, prediction
+        #    return values ./ prediction
+        #end
 
-        #@lift $tripple.values .* $prediction
-
-        l1 = lines!(ax, tripple.indices, ratio;
-                    label="$label",
-                    color=linecolors[i])
-
-        kappa = filter(x -> x.label == label, kappa_approx)[1].values
-        last_kappa = @lift length($kappa) == 0 ? 0.0 : ($kappa)[end]
-        hlines!(ax, last_kappa; color=:gray)
-
-        #l1 = lines!(ax, tripple.indices, prediction;
-        #             label="$label_left * $label_right / [ A ]",
+        # l1 = lines!(ax, tripple.indices, ratio;
+        #             label="$label",
         #             color=linecolors[i])
-        # # The actual number of tripples
-        # l2 = lines!(ax, tripple.indices, tripple.values;
-        #             label="$label", color=linecolors[i] * 0.5)
+
+        l1 = lines!(ax, tripple.indices, prediction;
+                    label="$label_left * $label_right / [ A ]",
+                    color=linecolors[i])
+        # The actual number of tripples
+        l2 = lines!(ax, tripple.indices, tripple.values;
+                    label="$label", color=linecolors[i] * 0.5)
 
         push!(lines, l1)
-        #push!(lines, l2)
+        push!(lines, l2)
         tripple_log = MeasurementLog[]
-        ratio_log = MeasurementLog{Float64,Float64}(tripple.indices, ratio)
-        push!(tripple_log, ratio_log)
+        #ratio_log = MeasurementLog{Float64,Float64}(tripple.indices, ratio)
+        #push!(tripple_log, ratio_log)
 
-        #prediction_log = MeasurementLog{Float64,Float64}(tripple.indices, prediction)
-        #push!(tripple_log, prediction_log)
-        #push!(tripple_log, tripple.log)
+        prediction_log = MeasurementLog{Float64,Float64}(tripple.indices, prediction)
+        push!(tripple_log, prediction_log)
+        push!(tripple_log, tripple.log)
         push!(logs, tripple_log)
     end
 

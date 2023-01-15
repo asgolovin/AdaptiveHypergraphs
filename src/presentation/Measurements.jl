@@ -1,6 +1,6 @@
 export ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization, HyperedgeCount,
        ActiveLifetime, FakeDiffEq,
-       AvgHyperedgeCount, SlowManifoldFit, KappaApproximation
+       AvgHyperedgeCount, SlowManifoldFit
 
 using GLMakie
 
@@ -358,17 +358,6 @@ function SlowManifoldFit(size::Int64; save_folder::Union{Nothing,String})
     save_file = _create_save_file(save_folder, "slow_manifold_fit")
     log = MeasurementLog{Int64,NTuple{3,Float64}}(; save_file=save_file)
     return SlowManifoldFit(log, size)
-end
-
-struct KappaApproximation <: AbstractRunMeasurement
-    log::MeasurementLog{Int64,Float64}
-    label::Label
-end
-
-function KappaApproximation(label::Label; save_folder::Union{Nothing,String})
-    save_file = _create_save_file(save_folder, "kappa_approximation")
-    log = MeasurementLog{Int64,Float64}(; save_file=save_file)
-    return KappaApproximation(log, label)
 end
 
 """
