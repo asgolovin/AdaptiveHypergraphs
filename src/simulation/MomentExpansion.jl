@@ -17,12 +17,12 @@ function moment_expansion(initial_motif_count::Dict, params, tspan,
     sol = solve(problem)
 
     t = sol.t
-    x = sol.u
 
     label_to_solution = Dict{Label,Vector{Float64}}()
 
     solution_matrix = hcat(sol.u...)
 
+    labels = filter(x -> order(x) <= 1, all_labels(max_size))
     for label in labels
         id = label_to_id(label, max_size)
         label_to_solution[label] = solution_matrix[id, 1:end]
@@ -192,7 +192,14 @@ function moment_closure(high_order_label::Label, x::Vector{Float64}, max_size::I
     right_id = label_to_id(right_label, max_size)
     int_id = label_to_id(intersection, max_size)
 
-    return x[left_id] * x[right_id] / x[int_id]
+    # compute the combinatorical prefactor
+    int_state = high_order_label.int_state
+    left_count = high_order_label.left_total[int_state]
+    right_count = high_order_label.right_total[int_state]
+    issymmetrical = left_label == right_label ? 0.5 : 1
+    prefactor = issymmetrical * left_count * right_count
+
+    return prefactor * x[left_id] * x[right_id] / x[int_id]
 end
 
 # the let-block immitates static variables which are saved between function calls. 
