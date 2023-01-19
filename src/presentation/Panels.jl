@@ -408,8 +408,8 @@ function FakeDiffEqPanel(box::GridPosition,
     num_hyperedges = graph_properties[:num_hyperedges]
     colormap = vparams.misc_colormap
 
-    #plot_conditions = x -> x.label.left[A] > 0
-    plot_conditions = x -> true
+    plot_conditions = x -> x.label.left[A] > 0
+    #plot_conditions = x -> true
 
     fake_diff_eq = filter(plot_conditions, fake_diff_eq)
 
@@ -694,25 +694,29 @@ function _bring_to_front!(lines::Vector{Lines})
 end
 
 function deactivate_lines!(panel::SlowManifoldPanel)
+    linecolors = [line.attributes.color for line in panel.lines]
     for i in 2:length(panel.measurement_logs)
         lines!(panel.axes,
                panel.measurement_logs[1].values[],
                panel.measurement_logs[i].values[];
                linewidth=1,
-               color=(:gray, 0.5))
+               color=(linecolors[i - 1], 0.5))
     end
     _bring_to_front!(panel.lines)
     return panel
 end
 
 function deactivate_lines!(panel::SecondOrderMotifCountPanel)
+    linecolors = [line.attributes.color for line in panel.lines]
+    line_counter = 1
     for (i, ax) in enumerate(panel.axes)
         for log in panel.measurement_logs[i]
             lines!(ax,
                    log.indices[],
                    log.values[];
                    linewidth=1,
-                   color=(:gray, 0.5))
+                   color=(linecolors[line_counter], 0.5))
+            line_counter += 1
         end
     end
     _bring_to_front!(panel.lines)
@@ -725,12 +729,13 @@ function deactivate_lines!(panel::AbstractTimeSeriesPanel)
     else
         logs = panel.measurement_logs
     end
-    for log in logs
+    linecolors = [line.attributes.color for line in panel.lines]
+    for (i, log) in enumerate(logs)
         lines!(panel.axes,
                log.indices[],
                log.values[];
-               linewidth=1,
-               color=(:gray, 0.5))
+               linewidth=0.5,
+               color=(linecolors[i], 0.5))
     end
     _bring_to_front!(panel.lines)
     return panel
