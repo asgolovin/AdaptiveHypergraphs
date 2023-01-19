@@ -105,8 +105,7 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
         elseif type <: FakeDiffEq
             measurements[sym] = [type(label; save_folder=save_folder, log_params...)
                                  for label in all_labels(max_size)
-                                 if order(label) == 1 && label.left[A] > 0 &&
-                                    label.left[B] > 0]
+                                 if order(label) == 1]
         elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
             measurements[sym] = [type(size; save_folder=save_folder) for size in 2:max_size]
         else
@@ -311,35 +310,49 @@ end
 
 function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
     label = measurement.label
-    if mo.num_steps == 1
+    if mo.num_steps <= 2
         value = Float64(get_motif_count(mo.network[])[label])
         record!(measurement.log, mo.time, value)
         return measurement
     end
 
-    motif_count = get_motif_count(mo.network[])
-
     # A "moment closure" function that just returns the simulated number of tripples
-    @inline function tripples(label::Label, x::Vector{Float64}, max_size::Int64)
-        return motif_count[label]
+    function tripples(label::Label, x::Vector{Float64}, max_size::Int64)
+        if true
+            return moment_closure(label, x, max_size)
+        end
+        return filter(x -> x.label == label, mo.motif_count)[1].log.last_value
     end
 
     p = mo.model[].adaptivity_prob
     num_nodes = get_num_nodes(mo.network[])
     max_size = get_max_size(mo.network[])
 
-    x = motif_dict_to_vector(motif_count, max_size)
+    motif_count_diff_eq = Dict{Label,Float64}()
+    for label in all_labels(max_size)
+        if order(label) > 1
+            continue
+        end
+        if order(label) == 1
+            motif_count_diff_eq[label] = filter(x -> x.label == label, mo.fake_diff_eq)[1].log.last_value
+        elseif order(label) == 0
+            motif_count_diff_eq[label] = 500.0
+            #state = label.left[A] > 0 ? A : B
+            #motif_count_diff_eq[label] = filter(x -> x.label == state, mo.state_count)[1].log.last_value
+        end
+    end
 
-    prop_update = prop_term(tripples, label, x, p, max_size)
-    adapt_update = adapt_term(label, x, p, num_nodes, max_size)
+    x = motif_dict_to_vector(motif_count_diff_eq, max_size)
+    propagation_rule = mo.model[].propagation_rule
+    adaptivity_rule = mo.model[].adaptivity_rule
+    prop_update = prop_term(propagation_rule, tripples, label, x, p, max_size)
+    adapt_update = adapt_term(adaptivity_rule, label, x, p, num_nodes, max_size)
 
     #! format: on
     last_meas = measurement.log.last_value
     num_hyperedges = get_num_hyperedges(mo.network[])
 
-    current_value = get_motif_count(mo.network[])[label]
-    update = ((1 - p) * prop_update + p * adapt_update + current_value - last_meas) /
-             num_hyperedges
+    update = ((1 - p) * prop_update + p * adapt_update) / num_hyperedges
 
     value = last_meas + update
 
