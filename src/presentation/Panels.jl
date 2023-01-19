@@ -33,6 +33,9 @@ mutable struct HypergraphPanel <: AbstractPanel
     yhigh::Union{Real,Nothing}
 end
 
+# don't do anything for panels which don't need the solution
+function set_solution(panel::AbstractPanel, t, sol) end
+
 function HypergraphPanel(box::GridPosition,
                          network::Observable{HyperNetwork},
                          graph_properties::Dict,
@@ -207,6 +210,8 @@ mutable struct FirstOrderMotifCountPanel <: AbstractTimeSeriesPanel
     xhigh::Union{Real,Nothing}
     ylow::Union{Real,Nothing}
     yhigh::Union{Real,Nothing}
+    t_sol::Observable{Vector{Float64}}
+    u_sol::Dict{Label,Observable{Vector{Float64}}}
 end
 
 function FirstOrderMotifCountPanel(box::GridPosition,
@@ -224,12 +229,13 @@ function FirstOrderMotifCountPanel(box::GridPosition,
 
     title = "Number of first-order motifs"
     first_order_motif_count = filter(x -> order(x.label) == 1, motif_count)
-    labels = ["$(m.label)" for m in first_order_motif_count]
+    first_order_labels = [m.label for m in first_order_motif_count]
+    # labels to use in the legend
+    labels = ["$label" for label in first_order_labels]
 
     linecolors = []
     colorscheme = colorschemes[node_colormap]
-    for meas in first_order_motif_count
-        label = meas.label
+    for label in first_order_labels
         numA = label.left_total[A] + label.right[A]
         numB = label.left_total[B] + label.right[B]
         ratio = numB / (numA + numB)
@@ -240,8 +246,25 @@ function FirstOrderMotifCountPanel(box::GridPosition,
     ax, lines, logs = _plot_time_series(box, first_order_motif_count, lims; title,
                                         linecolors, labels)
 
+    # plot the analytical solution
+    t_sol = Observable(Float64[])
+    u_sol = Dict{Label,Observable{Vector{Float64}}}()
+    for (i, label) in enumerate(first_order_labels)
+        u_sol[label] = Observable(Float64[])
+        lines!(ax, t_sol, u_sol[label]; color=linecolors[i], linewidth=2.0)
+    end
+
     return FirstOrderMotifCountPanel(logs, ax, lines, xlow, xhigh,
-                                     ylow, yhigh)
+                                     ylow, yhigh, t_sol, u_sol)
+end
+
+function set_solution(panel::FirstOrderMotifCountPanel, t, sol)
+    empty!(panel.t_sol[])
+    append!(panel.t_sol[], t)
+    for label in keys(panel.u_sol)
+        panel.u_sol[label][] = sol[label]
+    end
+    return panel
 end
 
 mutable struct SecondOrderMotifCountPanel <: AbstractTimeSeriesPanel

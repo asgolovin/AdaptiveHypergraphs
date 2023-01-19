@@ -1,6 +1,5 @@
 export ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization, HyperedgeCount,
-       ActiveLifetime, FakeDiffEq,
-       AvgHyperedgeCount, SlowManifoldFit
+       ActiveLifetime, FakeDiffEq, AvgHyperedgeCount, SlowManifoldFit
 
 using GLMakie
 

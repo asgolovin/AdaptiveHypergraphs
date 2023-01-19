@@ -82,6 +82,15 @@ function start_simulation(params::InputParams)
             _save_params(param, batch_folder)
         end
 
+        if typeof(dashboard) <: Dashboard
+            # compute a new analytical solution
+            duration = param.model_params.num_time_steps * 1.5 /
+                       sum(param.network_params.num_hyperedges)
+            tspan = (0.0, duration)
+            t_sol, u_sol = moment_expansion(param, tspan, moment_closure)
+            set_solution(dashboard, t_sol, u_sol)
+        end
+
         for t in 1:(bparams.batch_size)
             # Split the work among MPI ranks
             if mod((i - 1) * bparams.batch_size + t, size) != rank
