@@ -6,7 +6,7 @@ params = InputParams(
     NetworkParams(
         num_nodes = 1000,
         num_hyperedges = (2000, 200),
-        infected_prob = 0.2
+        infected_prob = 0.5
     ),
     ModelParams(
         num_time_steps = Int64(2e5),
@@ -15,19 +15,20 @@ params = InputParams(
         adaptivity_prob = 0.5
     ),
     VisualizationParams(
-        skip_points = 100,
-        buffer_size = 10000,
-        panels = [:StateDistPanel,
-                  :HyperedgeDistPanel,
-                  :ActiveHyperedgeDistPanel,
-                  :FirstOrderMotifCountPanel,
-                  :SecondOrderMotifCountPanel,
-                  :SlowManifoldPanel,
+        skip_points = 500,
+        buffer_size = 5000,
+        misc_colormap = :Set1_7,
+        panels = [#:StateDistPanel,
+                  #:HyperedgeDistPanel,
+                  #:ActiveHyperedgeDistPanel,
+                  #:SlowManifoldPanel,
                   :FakeDiffEqPanel,
-                  :MomentClosurePanel]
+                  #:SecondOrderMotifCountPanel,
+                  :MomentClosurePanel
+        ]
     ),
     BatchParams(
-        batch_size = 4,
+        batch_size = 10,
         with_mpi = false
     )
 )

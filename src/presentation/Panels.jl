@@ -321,28 +321,25 @@ function MomentClosurePanel(box::GridPosition,
     xlow, xhigh = (0, nothing)
     ylow, yhigh = (0, nothing)
 
-    title = "Ratio between the true moment closure and the approximation"
+    title = "The true moment closure and the approximation"
     ax = Axis(box; title=title)
 
-    # to reduce the number of options, consider only tripples which:
-    # - are of order 2, otherwise they are not tripples
+    # to reduce the number of options, consider only triples which:
+    # - are of order 2, otherwise they are not triples
     # - intersect in an A-node (B-nodes should behave symmetrically)
-    # - the left hyperedge is active (only such terms appear in equations)
-    tripples = filter(x -> order(x.label) == 2, motif_count)
-    filter!(x -> x.label.int[B] == 1, tripples)
-    filter!(x -> x.label.left_total[B] > 0 && x.label.left_total[A] > 0, tripples)
-    filter!(x -> x.label.left_total[B] == 2, tripples)
-    #filter!(x -> x.label.left_total[A] + x.label.left_total[B] == 2, tripples)
+    triples = filter(x -> order(x.label) == 2, motif_count)
+    int_state = A
+    filter!(x -> x.label.int[int_state] == 1, triples)
 
-    num_A_nodes = filter(x -> x.label == B, state_count)[1].values
-    num_tripples = length(tripples)
-    linecolors = get(colorschemes[colormap], 1:num_tripples, (1, num_tripples))
+    num_int_nodes = filter(x -> x.label == int_state, state_count)[1].values
+    num_triples = length(triples)
+    linecolors = get(colorschemes[colormap], 1:num_triples, (1, num_triples))
 
     lines = Lines[]
     logs = Vector{Vector{MeasurementLog}}()
 
-    for (i, tripple) in enumerate(tripples)
-        label = tripple.label
+    for (i, triple) in enumerate(triples)
+        label = triple.label
 
         # The moment closure is done by replacing [X|Y|Z] by [XY] * [YZ] / [Y]. 
         # Here, we determine XY and YZ and the corresponding labels.
@@ -366,32 +363,24 @@ function MomentClosurePanel(box::GridPosition,
         prefactor = issymmetrical * left_count * right_count
 
         # The resulting closure approximation
-        prediction = @lift prefactor * $left_motif .* $right_motif ./ $num_A_nodes
-        #ratio = lift(tripple.values, prediction) do values, prediction
-        #    return values ./ prediction
-        #end
+        prediction = @lift prefactor * $left_motif .* $right_motif ./ $num_int_nodes
 
-        # l1 = lines!(ax, tripple.indices, ratio;
-        #             label="$label",
-        #             color=linecolors[i])
-
-        l1 = lines!(ax, tripple.indices, prediction;
-                    label="$label_left * $label_right / [ A ]",
+        l1 = lines!(ax, triple.indices, prediction;
+                    label="$label_left * $label_right / [ $int_state ]",
                     color=linecolors[i])
-        # The actual number of tripples
-        l2 = lines!(ax, tripple.indices, tripple.values;
-                    label="$label", color=linecolors[i] * 0.5)
+
+        # The actual number of triples
+        l2 = lines!(ax, triple.indices, triple.values;
+                    label="$label", color=linecolors[i] * 0.5, linewidth=0.7)
 
         push!(lines, l1)
         push!(lines, l2)
-        tripple_log = MeasurementLog[]
-        #ratio_log = MeasurementLog{Float64,Float64}(tripple.indices, ratio)
-        #push!(tripple_log, ratio_log)
+        triple_log = MeasurementLog[]
 
-        prediction_log = MeasurementLog{Float64,Float64}(tripple.indices, prediction)
-        push!(tripple_log, prediction_log)
-        push!(tripple_log, tripple.log)
-        push!(logs, tripple_log)
+        prediction_log = MeasurementLog{Float64,Float64}(triple.indices, prediction)
+        push!(triple_log, prediction_log)
+        push!(triple_log, triple.log)
+        push!(logs, triple_log)
     end
 
     axislegend()
@@ -419,15 +408,20 @@ function FakeDiffEqPanel(box::GridPosition,
     num_hyperedges = graph_properties[:num_hyperedges]
     colormap = vparams.misc_colormap
 
+    #plot_conditions = x -> x.label.left[A] > 0
+    plot_conditions = x -> true
+
+    fake_diff_eq = filter(plot_conditions, fake_diff_eq)
+
     xlow, xhigh = (0, nothing)
     ylow, yhigh = (-0.05num_hyperedges, nothing)
     lims = (xlow, xhigh, ylow, yhigh)
 
-    labels = ["Fake ode for $(m.label)" for m in fake_diff_eq]
+    labels = ["$(m.label)" for m in fake_diff_eq]
     title = "Fake differential equation"
 
     order_one_motifs = filter(x -> order(x.label) == 1, motif_count)
-    filter!(x -> x.label.left[A] > 0 && x.label.left[B] > 0, order_one_motifs)
+    filter!(plot_conditions, order_one_motifs)
     num_motifs = length(order_one_motifs)
 
     linecolors = get(colorschemes[colormap], 1:num_motifs, (1, num_motifs))
@@ -439,7 +433,8 @@ function FakeDiffEqPanel(box::GridPosition,
     for (i, motif) in enumerate(order_one_motifs)
         l = lines!(ax, motif.indices, motif.values;
                    color=linecolors[i] * 0.6,
-                   label="True value for $(motif.label)")
+                   label="True $(motif.label)",
+                   linewidth=0.7)
         push!(lines, l)
         push!(logs, motif.log)
     end
