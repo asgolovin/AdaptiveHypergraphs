@@ -22,6 +22,7 @@ mutable struct MeasurementLog{IndexType,ValueType} # TODO: rename?
     remainder::Int64
     num_points::Int64
     last_value::Union{ValueType,Nothing}
+    second_to_last_value::Union{ValueType,Nothing}
     save_file::Union{Nothing,String}
 end
 
@@ -47,9 +48,10 @@ function MeasurementLog{IndexType,ValueType}(; skip_points::Int64=1,
     remainder = 0
     num_points = 0
     last_value = nothing
+    second_to_last_value = nothing
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
                           buffer_size, auto_notify, remainder, num_points, last_value,
-                          save_file)
+                          second_to_last_value, save_file)
 end
 
 function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexType}},
@@ -66,9 +68,10 @@ function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexTyp
     remainder = 0
     num_points = length(indices[])
     last_value = nothing
+    second_to_last_value = nothing
     return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
                           buffer_size, auto_notify, remainder, num_points, last_value,
-                          save_file)
+                          second_to_last_value, save_file)
 end
 
 function Base.show(io::IO, log::MeasurementLog)
@@ -101,6 +104,7 @@ Push a new pair of (`index`, `value`) into the log.
 """
 function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
                  value::ValueType) where {IndexType,ValueType}
+    log.second_to_last_value = log.last_value
     log.last_value = value
     if log.buffer_size > 0
         # write the values to the buffer
