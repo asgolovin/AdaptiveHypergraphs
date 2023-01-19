@@ -133,12 +133,12 @@ function HyperNetwork(n::Int64, max_size::Int64)
 end
 
 """
-    HyperNetwork(n::Int64, p0::AbstractFloat)
+    HyperNetwork(n::Int64, p0::Float64)
 
 Create an empty network with n nodes and no hyperedges.
 Each node has oppinion A with probability p0. 
 """
-function HyperNetwork(n::Int64, p0::AbstractFloat, max_size::Int64)
+function HyperNetwork(n::Int64, p0::Float64, max_size::Int64)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
     for i in 1:n
         rand() < p0 ? node_state[i] = A : node_state[i] = B
