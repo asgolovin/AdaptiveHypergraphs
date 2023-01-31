@@ -742,12 +742,3 @@ function _index_to_combination(index::Int64, size::Int64)
     end
     return combination
 end
-
-"""
-    build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Int64}})
-
-Populate the hypergraph with hyperedges such that every node has degrees {d_1, d_2, ...}. 
-"""
-function build_regular_hg!(network::HyperNetwork, degrees::Tuple{Vararg{Int64}})
-    # TODO
-end
