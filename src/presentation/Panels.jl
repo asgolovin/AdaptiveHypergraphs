@@ -124,6 +124,8 @@ mutable struct HyperedgeDistPanel <: AbstractTimeSeriesPanel
     xhigh::Union{Real,Nothing}
     ylow::Union{Real,Nothing}
     yhigh::Union{Real,Nothing}
+    t_sol::Observable{Vector{Float64}}
+    u_sol::Dict{Int64,Observable{Vector{Float64}}}
 end
 
 function HyperedgeDistPanel(box::GridPosition,
@@ -166,7 +168,35 @@ function HyperedgeDistPanel(box::GridPosition,
         text!(xpos, total_mean; text=label, textsize=16, offset=(0, 5))
     end
 
-    return HyperedgeDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
+    # plot the analytical solution
+    t_sol = Observable(Float64[])
+    u_sol = Dict{Int64,Observable{Vector{Float64}}}()
+    for (i, size) in enumerate(2:max_size)
+        u_sol[size] = Observable(Float64[])
+        lines!(ax, t_sol, u_sol[size]; color=linecolors[i], linewidth=2.0)
+    end
+
+    return HyperedgeDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh, t_sol, u_sol)
+end
+
+function set_solution(panel::HyperedgeDistPanel, t, sol)
+    empty!(panel.t_sol[])
+    append!(panel.t_sol[], t)
+    for size in keys(panel.u_sol)
+        empty!(panel.u_sol[size][])
+    end
+    for label in keys(sol)
+        s = size(label)[1]
+        if s == 1
+            continue
+        end
+        if length(panel.u_sol[s][]) == 0
+            panel.u_sol[s][] = copy(sol[label])
+        else
+            panel.u_sol[s][] += sol[label]
+        end
+    end
+    return panel
 end
 
 mutable struct ActiveHyperedgeDistPanel <: AbstractTimeSeriesPanel
@@ -177,6 +207,8 @@ mutable struct ActiveHyperedgeDistPanel <: AbstractTimeSeriesPanel
     xhigh::Union{Real,Nothing}
     ylow::Union{Real,Nothing}
     yhigh::Union{Real,Nothing}
+    t_sol::Observable{Vector{Float64}}
+    u_sol::Dict{Int64,Observable{Vector{Float64}}}
 end
 
 function ActiveHyperedgeDistPanel(box::GridPosition,
@@ -198,8 +230,36 @@ function ActiveHyperedgeDistPanel(box::GridPosition,
     ax, lines, logs = _plot_time_series(box, active_hyperedge_count, lims; title,
                                         linecolors, labels)
 
+    # plot the analytical solution
+    t_sol = Observable(Float64[])
+    u_sol = Dict{Int64,Observable{Vector{Float64}}}()
+    for (i, size) in enumerate(2:max_size)
+        u_sol[size] = Observable(Float64[])
+        lines!(ax, t_sol, u_sol[size]; color=linecolors[i], linewidth=2.0)
+    end
+
     return ActiveHyperedgeDistPanel(logs, ax, lines, xlow, xhigh,
-                                    ylow, yhigh)
+                                    ylow, yhigh, t_sol, u_sol)
+end
+
+function set_solution(panel::ActiveHyperedgeDistPanel, t, sol)
+    empty!(panel.t_sol[])
+    append!(panel.t_sol[], t)
+    for size in keys(panel.u_sol)
+        empty!(panel.u_sol[size][])
+    end
+    for label in keys(sol)
+        s = size(label)[1]
+        if s == 1 || label.left[A] == 0 || label.left[B] == 0
+            continue
+        end
+        if length(panel.u_sol[s][]) == 0
+            panel.u_sol[s][] = copy(sol[label])
+        else
+            panel.u_sol[s][] += copy(sol[label])
+        end
+    end
+    return panel
 end
 
 mutable struct FirstOrderMotifCountPanel <: AbstractTimeSeriesPanel
@@ -231,7 +291,7 @@ function FirstOrderMotifCountPanel(box::GridPosition,
     first_order_motif_count = filter(x -> order(x.label) == 1, motif_count)
     first_order_labels = [m.label for m in first_order_motif_count]
     # labels to use in the legend
-    labels = ["$label" for label in first_order_labels]
+    legend_labels = ["$label" for label in first_order_labels]
 
     linecolors = []
     colorscheme = colorschemes[node_colormap]
@@ -244,7 +304,7 @@ function FirstOrderMotifCountPanel(box::GridPosition,
     end
 
     ax, lines, logs = _plot_time_series(box, first_order_motif_count, lims; title,
-                                        linecolors, labels)
+                                        linecolors, labels=legend_labels)
 
     # plot the analytical solution
     t_sol = Observable(Float64[])
@@ -261,8 +321,11 @@ end
 function set_solution(panel::FirstOrderMotifCountPanel, t, sol)
     empty!(panel.t_sol[])
     append!(panel.t_sol[], t)
-    for label in keys(panel.u_sol)
-        panel.u_sol[label][] = sol[label]
+    for label in keys(sol)
+        if order(label) != 1
+            continue
+        end
+        panel.u_sol[label][] = copy(sol[label])
     end
     return panel
 end
