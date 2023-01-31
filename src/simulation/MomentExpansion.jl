@@ -2,11 +2,11 @@ export moment_expansion, rhs, moment_closure
 
 using DifferentialEquations
 
-function moment_expansion(params, tspan, moment_closure::Function)
+function moment_expansion(params, tspan::NTuple{2,Float64}, moment_closure::Function)
     nparams = params.network_params
-    num_nodes = nparams.num_nodes
-    max_size = length(nparams.num_hyperedges) + 1
-    A_share = nparams.infected_prob
+    num_nodes::Int64 = nparams.num_nodes
+    max_size::Int64 = length(nparams.num_hyperedges) + 1
+    A_share::Float64 = nparams.infected_prob
     B_share = 1 - A_share
 
     # calculate the initial expected distribution of nodes and motifs
@@ -21,10 +21,10 @@ function moment_expansion(params, tspan, moment_closure::Function)
                                          B_share * num_nodes
             continue
         end
-        num_hyperedges = nparams.num_hyperedges[label_size - 1]
-        n = label.left[A]
-        m = label.left[B]
-        num_AnBm = num_hyperedges * A_share^n * B_share^m * binomial(n + m, n)
+        num_hyperedges::Int64 = nparams.num_hyperedges[label_size - 1]
+        n::Int64 = label.left[A]
+        m::Int64 = label.left[B]
+        num_AnBm::Float64 = num_hyperedges * A_share^n * B_share^m * binomial(n + m, n)
         initial_motif_count[label] = num_AnBm
     end
 
@@ -111,9 +111,6 @@ function prop_term(propagation_rule::ProportionalVoting, moment_closure, label, 
 
     # second-order terms
     for n in 1:max_size, m in 1:(max_size - n)
-        if n + m == 1
-            continue
-        end
         if k > 0
             prop_dx += n / (n + m) *
                        (moment_closure(Label("[A$(n) B$(m-1)|B|A$(k-1)B$(h)]"), x,
