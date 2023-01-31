@@ -4,6 +4,11 @@ Used by PackageCompiler to create a sysimage with the packages already loaded.
 """
 
 using GLMakie
+using SimpleHypergraphs
+using DifferentialEquations
+using DrWatson
+using JSON3
+using MPI
 
 fig = Figure()
 display(fig)
