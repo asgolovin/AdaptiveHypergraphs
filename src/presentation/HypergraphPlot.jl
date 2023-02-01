@@ -29,12 +29,12 @@ The visualization consists of three consecutive steps:
     3. Finally, hyperdeges with two nodes, i.e., simple edges, are plotted as lines. The 
     color of the lines is sampled from the hyperdege colormap. 
 """
-@recipe(HypergraphPlot) do scene
+GLMakie.@recipe(HypergraphPlot) do scene
     return Attributes(; node_colormap=:RdYlGn_6,
                       hyperedge_colormap=:thermal)
 end
 
-function Makie.plot!(hgplot::HypergraphPlot)
+function GLMakie.plot!(hgplot::HypergraphPlot)
     network = hgplot[1]
 
     # a vector of node states expressed as integers 
@@ -98,7 +98,8 @@ function Makie.plot!(hgplot::HypergraphPlot)
                     nlabels_distance=10,
                     edge_color=:gray,
                     edge_width=1.5,
-                    node_attr=(color=states, colormap=hgplot.node_colormap, markersize=12),
+                    node_attr=(color=states, colormap=hgplot.node_colormap,
+                               markersize=12),
                     nlabels_attr=(textsize=12, color=:gray))
 
     # graphplot gives us the positions of the nodes

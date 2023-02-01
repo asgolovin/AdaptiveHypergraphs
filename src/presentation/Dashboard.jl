@@ -1,41 +1,5 @@
 export Dashboard, run!, record!, reset!
 
-using DrWatson
-
-#! format: off
-"""
-A list of dependencies of Panels on Measurements. 
-"""
-PANEL_DEPENDENCIES = Dict{Symbol, Vector{DataType}}(
-        :HypergraphPanel               => [],
-        :StateDistPanel                => [StateCount],
-        :HyperedgeDistPanel            => [HyperedgeCount, AvgHyperedgeCount],
-        :ActiveHyperedgeDistPanel      => [ActiveHyperedgeCount],
-        :FirstOrderMotifCountPanel     => [MotifCount],
-        :MomentClosurePanel            => [MotifCount, StateCount],
-        :SecondOrderMotifCountPanel    => [MotifCount],
-        :FakeDiffEqPanel               => [FakeDiffEq, MotifCount, StateCount],
-        :ActiveRatioPanel              => [ActiveHyperedgeCount],
-        :SlowManifoldPanel             => [StateCount, ActiveHyperedgeCount, SlowManifoldFit],
-        :ActiveLifetimePanel           => [ActiveLifetime],
-        :FinalMagnetizationPanel       => [FinalMagnetization],
-        :AvgHyperedgeCountPanel        => [AvgHyperedgeCount, SlowManifoldFit])
-#! format: on
-
-abstract type AbstractDashboard end
-
-"""
-    NinjaDashboard <: AbstractDashboard
-
-A dashboard, but it's so stealthy that you will never see it. 
-It does not use any graphical libraries. 
-It never displays anything at all, just computes the data in the darkness of the night. 
-"""
-struct NinjaDashboard <: AbstractDashboard
-    mo::ModelObservable
-    measurement_types::Vector{DataType}
-end
-
 """
     Dashboard <: AbstractDashboard
 
@@ -46,28 +10,6 @@ struct Dashboard <: AbstractDashboard
     panels::Vector{AbstractPanel}
     mo::ModelObservable
     measurement_types::Vector{DataType}
-end
-
-"""
-    NinjaDashboard(model::AbstractModel)
-
-# Arguments
-- `model::AbstractModel` - the model on which the dashboard is based on. 
-"""
-function NinjaDashboard(model::AbstractModel, vparams::VisualizationParams;
-                        save_folder::Union{Nothing,String})
-    # collect a list of the measurements on which the panels depend on
-    measurements = Vector{DataType}()
-    for panel in vparams.panels
-        append!(measurements, PANEL_DEPENDENCIES[panel])
-    end
-    measurement_types = unique(measurements)
-
-    mo = ModelObservable(model, measurement_types;
-                         skip_points=1,
-                         buffer_size=vparams.buffer_size,
-                         save_folder=save_folder)
-    return NinjaDashboard(mo, measurement_types)
 end
 
 #! format: off
@@ -150,39 +92,6 @@ function Dashboard(model::AbstractModel,
 end
 
 """
-    run!(dashboard::Dashboard, num_steps::Int64)
-
-Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges.
-"""
-function run!(dashboard::AbstractDashboard, num_steps::Int64)
-    mo = dashboard.mo
-
-    active_lifetime = num_steps
-    for i in 1:num_steps
-        step!(mo)
-        num_active_hyperedges = get_num_active_hyperedges(mo.network[])
-        if typeof(dashboard) <: Dashboard
-            if i % mo.buffer_size == 0 || num_active_hyperedges == 0
-                for panel in dashboard.panels
-                    set_lims!(panel)
-                end
-            end
-        end
-
-        # stop the simulation early if we run out of active hyperdeges
-        if num_active_hyperedges == 0
-            active_lifetime = i
-            break
-        end
-    end
-    flush_buffers!(mo)
-    notify(mo)
-    record_measurements!(mo, :run)
-
-    return dashboard
-end
-
-"""
     record!(dashboard::Dashboard, filename::String, num_steps::Int64, framerate::Int64)
 
 Run the simulation for `num_steps` time steps and record a video of the dashboard. 
@@ -211,13 +120,11 @@ The observables in the ModelObservable are reset to track the new data from `mod
 """
 function reset!(dashboard::AbstractDashboard, model::AbstractModel,
                 save_folder::Union{Nothing,String})
-    if typeof(dashboard) <: Dashboard
-        # gray out the history plot lines
-        for panel in dashboard.panels
-            if typeof(panel) <: AbstractTimeSeriesPanel ||
-               typeof(panel) <: SlowManifoldPanel
-                deactivate_lines!(panel)
-            end
+    # gray out the history plot lines
+    for panel in dashboard.panels
+        if typeof(panel) <: AbstractTimeSeriesPanel ||
+           typeof(panel) <: SlowManifoldPanel
+            deactivate_lines!(panel)
         end
     end
 

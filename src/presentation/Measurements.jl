@@ -1,7 +1,7 @@
 export ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization, HyperedgeCount,
        ActiveLifetime, FakeDiffEq, AvgHyperedgeCount, SlowManifoldFit
 
-using GLMakie
+using Observables
 
 """
 A data structure for an indexed series of measurements, where both the indices and the values are Makie observables. 
@@ -171,9 +171,9 @@ function flush_buffers!(log::MeasurementLog)
     return log
 end
 
-function GLMakie.notify(log::MeasurementLog)
-    GLMakie.notify(log.indices)
-    GLMakie.notify(log.values)
+function Observables.notify(log::MeasurementLog)
+    Observables.notify(log.indices)
+    Observables.notify(log.values)
     return nothing
 end
 

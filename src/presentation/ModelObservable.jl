@@ -1,5 +1,5 @@
 using Statistics, Parameters, Polynomials
-using GLMakie
+using Observables
 
 export ModelObservable, step!, flush_buffers!, notify, record_measurements!,
        rebind_model!, clear!
@@ -205,7 +205,7 @@ end
 
 Notify all observables in the ModelObservable.
 """
-function GLMakie.notify(mo::ModelObservable)
+function Observables.notify(mo::ModelObservable)
     notify(mo.network)
     for measurement in mo.measurements
         notify(measurement.log)

@@ -1,5 +1,7 @@
 module AdaptiveHypergraphs
 
+WITH_DISPLAY = get(ENV, "DISPLAY", "") != ""
+
 include("data/Label.jl")
 include("data/Network.jl")
 
@@ -9,11 +11,20 @@ include("simulation/Model.jl")
 include("simulation/MomentExpansion.jl")
 
 include("presentation/InputParams.jl")
-include("presentation/HypergraphPlot.jl")
+@static if WITH_DISPLAY
+    include("presentation/HypergraphPlot.jl")
+end
 include("presentation/Measurements.jl")
 include("presentation/ModelObservable.jl")
-include("presentation/Panels.jl")
-include("presentation/Dashboard.jl")
+@static if WITH_DISPLAY
+    include("presentation/Panels.jl")
+end
+include("presentation/NinjaDashboard.jl")
+@static if WITH_DISPLAY
+    include("presentation/Dashboard.jl")
+else
+    function Dashboard(::Any, ::Any; save_folder::Any) end
+end
 include("presentation/SimulationBatch.jl")
 
 end

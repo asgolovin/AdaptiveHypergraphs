@@ -1,3 +1,5 @@
+using GLMakie
+
 export AbstractPanel, AbstractTimeSeriesPanel, HypergraphPanel, StateDistPanel,
        HyperedgeDistPanel, MomentClosurePanel, ActiveHyperedgeDistPanel, SlowManifoldPanel,
        deactivate_lines!,

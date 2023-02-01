@@ -57,10 +57,14 @@ function start_simulation(params::InputParams)
     model = _create_model(network, mparams)
 
     # create an invisible dashboard on all ranks with MPI and a normal one without
-    if bparams.with_mpi
-        dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
+    @static if WITH_DISPLAY
+        if bparams.with_mpi
+            dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
+        else
+            dashboard = Dashboard(model, vparams; save_folder=nothing)
+        end
     else
-        dashboard = Dashboard(model, vparams; save_folder=nothing)
+        dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
     end
 
     for (i, param) in enumerate(param_vector)
