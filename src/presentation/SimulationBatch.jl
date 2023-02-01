@@ -59,11 +59,14 @@ function start_simulation(params::InputParams)
     # create an invisible dashboard on all ranks with MPI and a normal one without
     @static if WITH_DISPLAY
         if bparams.with_mpi
+            println("Creating a NinjaDashboard")
             dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
         else
+            println("Creating a normal Dashboard")
             dashboard = Dashboard(model, vparams; save_folder=nothing)
         end
     else
+        println("Creating a NinjaDashboard")
         dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
     end
 

@@ -23,7 +23,10 @@ include("presentation/NinjaDashboard.jl")
 @static if WITH_DISPLAY
     include("presentation/Dashboard.jl")
 else
-    function Dashboard(::Any, ::Any; save_folder::Any) end
+    struct Dashboard <: AbstractDashboard end
+    function Dashboard(::Any, ::Any; save_folder::Any)
+        return nothing
+    end
 end
 include("presentation/SimulationBatch.jl")
 
