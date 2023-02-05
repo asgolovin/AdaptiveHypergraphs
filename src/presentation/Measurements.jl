@@ -1,4 +1,5 @@
-export ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization, HyperedgeCount,
+export MeasurementLog, ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization,
+       HyperedgeCount,
        ActiveLifetime, FakeDiffEq, AvgHyperedgeCount, SlowManifoldFit
 
 using Observables

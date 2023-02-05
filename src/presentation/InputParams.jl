@@ -2,7 +2,8 @@ using Parameters
 using DrWatson
 using JSON3
 
-export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams, save_json
+export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams, save_json,
+       load_params
 
 @with_kw struct NetworkParams
     num_nodes::Union{Int64,Vector{Int64}} = 100
@@ -130,4 +131,32 @@ function save_json(params::InputParams)
     json_dict[:batch_params] = struct2dict(params.batch_params)
 
     return JSON3.write(json_dict)
+end
+
+function load_params(path::String)
+    json_string = read(path, String)
+    json = JSON3.read(json_string)
+
+    njson = Dict(json.network_params)
+    njson[:num_hyperedges] = Tuple(njson[:num_hyperedges])
+    nparams = NetworkParams(; njson...)
+
+    mjson = Dict(json.model_params)
+    mjson[:adaptivity_rule] = eval(Symbol(mjson[:adaptivity_rule]))()
+    mjson[:propagation_rule] = eval(Symbol(mjson[:propagation_rule]))()
+    mjson[:adaptivity_rate] = Float64(mjson[:adaptivity_rate])
+    mjson[:propagation_rate] = Float64(mjson[:propagation_rate])
+    mparams = ModelParams(; mjson...)
+
+    vjson = Dict(json.visualization_params)
+    for key in [:node_colormap, :hyperedge_colormap, :misc_colormap]
+        vjson[key] = Symbol(vjson[key])
+    end
+    vjson[:panels] = [Symbol(panel) for panel in vjson[:panels]]
+    vparams = VisualizationParams(; vjson...)
+
+    bparams = BatchParams(; json.batch_params...)
+
+    params = InputParams(nparams, mparams, vparams, bparams)
+    return params
 end

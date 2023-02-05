@@ -1,6 +1,6 @@
 using DrWatson
 
-export NinjaDashboard
+export NinjaDashboard, PANEL_DEPENDENCIES
 
 #! format: off
 """
