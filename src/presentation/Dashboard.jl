@@ -40,6 +40,7 @@ function Dashboard(model::AbstractModel,
     mo = ModelObservable(model, measurement_types;
                          skip_points=vparams.skip_points,
                          buffer_size=vparams.buffer_size,
+                         write_to_observables=true,
                          save_folder=save_folder)
 
     # Display plots in the left part of the figure and the info box on the right. 

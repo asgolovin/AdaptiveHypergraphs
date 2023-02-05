@@ -45,6 +45,7 @@ To add a new measurement:
     num_steps::Int64
     skip_points::Int64
     buffer_size::Int64
+    write_to_observables::Bool
     model::Observable{AbstractModel}
     network::Observable{HyperNetwork}
     state_count::Vector{StateCount} = StateCount[]
@@ -59,7 +60,7 @@ To add a new measurement:
 end
 
 function ModelObservable(model::AbstractModel, measurement_types::Vector{DataType};
-                         skip_points=1, buffer_size=1,
+                         skip_points=1, buffer_size=1, write_to_observables::Bool=true,
                          save_folder::Union{Nothing,String}=nothing)
     time = 0.0
     num_steps = 0
@@ -82,8 +83,8 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
 
     # instantiate only the required measurements
     measurements = Dict()
-    log_params = Dict(:skip_points => skip_points,
-                      :buffer_size => buffer_size)
+    log_params = Dict(:buffer_size => buffer_size ÷ skip_points,
+                      :write_to_observables => write_to_observables)
     for type in measurement_types_expanded
         sym = Symbol(_snake_case("$type"))
 
@@ -117,6 +118,7 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
                            num_steps=num_steps,
                            skip_points=skip_points,
                            buffer_size=buffer_size,
+                           write_to_observables=write_to_observables,
                            model=Observable(model),
                            network=Observable(model.network),
                            measurements...)
@@ -165,22 +167,15 @@ function step!(mo::ModelObservable)
     mo.time += Δt
     mo.num_steps += 1
     network_changed && notify(mo.model)
-    record_measurements!(mo, :step)
+    if mo.num_steps % mo.skip_points == 0
+        record_measurements!(mo, :step)
+    end
     if mo.num_steps % mo.buffer_size == 0
         sleep(0.001)
         notify(mo)
         println(mo.time)
     end
     return mo
-end
-
-"""
-    write(mo::ModelObservable)
-
-Save the new data collected since the last save to csv files.
-"""
-function checkpoint_save(mo::ModelObservable)
-    # TODO
 end
 
 """
@@ -310,7 +305,7 @@ end
 
 function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
     label = measurement.label
-    if mo.num_steps <= 2
+    if mo.num_steps <= 2 * mo.skip_points
         value = Float64(get_motif_count(mo.network[])[label])
         record!(measurement.log, mo.time, value)
         return measurement
@@ -375,20 +370,30 @@ end
 
 function record_measurement!(mo::ModelObservable, measurement::AvgHyperedgeCount)
     size = measurement.label
-    hyperedge_timeseries = mo.hyperedge_count[size - 1].values[]
-    skip = length(hyperedge_timeseries) ÷ 10
-    avg_hyperedge_count = mean(hyperedge_timeseries[skip:end])
+    if mo.write_to_observables
+        hyperedge_timeseries = mo.hyperedge_count[size - 1].values[]
+        skip = length(hyperedge_timeseries) ÷ 10
+        avg_hyperedge_count = mean(hyperedge_timeseries[skip:end])
+    else
+        hyperedge_timeseries = mo.hyperedge_count[size - 1].values
+        avg_hyperedge_count = mean(hyperedge_timeseries)
+    end
     record!(measurement.log, avg_hyperedge_count)
     return measurement
 end
 
 function record_measurement!(mo::ModelObservable, measurement::SlowManifoldFit)
     size = measurement.label
-    x = mo.state_count[1].values[]
-    y = mo.active_hyperedge_count[size - 1].values[]
-    skip = length(x) ÷ 10
-    x = x[skip:end]
-    y = y[skip:end]
+    if mo.write_to_observables
+        x = mo.state_count[1].values[]
+        y = mo.active_hyperedge_count[size - 1].values[]
+        skip = length(x) ÷ 10
+        x = x[skip:end]
+        y = y[skip:end]
+    else
+        x = mo.state_count[1].values
+        y = mo.active_hyperedge_count[size - 1].values
+    end
 
     f = Polynomials.fit(x, y, 2) # polynomial fit of degree 2
     a, b, c = coeffs(f) # f(x) = a + bx + cx^2

@@ -8,22 +8,19 @@ using Observables
 A data structure for an indexed series of measurements, where both the indices and the values are Makie observables. 
 
 This is basically a table which maps some indices (time stamps, indices, hashes, ...) to values. 
-The main feature of the Log is that it can buffer values before updating the observables, since 
-updating the values at every time step can be quite expensive. 
+The main feature of the Log is that it can buffer values before updating the observables and/or writing the data to file since updating the values at every time step can be quite expensive. 
 """
 mutable struct MeasurementLog{IndexType,ValueType} # TODO: rename?
-    indices::Observable{Vector{IndexType}}
-    values::Observable{Vector{ValueType}}
     buffered_indices::Vector{IndexType}
     buffered_values::Vector{ValueType}
-    skip_points::Int64
+    observable_indices::Observable{Vector{IndexType}}
+    observable_values::Observable{Vector{ValueType}}
+    write_to_observables::Bool
     buffer_size::Int64
     auto_notify::Bool
-    remainder::Int64
-    num_points::Int64
-    last_value::Union{ValueType,Nothing}
-    second_to_last_value::Union{ValueType,Nothing}
     save_file::Union{Nothing,String}
+    num_points::Int64
+    last_value::Union{Nothing,ValueType}
 end
 
 """
@@ -32,46 +29,80 @@ end
         auto_notify=true) where {IndexType,ValueType}
 
 # Arguments
-- `skip_points::Int64 = 1` - if this is greater than one, then only every n-th point gets written to the observables. Only works if `buffer_size` > 1
 - `buffer_size::Int64 = 0` - if this is greater than zero, then the points are written to a non-Observable buffer of given size. Once the buffer is full, they are pushed to the actual Observable. This improves performance if the updates are very frequent.
 - `auto_notify::Bool = true` - if set to true, any operations which modify the observables will automatically notify them. In the other case, this has to be done explicitly using notify(log). This can be used in cases where plots depend on multiple different logs and it is important to ensure that all logs are updated with the new values before the observables are triggered. 
 """
-function MeasurementLog{IndexType,ValueType}(; skip_points::Int64=1,
-                                             buffer_size::Int64=0,
+function MeasurementLog{IndexType,ValueType}(; buffer_size::Int64=0,
+                                             write_to_observables::Bool=true,
                                              save_file::Union{Nothing,String}=nothing,
                                              auto_notify::Bool=true) where {IndexType,
                                                                             ValueType}
-    indices = Observable(IndexType[])
-    values = Observable(ValueType[])
+    observable_indices = Observable(IndexType[])
+    observable_values = Observable(ValueType[])
+
     buffered_indices = IndexType[]
     buffered_values = ValueType[]
-    remainder = 0
+
     num_points = 0
     last_value = nothing
-    second_to_last_value = nothing
-    return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
-                          buffer_size, auto_notify, remainder, num_points, last_value,
-                          second_to_last_value, save_file)
+
+    return MeasurementLog(buffered_indices, buffered_values,
+                          observable_indices, observable_values, write_to_observables,
+                          buffer_size, auto_notify, save_file, num_points, last_value)
 end
 
 function MeasurementLog{IndexType,ValueType}(indices::Observable{Vector{IndexType}},
                                              values::Observable{Vector{ValueType}};
-                                             save_file::Union{Nothing,String}=nothing) where
+                                             save_file::Union{Nothing,String}=nothing,
+                                             buffer_size::Int64=0) where
          {IndexType,
           ValueType}
     @assert length(indices[]) == length(values[])
     buffered_indices = IndexType[]
     buffered_values = ValueType[]
-    skip_points = 1
-    buffer_size = 0
     auto_notify = true
-    remainder = 0
+    write_to_observables = true
     num_points = length(indices[])
-    last_value = nothing
-    second_to_last_value = nothing
-    return MeasurementLog(indices, values, buffered_indices, buffered_values, skip_points,
-                          buffer_size, auto_notify, remainder, num_points, last_value,
-                          second_to_last_value, save_file)
+    last_value = num_points != 0 ? values[][end] : nothing
+    return MeasurementLog(buffered_indices, buffered_values, indices, values,
+                          write_to_observables,
+                          buffer_size, auto_notify, save_file, num_points, last_value)
+end
+
+function MeasurementLog{IndexType,ValueType}(indices::Vector{IndexType},
+                                             values::Vector{ValueType};
+                                             save_file::Union{Nothing,String}=nothing,
+                                             buffer_size::Int64=0) where
+         {IndexType,
+          ValueType}
+    @assert length(indices[]) == length(values[])
+    observable_indices = Observable(IndexType[])
+    observable_values = Observable(ValueType[])
+    auto_notify = false
+    write_to_observables = false
+    num_points = length(indices)
+    last_value = num_points != 0 ? values[end] : nothing
+    return MeasurementLog(indices, values, observable_indices, observable_values,
+                          write_to_observables,
+                          buffer_size, auto_notify, save_file, num_points, last_value)
+end
+
+function Base.getproperty(obj::MeasurementLog, sym::Symbol)
+    if sym === :indices
+        if obj.write_to_observables
+            return obj.observable_indices
+        else
+            return obj.buffered_indices
+        end
+    elseif sym == :values
+        if obj.write_to_observables
+            return obj.observable_values
+        else
+            return obj.buffered_values
+        end
+    else
+        return getfield(obj, sym)
+    end
 end
 
 function Base.show(io::IO, log::MeasurementLog)
@@ -81,9 +112,15 @@ end
 function Base.show(io::IO, ::MIME"text/plain", log::MeasurementLog)
     println(io, log)
 
-    indices = log.indices[]
-    values = log.values[]
-    if length(log.indices[]) > 10
+    if log.write_to_observables
+        indices = log.observable_indices[]
+        values = log.observable_values[]
+    else
+        indices = log.buffered_indices
+        values = log.buffered_values
+    end
+
+    if length(indices) > 10
         first_indices = join(indices[1:5], ", ")
         first_values = join(values[1:5], ", ")
         last_indices = join(indices[(end - 4):end], ", ")
@@ -104,24 +141,24 @@ Push a new pair of (`index`, `value`) into the log.
 """
 function record!(log::MeasurementLog{IndexType,ValueType}, index::IndexType,
                  value::ValueType) where {IndexType,ValueType}
-    log.second_to_last_value = log.last_value
     log.last_value = value
     if log.buffer_size > 0
         # write the values to the buffer
         push!(log.buffered_indices, index)
         push!(log.buffered_values, value)
-
         # if the buffer is full, flush it 
         if length(log.buffered_indices) >= log.buffer_size
             flush_buffers!(log)
         end
     else
         # update the observables directly
-        push!(log.indices[], index)
-        push!(log.values[], value)
-        if log.auto_notify
-            notify(log.indices)
-            notify(log.values)
+        if log.write_to_observables
+            push!(log.observable_indices[], index)
+            push!(log.observable_values[], value)
+            if log.auto_notify
+                notify(log.observable_indices)
+                notify(log.observable_values)
+            end
         end
         # write to file
         if typeof(log.save_file) <: String
@@ -143,7 +180,9 @@ end
 """
     flush_buffers!(log::MeasurementLog)
 
-Write the values in the buffers to the observables. If `auto_notify` is set to `true`, the observables are notified after the update. 
+If `write_to_observables` is set to `true`, write the values in the buffers to the observables. If `auto_notify` is set to `true`, the observables are notified after the update. 
+
+Same with files: if a filename is given, the data is written to file. 
 """
 function flush_buffers!(log::MeasurementLog)
     # write the contents of the buffer to file
@@ -157,24 +196,26 @@ function flush_buffers!(log::MeasurementLog)
         end
     end
 
-    # crazy mod magic to account for the fact that skip_points might not divide buffer_size
-    skip = log.skip_points
-    start = mod1(skip - log.remainder + 1, skip)
-    log.remainder = mod(log.buffer_size - start + 1, skip)
-    append!(log.indices[], log.buffered_indices[start:skip:end])
-    append!(log.values[], log.buffered_values[start:skip:end])
+    # write the contents of the buffer to the observables
+    if log.write_to_observables
+        append!(log.observable_indices[], log.buffered_indices)
+        append!(log.observable_values[], log.buffered_values)
+        if log.auto_notify
+            notify(log.observable_indices)
+            notify(log.observable_values)
+        end
+    end
+
+    # empty the buffers
     empty!(log.buffered_indices)
     empty!(log.buffered_values)
-    if log.auto_notify
-        notify(log.indices)
-        notify(log.values)
-    end
+
     return log
 end
 
 function Observables.notify(log::MeasurementLog)
-    Observables.notify(log.indices)
-    Observables.notify(log.values)
+    Observables.notify(log.observable_indices)
+    Observables.notify(log.observable_values)
     return nothing
 end
 
@@ -184,11 +225,10 @@ end
 Empty all vectors and reset the log. 
 """
 function clear!(log::MeasurementLog)
-    empty!(log.indices[])
-    empty!(log.values[])
+    empty!(log.observable_indices[])
+    empty!(log.observable_values[])
     empty!(log.buffered_indices)
     empty!(log.buffered_values)
-    log.remainder = 0
     log.num_points = 0
     return log
 end
@@ -243,10 +283,10 @@ struct StateCount <: AbstractStepMeasurement
     label::State
 end
 
-function StateCount(state::State; skip_points::Int64=1, buffer_size::Int64=0,
+function StateCount(state::State; buffer_size::Int64=0, write_to_observables::Bool=true,
                     save_folder::Union{Nothing,String}=nothing)
     save_file = _create_save_file(save_folder, "state_count", state)
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+    log = MeasurementLog{Float64,Int64}(; buffer_size, write_to_observables, save_file,
                                         auto_notify=false)
     return StateCount(log, state)
 end
@@ -261,10 +301,10 @@ mutable struct HyperedgeCount <: AbstractStepMeasurement
     label::Int64
 end
 
-function HyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0,
+function HyperedgeCount(size::Int64; buffer_size::Int64=0, write_to_observables::Bool=true,
                         save_folder::Union{Nothing,String})
     save_file = _create_save_file(save_folder, "hyperedge_count", size)
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+    log = MeasurementLog{Float64,Int64}(; buffer_size, write_to_observables, save_file,
                                         auto_notify=false)
     return HyperedgeCount(log, size)
 end
@@ -280,10 +320,11 @@ mutable struct ActiveHyperedgeCount <: AbstractStepMeasurement
     label::Int64
 end
 
-function ActiveHyperedgeCount(size::Int64; skip_points::Int64=1, buffer_size::Int64=0,
+function ActiveHyperedgeCount(size::Int64; buffer_size::Int64=0,
+                              write_to_observables::Bool=true,
                               save_folder::Union{Nothing,String})
     save_file = _create_save_file(save_folder, "active_hyperedge_count", size)
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+    log = MeasurementLog{Float64,Int64}(; buffer_size, write_to_observables, save_file,
                                         auto_notify=false)
     return ActiveHyperedgeCount(log, size)
 end
@@ -293,10 +334,10 @@ mutable struct MotifCount <: AbstractStepMeasurement
     label::Label
 end
 
-function MotifCount(label::Label; skip_points::Int64=1, buffer_size::Int64=0,
+function MotifCount(label::Label; buffer_size::Int64=0, write_to_observables::Bool=true,
                     save_folder::Union{Nothing,String})
     save_file = _create_save_file(save_folder, "motif_count", "$label")
-    log = MeasurementLog{Float64,Int64}(; skip_points, buffer_size, save_file,
+    log = MeasurementLog{Float64,Int64}(; buffer_size, write_to_observables, save_file,
                                         auto_notify=false)
     return MotifCount(log, label)
 end
@@ -306,10 +347,10 @@ mutable struct FakeDiffEq <: AbstractStepMeasurement
     label::Label
 end
 
-function FakeDiffEq(label::Label; skip_points::Int64=1, buffer_size::Int64=0,
+function FakeDiffEq(label::Label; buffer_size::Int64=0, write_to_observables::Bool=true,
                     save_folder::Union{Nothing,String})
     save_file = _create_save_file(save_folder, "fake_diff_eq", "$label")
-    log = MeasurementLog{Float64,Float64}(; skip_points, buffer_size, save_file,
+    log = MeasurementLog{Float64,Float64}(; buffer_size, write_to_observables, save_file,
                                           auto_notify=false)
     return FakeDiffEq(log, label)
 end

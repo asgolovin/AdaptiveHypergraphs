@@ -51,9 +51,13 @@ function NinjaDashboard(model::AbstractModel, vparams::VisualizationParams;
     end
     measurement_types = unique(measurements)
 
+    # throw out the run measurements because we don't have all the data
+    measurement_types = filter!(x -> x <: AbstractStepMeasurement, measurement_types)
+
     mo = ModelObservable(model, measurement_types;
-                         skip_points=1,
+                         skip_points=vparams.skip_points,
                          buffer_size=vparams.buffer_size,
+                         write_to_observables=false,
                          save_folder=save_folder)
     return NinjaDashboard(mo, measurement_types)
 end
@@ -88,7 +92,6 @@ function run!(dashboard::AbstractDashboard, num_steps::Int64)
     end
     flush_buffers!(mo)
     notify(mo)
-    record_measurements!(mo, :run)
 
     return dashboard
 end

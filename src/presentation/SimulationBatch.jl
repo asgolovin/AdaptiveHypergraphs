@@ -127,7 +127,7 @@ function start_simulation(params::InputParams)
         end
     end
 
-    if save_to_file
+    if save_to_file && typeof(dashboard) <: Dashboard
         save(dashboard, root_save_folder, "dashboard.png")
     end
     return nothing
