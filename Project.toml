@@ -43,6 +43,7 @@ StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
 [compat]
 ColorSchemes = "3"
 Combinatorics = "1"
+DataFrames = "1"
 GLMakie = "0.6"
 GeometryBasics = "0.4"
 GraphMakie = "0.4"
