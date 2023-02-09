@@ -1,6 +1,7 @@
 export MeasurementLog, ActiveHyperedgeCount, StateCount, MotifCount, FinalMagnetization,
        HyperedgeCount,
-       ActiveLifetime, FakeDiffEq, AvgHyperedgeCount, SlowManifoldFit
+       ActiveLifetime, FakeDiffEq, AvgHyperedgeCount, SlowManifoldFit,
+       AbstractMeasurement, AbstractRunMeasurement, AbstractStepMeasurement
 
 using Observables
 
