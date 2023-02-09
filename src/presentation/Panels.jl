@@ -1,4 +1,5 @@
 using GLMakie
+using ColorSchemes
 
 export AbstractPanel, AbstractTimeSeriesPanel, HypergraphPanel, StateDistPanel,
        HyperedgeDistPanel, MomentClosurePanel, ActiveHyperedgeDistPanel, SlowManifoldPanel,
@@ -114,7 +115,7 @@ function StateDistPanel(box::GridPosition,
     title = "Number of nodes in every state"
     linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
     labels = ["# of $(m.label) nodes" for m in state_count]
-    ax, lines, logs = _plot_time_series(box, state_count, lims; title, linecolors)
+    ax, lines, logs = _plot_time_series(box, state_count, lims; title, linecolors, labels)
     return StateDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
 end
 
@@ -135,7 +136,12 @@ function HyperedgeDistPanel(box::GridPosition,
                             graph_properties::Dict,
                             vparams::VisualizationParams)
     hyperedge_count = measurements[:hyperedge_count]
-    avg_hyperedge_count = measurements[:avg_hyperedge_count]
+    if :avg_hyperedge_count in keys(measurements)
+        plot_average = true
+        avg_hyperedge_count = measurements[:avg_hyperedge_count]
+    else
+        plot_average = false
+    end
 
     max_size = graph_properties[:max_hyperedge_size]
     num_hyperedges = graph_properties[:num_hyperedges]
@@ -152,22 +158,24 @@ function HyperedgeDistPanel(box::GridPosition,
                                         labels)
 
     # plot averages over multiple runs
-    for (i, measurement) in enumerate(avg_hyperedge_count)
-        total_mean = lift(measurement.values) do values
-            if length(values) > 0
-                return values[end]
-            else
-                return 0.0
+    if plot_average
+        for (i, measurement) in enumerate(avg_hyperedge_count)
+            total_mean = lift(measurement.values) do values
+                if length(values) > 0
+                    return values[end]
+                else
+                    return 0.0
+                end
             end
-        end
 
-        hlines!(ax, total_mean; color=:gray)
-        xpos = Observable(0.0)
-        xpos = lift(hyperedge_count[i].indices) do count
-            return max(xpos[], 0.1 * maximum(count; init=-100.0))
+            hlines!(ax, total_mean; color=:gray)
+            xpos = Observable(0.0)
+            xpos = lift(hyperedge_count[i].indices) do count
+                return max(xpos[], 0.1 * maximum(count; init=-100.0))
+            end
+            label = @lift "$(round($total_mean, digits=1))"
+            text!(xpos, total_mean; text=label, textsize=16, offset=(0, 5))
         end
-        label = @lift "$(round($total_mean, digits=1))"
-        text!(xpos, total_mean; text=label, textsize=16, offset=(0, 5))
     end
 
     # plot the analytical solution
@@ -604,7 +612,14 @@ function SlowManifoldPanel(box::GridPosition,
                            vparams::VisualizationParams)
     state_count = measurements[:state_count]
     active_hyperedge_count = measurements[:active_hyperedge_count]
-    slow_manifold_fit = measurements[:slow_manifold_fit]
+
+    if :slow_manifold_fit in keys(measurements)
+        plot_fit = true
+        slow_manifold_fit = measurements[:slow_manifold_fit]
+    else
+        plot_fit = false
+    end
+
     max_size = graph_properties[:max_hyperedge_size]
     num_nodes = graph_properties[:num_nodes]
     num_hyperedges = graph_properties[:num_hyperedges]
@@ -630,21 +645,23 @@ function SlowManifoldPanel(box::GridPosition,
         push!(logs, active_hyperedge_log)
     end
 
-    for (i, measurement) in enumerate(slow_manifold_fit)
-        x = 0:1:num_nodes
-        coeffs = lift(measurement.values) do values
-            if length(values) == 0
-                return (0.0, 0.0, 0.0)
-            else
-                return values[end]
+    if plot_fit
+        for (i, measurement) in enumerate(slow_manifold_fit)
+            x = 0:1:num_nodes
+            coeffs = lift(measurement.values) do values
+                if length(values) == 0
+                    return (0.0, 0.0, 0.0)
+                else
+                    return values[end]
+                end
             end
+            a = @lift ($coeffs)[1]
+            b = @lift ($coeffs)[2]
+            c = @lift ($coeffs)[3]
+            y = @lift @. $a + $b * x + $c * x^2
+            l = lines!(ax, x, y; color=:red)
+            translate!(l, 0, 0, 2)
         end
-        a = @lift ($coeffs)[1]
-        b = @lift ($coeffs)[2]
-        c = @lift ($coeffs)[3]
-        y = @lift @. $a + $b * x + $c * x^2
-        l = lines!(ax, x, y; color=:red)
-        translate!(l, 0, 0, 2)
     end
 
     return SlowManifoldPanel(logs,
