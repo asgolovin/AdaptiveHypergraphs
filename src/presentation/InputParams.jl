@@ -146,6 +146,7 @@ function load_params(path::String)
     mjson[:propagation_rule] = eval(Symbol(mjson[:propagation_rule]))()
     mjson[:adaptivity_rate] = Float64(mjson[:adaptivity_rate])
     mjson[:propagation_rate] = Float64(mjson[:propagation_rate])
+    mjson[:adaptivity_prob] = Float64(mjson[:adaptivity_prob])
     mparams = ModelParams(; mjson...)
 
     vjson = Dict(json.visualization_params)
