@@ -90,6 +90,7 @@ function run!(dashboard::AbstractDashboard, num_steps::Int64)
             break
         end
     end
+    record_measurements!(mo, :step)
     flush_buffers!(mo)
     notify(mo)
 
