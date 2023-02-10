@@ -53,6 +53,8 @@ mutable struct HyperNetwork
     num_nodes::Int64
     # maximum allowed size of hyperedges 
     max_size::Int64
+    # whether to keep track of the number of motifs (expensive!)
+    track_motif_count::Bool
     # Motif -> number of motifs
     motif_count::Dict{Label,Int64}
     # Size -> number of active hyperedges
@@ -86,10 +88,13 @@ end
 Create an empty network with `n` nodes and no hyperedges.
 `node_state` denotes the state of each node. 
 `max_size` is the maximum allowed hyperedge size. 
+
+The optional flag `track_motif_count` allows to switch on expensive tracking of the number of motifs.  
 """
 function HyperNetwork(n::Int64,
                       node_state::Vector{Union{Nothing,State}},
-                      max_size::Int64)
+                      max_size::Int64;
+                      track_motif_count::Bool=false)
     @assert length(node_state) == n
     @assert max_size >= 2
 
@@ -114,8 +119,8 @@ function HyperNetwork(n::Int64,
     hyperedge_uid = Vector{Int64}()
     uid_to_mid = Dict{Int64,Int64}()
 
-    return HyperNetwork(hg, n, max_size, motif_count,
-                        active_hyperedges, state_count,
+    return HyperNetwork(hg, n, max_size, track_motif_count,
+                        motif_count, active_hyperedges, state_count,
                         hyperedge_dist, hyperedge_size,
                         hyperedge_uid, uid_to_mid, 0)
 end
@@ -126,10 +131,10 @@ end
 Create an empty network with `n` nodes and no hyperedges.
 All nodes have the oppinion A.
 """
-function HyperNetwork(n::Int64, max_size::Int64)
+function HyperNetwork(n::Int64, max_size::Int64; track_motif_count::Bool=false)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
     fill!(node_state, A)
-    return HyperNetwork(n, node_state, max_size)
+    return HyperNetwork(n, node_state, max_size; track_motif_count)
 end
 
 """
@@ -138,12 +143,12 @@ end
 Create an empty network with n nodes and no hyperedges.
 Each node has oppinion A with probability p0. 
 """
-function HyperNetwork(n::Int64, p0::Float64, max_size::Int64)
+function HyperNetwork(n::Int64, p0::Float64, max_size::Int64; track_motif_count::Bool=false)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
     for i in 1:n
         rand() < p0 ? node_state[i] = A : node_state[i] = B
     end
-    return HyperNetwork(n, node_state, max_size)
+    return HyperNetwork(n, node_state, max_size; track_motif_count)
 end
 
 function Base.show(io::IO, network::HyperNetwork)
@@ -210,10 +215,12 @@ function add_hyperedge!(network::HyperNetwork, nodes)
     end
 
     # increase new values in motif count
-    label = _get_1st_order_label(network, hyperedge)
-    network.motif_count[label] += 1
-    for label in _get_2nd_order_labels(network, hyperedge)
+    if network.track_motif_count
+        label = _get_1st_order_label(network, hyperedge)
         network.motif_count[label] += 1
+        for label in _get_2nd_order_labels(network, hyperedge)
+            network.motif_count[label] += 1
+        end
     end
 
     return network.max_hyperedge_uid
@@ -233,10 +240,12 @@ function include_node!(network::HyperNetwork, node::Int64, hyperedge::Int64)
     end
 
     # decrease old values in motif_count
-    label = _get_1st_order_label(network, hyperedge)
-    network.motif_count[label] -= 1
-    for label in _get_2nd_order_labels(network, hyperedge)
+    if network.track_motif_count
+        label = _get_1st_order_label(network, hyperedge)
         network.motif_count[label] -= 1
+        for label in _get_2nd_order_labels(network, hyperedge)
+            network.motif_count[label] -= 1
+        end
     end
 
     # update hyperedge_dist
@@ -253,10 +262,12 @@ function include_node!(network::HyperNetwork, node::Int64, hyperedge::Int64)
     network.hg[node, mid] = true
 
     # increase new values in motif_count
-    label = _get_1st_order_label(network, hyperedge)
-    network.motif_count[label] += 1
-    for label in _get_2nd_order_labels(network, hyperedge)
+    if network.track_motif_count
+        label = _get_1st_order_label(network, hyperedge)
         network.motif_count[label] += 1
+        for label in _get_2nd_order_labels(network, hyperedge)
+            network.motif_count[label] += 1
+        end
     end
 
     # update active_hyperedeges if the hyperedge is now active
@@ -282,10 +293,12 @@ function delete_hyperedge!(network::HyperNetwork, hyperedge::Int64)
     num_hyperedges = get_num_hyperedges(network)
 
     # decrease old values in motif_count
-    label = _get_1st_order_label(network, hyperedge)
-    network.motif_count[label] -= 1
-    for label in _get_2nd_order_labels(network, hyperedge)
+    if network.track_motif_count
+        label = _get_1st_order_label(network, hyperedge)
         network.motif_count[label] -= 1
+        for label in _get_2nd_order_labels(network, hyperedge)
+            network.motif_count[label] -= 1
+        end
     end
 
     # update hyperedge_dist
@@ -334,10 +347,12 @@ function remove_node!(network::HyperNetwork, node::Int64,
     end
 
     # decrease old values in motif_count
-    label = _get_1st_order_label(network, hyperedge)
-    network.motif_count[label] -= 1
-    for label in _get_2nd_order_labels(network, hyperedge)
+    if network.track_motif_count
+        label = _get_1st_order_label(network, hyperedge)
         network.motif_count[label] -= 1
+        for label in _get_2nd_order_labels(network, hyperedge)
+            network.motif_count[label] -= 1
+        end
     end
 
     active_before = is_active(network, hyperedge)
@@ -349,10 +364,12 @@ function remove_node!(network::HyperNetwork, node::Int64,
     network.hg[node, mid] = nothing
 
     # increase new values in motif_count
-    label = _get_1st_order_label(network, hyperedge)
-    network.motif_count[label] += 1
-    for label in _get_2nd_order_labels(network, hyperedge)
+    if network.track_motif_count
+        label = _get_1st_order_label(network, hyperedge)
         network.motif_count[label] += 1
+        for label in _get_2nd_order_labels(network, hyperedge)
+            network.motif_count[label] += 1
+        end
     end
 
     # update active_hyperedeges if it was active before
@@ -380,12 +397,14 @@ function set_state!(network::HyperNetwork, node::Int64, state::State)
     old_state = get_state(network, node)
 
     # decrease old values in motif_count
-    for hyperedge in get_hyperedges(network, node)
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] -= 1
-    end
-    for label in _get_2nd_order_node_labels(network, node)
-        network.motif_count[label] -= 1
+    if network.track_motif_count
+        for hyperedge in get_hyperedges(network, node)
+            label = _get_1st_order_label(network, hyperedge)
+            network.motif_count[label] -= 1
+        end
+        for label in _get_2nd_order_node_labels(network, node)
+            network.motif_count[label] -= 1
+        end
     end
 
     set_vertex_meta!(network.hg, state, node)
@@ -396,12 +415,14 @@ function set_state!(network::HyperNetwork, node::Int64, state::State)
     network.motif_count[Label("[B]")] = network.state_count[B]
 
     # increase old values in motif_count
-    for hyperedge in get_hyperedges(network, node)
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] += 1
-    end
-    for label in _get_2nd_order_node_labels(network, node)
-        network.motif_count[label] += 1
+    if network.track_motif_count
+        for hyperedge in get_hyperedges(network, node)
+            label = _get_1st_order_label(network, hyperedge)
+            network.motif_count[label] += 1
+        end
+        for label in _get_2nd_order_node_labels(network, node)
+            network.motif_count[label] += 1
+        end
     end
 
     for (i, h) in enumerate(hyperedges)
@@ -626,6 +647,9 @@ end
 Return a dict mapping motifs to the number of occurances.
 """
 function get_motif_count(network::HyperNetwork)
+    if !network.track_motif_count
+        throw(ErrorException("The motif count is not tracked. Please initialize the network with track_motif_count = true."))
+    end
     return network.motif_count
 end
 

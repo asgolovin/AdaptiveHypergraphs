@@ -148,7 +148,7 @@ end
 
 @testset "HyperNetwork: motif count" begin
     n = 50
-    network = HyperNetwork(n, 0.4, 4)
+    network = HyperNetwork(n, 0.4, 4; track_motif_count=true)
     build_RSC_hg!(network, (20, 20, 20))
 
     # shuffle things around
@@ -256,20 +256,3 @@ end
         @test explicit_results[label] == network.motif_count[label]
     end
 end
-
-# [A2B | A | A]   8 == 7    >
-# [A2B | A | AB]  15 == 16  <
-# [A2B | A | AB2] 11 == 12  <
-# [A2B | B | B]   6 == 7    <
-# [A2B | B | A2]  7 == 8    <
-# [A2B | B | AB2] 7 == 8    <
-# [A2B | B | A2B] 5 == 4    >
-# 
-# [AB2 | A | B]   8 == 9    <
-# [AB2 | B | B3]  3 == 2    >
-# [AB2 | B | AB2] 1 == 2    <
-# [AB2 | B | AB]  7 == 6    >
-# 
-# [A3 | B | A]    4 == 3    >
-# [A3 | A | A2]   3 == 2    >
-# [A3 | A | A2B]  3 == 2    >

@@ -49,9 +49,11 @@ function start_simulation(params::InputParams)
     nparams = param_vector[1].network_params
     mparams = param_vector[1].model_params
 
+    track_motif_count = any([:FakeDiffEqPanel, :FirstOrderMotifCountPanel,
+                             :SecondOrderMotifCountPanel] .∈ Ref(vparams.panels))
     n = nparams.num_nodes
     max_size = length(nparams.num_hyperedges) + 1
-    network = HyperNetwork(n, nparams.infected_prob, max_size)
+    network = HyperNetwork(n, nparams.infected_prob, max_size; track_motif_count)
     build_RSC_hg!(network, nparams.num_hyperedges)
 
     model = _create_model(network, mparams)
@@ -117,7 +119,7 @@ function start_simulation(params::InputParams)
             end
 
             max_size = length(nparams.num_hyperedges) + 1
-            network = HyperNetwork(n, nparams.infected_prob, max_size)
+            network = HyperNetwork(n, nparams.infected_prob, max_size; track_motif_count)
             build_RSC_hg!(network, nparams.num_hyperedges)
             model = _create_model(network, mparams)
             reset!(dashboard, model, run_folder)
