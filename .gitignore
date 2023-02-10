@@ -6,4 +6,5 @@ plots
 *.so
 LocalPreferences.toml
 results/*
-final_data/*
+final_data
+output
