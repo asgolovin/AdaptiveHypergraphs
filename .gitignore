@@ -1,6 +1,10 @@
 /Manifest.toml
 videos
 plots
-results
-input/*
-!input/InputParams.jl
+*.pb.gz
+.vscode
+*.so
+LocalPreferences.toml
+results/*
+final_data
+output
