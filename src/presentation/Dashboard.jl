@@ -1,158 +1,152 @@
-export Panel, Dashboard, run!, record!
+export Dashboard, run!, record!, reset!
 
 """
-Types of data that can be visualized in the dashboard.
+    Dashboard <: AbstractDashboard
+
+A dashboard that actually visualizes stuff.
 """
-@enum Panel begin
-    hypergraphPanel
-    stateDistPanel
-    hyperedgeDistPanel
-end
-
-
-struct Dashboard
+struct Dashboard <: AbstractDashboard
     fig::Figure
-    panels::Vector{Panel}
-    axes::Dict{Panel, Axis}
+    panels::Vector{AbstractPanel}
     mo::ModelObservable
-    is_interactive::Bool
+    measurement_types::Vector{DataType}
 end
 
-
+#! format: off
 """
     Dashboard(model::AbstractModel;
-              plot_hypergraph::Bool=false,
-              plot_states::Bool=true,
-              plot_hyperedges::Bool=true,
-              is_interactive::Bool=false)
+              vparams::VisualizationParams)
 
 A visualization of the evolution of the hypergraph during the simulation.
+
+# Arguments
+- `model::AbstractModel` - the model on which the dashboard is based on. 
+- `vparams::VisualizationParams` - parameters used for visualization
 """
-function Dashboard(model::AbstractModel;
-                   plot_hypergraph::Bool=false,
-                   plot_states::Bool=true,
-                   plot_hyperedges::Bool=true,
-                   is_interactive::Bool=false,
-                   node_colormap = :RdYlGn_6,
-                   hyperedge_colormap = :thermal)
-    fig = Figure(resolution = (1000, 600))
+function Dashboard(model::AbstractModel,
+                   vparams::VisualizationParams; save_folder::Union{Nothing,String})
+    #! format: on
+    fig = Figure(; resolution=(1200, 800))
     display(fig)
-    axes = Dict{Panel, Axis}()
-    panels = Panel[]
 
-    mo = ModelObservable{typeof(model)}(model)
+    # collect a list of the measurements on which the panels depend on
+    panel_symbols = vparams.panels
+    measurements = Vector{DataType}()
+    for panel in panel_symbols
+        append!(measurements, PANEL_DEPENDENCIES[panel])
+    end
+    measurement_types = unique(measurements)
 
+    mo = ModelObservable(model, measurement_types;
+                         skip_points=vparams.skip_points,
+                         buffer_size=vparams.buffer_size,
+                         write_to_observables=true,
+                         save_folder=save_folder)
+
+    # Display plots in the left part of the figure and the info box on the right. 
     plot_box = fig[1, 1] = GridLayout()
-    if is_interactive
-        controls_box = fig[2, 1] = GridLayout()
-    end
+    # info_box = fig[1, 2] = GridLayout()
 
-    plot_count = 0
-    
-    if plot_hypergraph
-        plot_count += 1
-        hg_box = plot_box[1, plot_count]
-        hgax, _ = hypergraphplot(hg_box[1, 1], mo.network; node_colormap, hyperedge_colormap)
-        push!(panels, hypergraphPanel)
-        hgax.title = "Visualization of the hypergraph"
-        axes[hypergraphPanel] = hgax
-    end
+    # ==========================================================================================
+    # -------------------------------------- PLOTS ---------------------------------------------
 
-    if plot_states || plot_hyperedges
-        plot_count += 1
-        history_box = plot_box[1, plot_count]
-    end
+    # determine the number of rows and columns 
+    num_panels = length(panel_symbols)
+    nrows = Int64(floor(sqrt(num_panels)))
+    ncols = Int64(ceil(sqrt(num_panels)))
 
-    if plot_states
-        push!(panels, stateDistPanel)
-        state_hist_box = history_box[1, 1]
-        axes[stateDistPanel] = Axis(state_hist_box[1, 1], title="Distribution of states")
-        num_states = length(instances(State))
-        linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
-        for (i, state) in enumerate(instances(State))
-            lines!(axes[stateDistPanel],
-                   mo.state_history[state], 
-                   label = "# of $state nodes",
-                   color = linecolors[i])
-            xlims!(axes[stateDistPanel], 0, 100)
-            ylims!(axes[stateDistPanel], 0, get_num_nodes(model.network))
-        end
-        state_hist_box[2, 1] = Legend(state_hist_box, 
-                                      axes[stateDistPanel],
-                                      orientation = :horizontal,
-                                      framevisible=false)
-    end
+    panels = []
+    graph_properties = Dict(:num_nodes => get_num_nodes(mo.network[]),
+                            :max_hyperedge_size => get_max_size(mo.network[]),
+                            :num_hyperedges => get_num_hyperedges(mo.network[]))
 
-    if plot_hyperedges
-        push!(panels, hyperedgeDistPanel)
-        hyperedge_hist_box = history_box[plot_states ? 2 : 1, 1]
-        axes[hyperedgeDistPanel] = Axis(hyperedge_hist_box[1, 1], title="Distribution of hyperdeges")
-        max_hyperedge_size = get_max_hyperedge_size(mo.network[])
-        linecolors = get(colorschemes[hyperedge_colormap], 1:max_hyperedge_size, (1, max_hyperedge_size))
-        for size in 2:max_hyperedge_size
-            lines!(axes[hyperedgeDistPanel],
-                   mo.hyperedge_history[size],
-                   label="# of hyperdeges of size $size",
-                   color = linecolors[size - 1])
-            xlims!(axes[hyperedgeDistPanel], 0, 100)
-        end
-        hyperedge_hist_box[2, 1] = Legend(hyperedge_hist_box, 
-                                          axes[hyperedgeDistPanel],
-                                          orientation = :vertical,
-                                          framevisible=false)
-    end
+    for (i, panel) in enumerate(panel_symbols)
+        panel_type = eval(panel)
+        col = mod1(i, ncols)
+        row = (i - 1) ÷ ncols + 1
 
-    Dashboard(fig, panels, axes, mo, is_interactive)
-end
-
-
-"""
-    run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
-
-Run the simulation for `num_steps` time steps. The visualization is updated only 
-once every number of steps given by `steps_per_update`.
-"""
-function run!(dashboard::Dashboard, num_steps::Integer, steps_per_update::Integer)
-    mo = dashboard.mo
-    axes = dashboard.axes
-
-    if dashboard.is_interactive
-        # TODO: something should happen here
-    else
-        for i = 1:num_steps
-            step!(mo)
-            if i % steps_per_update == 0
-                notify(mo.network)
-                if stateDistPanel in dashboard.panels
-                    xlims!(axes[stateDistPanel], 0, max(i, 100))
-                end
-                if hyperedgeDistPanel in dashboard.panels
-                    autolimits!(axes[hyperedgeDistPanel])
-                    xlims!(axes[hyperedgeDistPanel], 0, max(i, 100))
-                end
-                if hypergraphPanel in dashboard.panels
-                    autolimits!(axes[hypergraphPanel])
-                end
-                sleep(0.5)
+        # HypergraphPanel doesn't take a Measurement and instead needs the network, so 
+        # we treat it separately
+        if panel_type <: HypergraphPanel
+            panel = HypergraphPanel(plot_box[col, row], mo.network,
+                                    graph_properties,
+                                    vparams)
+        else
+            # add the dependent measurements to the arg list
+            measurement_types = PANEL_DEPENDENCIES[panel]
+            measurements = Dict()
+            for type in measurement_types
+                sym = Symbol(_snake_case("$type"))
+                measurements[sym] = getfield(mo, sym)
             end
+            panel = panel_type(plot_box[col, row], measurements, graph_properties, vparams)
         end
+        push!(panels, panel)
     end
+
+    # ==========================================================================================
+    # ------------------------------------ INFO BOX---------------------------------------------
+
+    # TODO
+
+    return Dashboard(fig, panels, mo, measurement_types)
 end
 
-
 """
-    record!(dashboard::Dashboard, filename::String, num_steps::Integer, steps_per_update::Integer, framerate::Integer)
+    record!(dashboard::Dashboard, filename::String, num_steps::Int64, framerate::Int64)
 
 Run the simulation for `num_steps` time steps and record a video of the dashboard. 
 
 The video is saved to ./videos in a .mp4 format. `filename` should only contain the name 
 of the file without the extension.
 """
-function record!(dashboard::Dashboard, filename::String, num_steps::Integer, steps_per_update::Integer, framerate::Integer)
+function record!(dashboard::Dashboard, filename::String, num_steps::Int64,
+                 framerate::Int64)
     savepath = joinpath("videos", filename * ".mp4")
 
-    num_updates = num_steps ÷ steps_per_update
-    record(dashboard.fig, savepath, 1:num_updates, framerate=framerate, compression=1) do i
-        run!(dashboard, steps_per_update, steps_per_update)
+    num_updates = num_steps ÷ mo.buffer_size
+    record(dashboard.fig, savepath, 1:num_updates; framerate=framerate, compression=1) do i
+        return run!(dashboard, mo.buffer_size)
     end
+    return dashboard
+end
+
+"""
+    reset!(dashboard::Dashboard, model::AbstractModel)
+
+Reset the dashboard to run the next simulation from the batch. 
+
+The old history plot lines are made inactive and are grayed out. 
+The observables in the ModelObservable are reset to track the new data from `model`.
+"""
+function reset!(dashboard::AbstractDashboard, model::AbstractModel,
+                save_folder::Union{Nothing,String})
+    # gray out the history plot lines
+    for panel in dashboard.panels
+        if typeof(panel) <: AbstractTimeSeriesPanel ||
+           typeof(panel) <: SlowManifoldPanel
+            deactivate_lines!(panel)
+        end
+    end
+
+    # reset observables
+    rebind_model!(dashboard.mo, model, save_folder)
+    return dashboard
+end
+
+function set_solution(dashboard::Dashboard, t::Vector{Float64},
+                      sol::Dict{Label,Vector{Float64}})
+    for panel in dashboard.panels
+        set_solution(panel, t, sol)
+    end
+end
+
+"""
+    save(dashboard::Dashboard, folder::String, filename::String)
+
+Save the state of the dashboard as a figure.
+The filename should be given with an extension, for example, dash.png. 
+"""
+function save(dashboard::Dashboard, folder::String, filename::String)
+    return GLMakie.save(joinpath(folder, filename), dashboard.fig)
 end

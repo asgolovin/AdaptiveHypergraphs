@@ -1,35 +1,20 @@
 using AdaptiveHypergraphs
+using MPI
 
-include("../input/continuous_model.jl")
+default_input = "../input/large_network.jl"
 
-nparams, mparams, vparams = params.network_params, params.model_params, params.visualization_params
-
-n = nparams.num_nodes
-network = HyperNetwork(n, 0.5)
-build_RSC_hg!(network, nparams.num_hyperedges)
-
-propagation_rule = mparams.propagation_rule
-adaptivity_rule = mparams.adaptivity_rule
-
-if mparams.is_discrete
-    model = DiscrModel{typeof(propagation_rule), 
-                       typeof(adaptivity_rule)}(network,
-                                                propagation_rule,
-                                                adaptivity_rule,
-                                                mparams.propagation_prob)
+# command-line interface
+if length(ARGS) > 0
+    input_file = ARGS[1]
+    try
+        include(input_file)
+    catch SystemError
+        throw(ArgumentError("The file $input_file doesn't exist. Please enter a valid input file."))
+    end
 else
-    model = ContinuousModel{typeof(propagation_rule), 
-                            typeof(adaptivity_rule)}(network,
-                                                    propagation_rule,
-                                                    adaptivity_rule,
-                                                    mparams.adaptivity_rate,
-                                                    mparams.propagation_rate)
+    input_file = default_input
 end
 
-dashboard = Dashboard(model; vparams.dashboard_params...)
+include(input_file)
 
-if vparams.record_video
-    record!(dashboard, "test_record", 100, 10, 1)
-else
-    run!(dashboard, mparams.num_time_steps, vparams.steps_per_update)
-end
+start_simulation(params)

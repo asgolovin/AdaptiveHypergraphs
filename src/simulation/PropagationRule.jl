@@ -1,4 +1,6 @@
-export PropagationRule, MajorityRule, propagate!
+using StatsBase
+
+export PropagationRule, MajorityVoting, ProportionalVoting, propagate!
 
 """
     PropagationRule
@@ -7,23 +9,39 @@ Determines how the states of the graph change with time.
 """
 abstract type PropagationRule end
 
-
 """
-All nodes within the hyperedge take the opinion of the majority. 
+    MajorityVoting <: PropagationRule
 
+All nodes within the hyperedge become convinced of the opinion of the majority. 
 In case of a tie, a decision is made randomly. 
 """
-struct MajorityRule <: PropagationRule end
+struct MajorityVoting <: PropagationRule end
 
+"""
+ProportionalVoting <: PropagationRule
 
-function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedge::Integer)
+An opinion is chosen with a probability that is proportional to 
+the share of nodes with this opinion. All nodes within the hyperedge
+become convinced of this opinion. 
+"""
+struct ProportionalVoting <: PropagationRule end
+
+"""
+    propagate!(network::HyperNetwork, majority_voting::MajorityVoting,
+               hyperedge::Int64)
+
+All nodes within the hyperedge become convinced of the opinion of the majority. 
+In case of a tie, a decision is made randomly. 
+
+Return a list of modified nodes.
+"""
+function propagate!(network::HyperNetwork, majority_voting::MajorityVoting,
+                    hyperedge::Int64)
     nodes = get_nodes(network, hyperedge)
-    state_count = get_state_dist(network)
+    node_to_state = get_state_map(network, hyperedge)
+    state_count = countmap(values(node_to_state))
     # number of votes for the majority opinion
     max_count = maximum(values(state_count))
-
-    # track which hyperedges were affected by the change
-    affected_nodes = Dict{Int64, NamedTuple{(:before, :after), Tuple{State, State}}}()
 
     # get all opinions with the same maximum number of votes
     max_states = [pair.first for pair in state_count if pair.second == max_count]
@@ -32,16 +50,45 @@ function propagate!(network::HyperNetwork, majority_rule::MajorityRule, hyperedg
     else
         majority_state = rand(max_states)
     end
-    
+
+    affected_nodes = _convince!(network, hyperedge, majority_state)
+
+    return affected_nodes
+end
+
+"""
+    propagate!(network::HyperNetwork, proportional_voting::ProportionalVoting,
+               hyperedge::Int64)
+
+An opinion is chosen with a probability that is proportional to 
+the share of nodes with this opinion. All nodes within the hyperedge
+become convinced of this opinion. 
+
+Return a list of modified nodes.
+"""
+function propagate!(network::HyperNetwork, proportional_voting::ProportionalVoting,
+                    hyperedge::Int64)
+    nodes = get_nodes(network, hyperedge)
+    trendsetter = rand(nodes)
+
+    # choosing one opinion proportional to the share of "votes" is equivalent 
+    # to choosing one random node and taking his opinion
+    chosen_state = get_state(network, trendsetter)
+    affected_nodes = _convince!(network, hyperedge, chosen_state)
+
+    return affected_nodes
+end
+
+function _convince!(network::HyperNetwork, hyperedge::Int64, state::State)
+    affected_nodes = Int64[]
+    nodes = get_nodes(network, hyperedge)
     for node in nodes
         prev_state = get_state(network, node)
-        if prev_state != majority_state
-            affected_nodes[node] = (before = prev_state, after = majority_state)
-            set_state!(network, node, majority_state)
+        if prev_state != state
+            push!(affected_nodes, node)
+            set_state!(network, node, state)
         end
     end
-
-    println("Nodes $(nodes) in hyperedge $hyperedge were set to $majority_state")
-
+    # println("Nodes $affected_nodes in hyperedge $hyperedge were set to $state")
     return affected_nodes
 end
