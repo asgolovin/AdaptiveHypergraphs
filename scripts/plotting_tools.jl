@@ -1,9 +1,13 @@
-using GLMakie
+using CairoMakie
 using DrWatson
 using CSV
 using DataFrames
 
 using AdaptiveHypergraphs
+
+screen_config = Dict(:pt_per_unit => 1)
+
+CairoMakie.activate!(; screen_config...)
 
 Label = AdaptiveHypergraphs.Label
 
@@ -79,8 +83,9 @@ function load_meas(folder, measurements::Vector)
 end
 
 function create_fig(panel_symbols)
-    fig = Figure()
-    display(fig)
+    size_inches = (6, 4)
+    size_pt = 2 .* 72 .* size_inches
+    fig = Figure(; resolution=size_pt, fontsize=10)
 
     num_axes = length(panel_symbols)
     nrows = Int64(floor(sqrt(num_axes)))
@@ -92,7 +97,7 @@ function create_fig(panel_symbols)
         row = (i - 1) ÷ ncols + 1
         grid[panel_sym] = fig[row, col]
     end
-    return grid
+    return fig, grid
 end
 
 """

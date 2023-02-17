@@ -4,7 +4,7 @@ include("./plotting_tools.jl")
 # -------------------------- INPUT ----------------------------
 
 input_folder = joinpath(projectdir(),
-                        "results/run_2023-02-06_14-54-33_maj_voting_rts")
+                        "results/run_2023-02-13_19-31-11_phase_transition_small_p")
 
 panel_symbols = [:StateDistPanel, :HyperedgeDistPanel, :ActiveHyperedgeDistPanel,
                  :SlowManifoldPanel]
@@ -14,7 +14,7 @@ skip_points = 100
 # -------------------------------------------------------------
 # =============================================================
 
-grid_pos = create_fig(panel_symbols)
+fig, grid_pos = create_fig(panel_symbols)
 panels, measurements = create_panels(joinpath(input_folder, "batch_001", "run_001"),
                                      panel_symbols,
                                      grid_pos)
@@ -24,6 +24,10 @@ for batchdir in readdir(input_folder; join=true)
         continue
     end
     batch_num = parse(Int64, match(r"batch_([0-9]+)", batchdir)[1])
+
+    if batch_num != 1
+        continue
+    end
 
     for rundir in readdir(batchdir; join=true)
         if !isdir(rundir)
@@ -41,3 +45,5 @@ for batchdir in readdir(input_folder; join=true)
         end
     end
 end
+
+display(fig)

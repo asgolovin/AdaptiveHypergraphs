@@ -84,7 +84,7 @@ function _plot_time_series(box::GridPosition, measurements::Vector{<:AbstractMea
     xlims!(ax; low=xlow, high=xhigh)
     ylims!(ax; low=ylow, high=yhigh)
     if length(labels) > 0 && plot_legend
-        axislegend(ax; labelsize=12)
+        axislegend(ax; labelsize=10)
     end
     return ax, lines, logs
 end
@@ -174,7 +174,7 @@ function HyperedgeDistPanel(box::GridPosition,
                 return max(xpos[], 0.1 * maximum(count; init=-100.0))
             end
             label = @lift "$(round($total_mean, digits=1))"
-            text!(xpos, total_mean; text=label, textsize=16, offset=(0, 5))
+            text!(xpos, total_mean; text=label, textsize=10, offset=(0, 5))
         end
     end
 
