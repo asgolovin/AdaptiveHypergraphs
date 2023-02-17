@@ -3,6 +3,7 @@ using StructTypes
 using DrWatson
 using Dates
 using REPL.TerminalMenus
+using MPI
 
 export start_simulation
 
@@ -10,52 +11,126 @@ function start_simulation(params::InputParams)
     bparams = params.batch_params
     vparams = params.visualization_params
 
+    if bparams.with_mpi
+        MPI.Init()
+        comm = MPI.COMM_WORLD
+        rank = MPI.Comm_rank(comm)
+        size = MPI.Comm_size(comm)
+    else
+        rank = 0
+        size = 1
+    end
+
     # turns on a prompt if the data should be saved. 
-    if bparams.prompt_for_save
+    save_to_file::Bool = false
+    root_save_folder::String = ""
+
+    # if with MPI, always save the results, because there is no visual output. 
+    if bparams.with_mpi
+        save_to_file = true
+        if rank == 0
+            root_save_folder = _create_save_folder(; tag=bparams.save_tag)
+        end
+        root_save_folder = MPI.bcast(root_save_folder, 0, comm)
+    elseif bparams.prompt_for_save # without MPI, ask if the results should be saved
         save_to_file = _prompt_for_save()
         if save_to_file
-            output_folder = _create_batch_folder()
-            _save_params(params, output_folder)
+            root_save_folder = _create_save_folder()
         end
     else
         save_to_file = false
     end
 
+    # a vector of params which can be expanded
+    expandable_params = get_expandable_params(params)
     # a vector with all possible combinations of all sweeped params
     param_vector = expand(params)
 
     nparams = param_vector[1].network_params
     mparams = param_vector[1].model_params
 
+    track_motif_count = any([:FakeDiffEqPanel, :FirstOrderMotifCountPanel,
+                             :SecondOrderMotifCountPanel] .∈ Ref(vparams.panels))
     n = nparams.num_nodes
-    network = HyperNetwork(n, nparams.infected_prob)
+    max_size = length(nparams.num_hyperedges) + 1
+    network = HyperNetwork(n, nparams.infected_prob, max_size; track_motif_count)
     build_RSC_hg!(network, nparams.num_hyperedges)
 
     model = _create_model(network, mparams)
 
-    dashboard = Dashboard(model; vparams)
+    # create an invisible dashboard on all ranks with MPI and a normal one without
+    @static if WITH_DISPLAY
+        if bparams.with_mpi
+            println("Creating a NinjaDashboard")
+            dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
+        else
+            println("Creating a normal Dashboard")
+            dashboard = Dashboard(model, vparams; save_folder=nothing)
+        end
+    else
+        println("Creating a NinjaDashboard")
+        dashboard = NinjaDashboard(model, vparams; save_folder=nothing)
+    end
 
     for (i, param) in enumerate(param_vector)
-        println("Executing batch $i/$(length(param_vector))")
         nparams = param.network_params
         mparams = param.model_params
 
-        for t in 1:(bparams.batch_size)
-            # if a model was already created
-            if !(t == 1 && i == 1)
-                network = HyperNetwork(n, nparams.infected_prob)
-                build_RSC_hg!(network, nparams.num_hyperedges)
-                model = _create_model(network, mparams)
-                reset!(dashboard, model)
+        if rank == 0
+            println("\nExecuting batch $i/$(length(param_vector))")
+            for param in expandable_params[:nparams]
+                println("$param = $(getfield(nparams, param))")
             end
+            for param in expandable_params[:mparams]
+                println("$param = $(getfield(mparams, param))")
+            end
+        end
+
+        if save_to_file
+            batch_folder = joinpath(root_save_folder, "batch_$(lpad(i, 3, '0'))")
+            _save_params(param, batch_folder)
+        end
+
+        if typeof(dashboard) <: Dashboard
+            # compute a new analytical solution
+            if typeof(mparams.propagation_rule) <: ProportionalVoting &&
+               typeof(mparams.adaptivity_rule) <: RewireToRandom
+                duration = param.model_params.num_time_steps * 1.5 /
+                           sum(param.network_params.num_hyperedges)
+                tspan = (0.0, duration)
+                t_sol, u_sol = moment_expansion(param, tspan, moment_closure)
+                set_solution(dashboard, t_sol, u_sol)
+            end
+        end
+
+        for t in 1:(bparams.batch_size)
+            # Split the work among MPI ranks
+            if mod((i - 1) * bparams.batch_size + t, size) != rank
+                continue
+            end
+
+            num_batches = length(param_vector)
+            batch_size = bparams.batch_size
+            println("[rank $rank] executing batch $i/$num_batches, iteration $t/$batch_size")
+            if save_to_file
+                run_folder = joinpath(batch_folder, "run_$(lpad(t, 3, '0'))")
+            else
+                run_folder = nothing
+            end
+
+            max_size = length(nparams.num_hyperedges) + 1
+            network = HyperNetwork(n, nparams.infected_prob, max_size; track_motif_count)
+            build_RSC_hg!(network, nparams.num_hyperedges)
+            model = _create_model(network, mparams)
+            reset!(dashboard, model, run_folder)
+
             run!(dashboard, mparams.num_time_steps)
-            sleep(0.1)
+            sleep(0.01)
         end
     end
 
-    if save_to_file
-        rules = "$(typeof(mparams.propagation_rule))_$(typeof(mparams.adaptivity_rule))"
-        save(dashboard, output_folder, "$rules.png")
+    if save_to_file && typeof(dashboard) <: Dashboard
+        save(dashboard, root_save_folder, "dashboard.png")
     end
     return nothing
 end
@@ -81,14 +156,17 @@ function _create_model(network, mparams)
 end
 
 function _save_params(params::InputParams, folder)
+    mkpath(folder)
     open(joinpath(folder, "input_params.json"), "w") do io
         return save_json(io, params)
     end
 end
 
-function _create_batch_folder()
-    println("Enter a tag to name the data folder: ")
-    tag = readline()
+function _create_save_folder(; tag::Union{Nothing,String}=nothing)
+    if isnothing(tag)
+        println("Enter a tag to name the data folder: ")
+        tag = readline()
+    end
     # replace all spaces by underscores and throw out all non-alphanumeric characters
     tag = replace(tag, " " => "_", r"[^\p{L}\p{N},_]" => "")
     timestamp = Dates.format(now(), "YYYY-mm-dd_HH-MM-SS")

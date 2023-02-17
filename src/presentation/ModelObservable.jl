@@ -1,4 +1,5 @@
 using Statistics, Parameters, Polynomials
+using Observables
 
 export ModelObservable, step!, flush_buffers!, notify, record_measurements!,
        rebind_model!, clear!
@@ -11,10 +12,12 @@ MEASUREMENT_DEPENDENCIES = Dict{DataType, Vector{DataType}}(
         StateCount              => [],
         HyperedgeCount          => [],
         ActiveHyperedgeCount    => [],
+        MotifCount              => [],
+        FakeDiffEq              => [],
         ActiveLifetime          => [],
         AvgHyperedgeCount       => [HyperedgeCount, ActiveHyperedgeCount],
         FinalMagnetization      => [],
-        SlowManifoldPeak        => [StateCount, ActiveHyperedgeCount])
+        SlowManifoldFit         => [StateCount, ActiveHyperedgeCount])
 #! format: on
 
 """
@@ -42,33 +45,36 @@ To add a new measurement:
     num_steps::Int64
     skip_points::Int64
     buffer_size::Int64
+    write_to_observables::Bool
     model::Observable{AbstractModel}
     network::Observable{HyperNetwork}
     state_count::Vector{StateCount} = StateCount[]
     hyperedge_count::Vector{HyperedgeCount} = HyperedgeCount[]
     active_hyperedge_count::Vector{ActiveHyperedgeCount} = ActiveHyperedgeCount[]
+    motif_count::Vector{MotifCount} = MotifCount[]
+    fake_diff_eq::Vector{FakeDiffEq} = FakeDiffEq[]
     active_lifetime::Vector{ActiveLifetime} = ActiveLifetime[]
     final_magnetization::Vector{FinalMagnetization} = FinalMagnetization[]
     avg_hyperedge_count::Vector{AvgHyperedgeCount} = AvgHyperedgeCount[]
-    slow_manifold_peak::Vector{SlowManifoldPeak} = SlowManifoldPeak[]
+    slow_manifold_fit::Vector{SlowManifoldFit} = SlowManifoldFit[]
 end
 
 function ModelObservable(model::AbstractModel, measurement_types::Vector{DataType};
-                         skip_points=1,
-                         buffer_size=1)
+                         skip_points=1, buffer_size=1, write_to_observables::Bool=true,
+                         save_folder::Union{Nothing,String}=nothing)
     time = 0.0
     num_steps = 0
 
-    max_size = get_max_hyperedge_size(model.network)
+    max_size = get_max_size(model.network)
 
     # the required measurements from measurement_types might depend on other measurements. 
     # We need to add them to the list.
-    buffer = measurement_types
-    measurement_types = []
+    buffer = copy(measurement_types)
+    measurement_types_expanded = []
     while length(buffer) > 0
         mtype = pop!(buffer)
-        if !(mtype in measurement_types)
-            push!(measurement_types, mtype)
+        if !(mtype in measurement_types_expanded)
+            push!(measurement_types_expanded, mtype)
         end
         for dependency in MEASUREMENT_DEPENDENCIES[mtype]
             push!(buffer, dependency)
@@ -77,20 +83,34 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
 
     # instantiate only the required measurements
     measurements = Dict()
-    log_params = Dict(:skip_points => skip_points,
-                      :buffer_size => buffer_size)
-    for type in measurement_types
+    log_params = Dict(:buffer_size => buffer_size ÷ skip_points,
+                      :write_to_observables => write_to_observables)
+    for type in measurement_types_expanded
         sym = Symbol(_snake_case("$type"))
+
+        # save run measurements in the batch folder instead of the run folder
+        if !(isnothing(save_folder)) && type <: AbstractRunMeasurement
+            save_folder = joinpath(splitpath(save_folder)[1:(end - 1)])
+        end
+
         if type <: StateCount
-            measurements[sym] = [StateCount(state; log_params...)
+            measurements[sym] = [StateCount(state; save_folder=save_folder, log_params...)
                                  for state in instances(State)]
         elseif type <: HyperedgeCount || type <: ActiveHyperedgeCount
-            measurements[sym] = [type(size; log_params...)
+            measurements[sym] = [type(size; save_folder=save_folder, log_params...)
                                  for size in 2:max_size]
-        elseif type <: AvgHyperedgeCount || type <: SlowManifoldPeak
-            measurements[sym] = [type(size) for size in 2:max_size]
+        elseif type <: MotifCount
+            measurements[sym] = [type(label; save_folder=save_folder, log_params...)
+                                 for label in all_labels(max_size)
+                                 if order(label) > 0]
+        elseif type <: FakeDiffEq
+            measurements[sym] = [type(label; save_folder=save_folder, log_params...)
+                                 for label in all_labels(max_size)
+                                 if order(label) == 1]
+        elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
+            measurements[sym] = [type(size; save_folder=save_folder) for size in 2:max_size]
         else
-            measurements[sym] = [type()]
+            measurements[sym] = [type(; save_folder=save_folder)]
         end
     end
 
@@ -98,6 +118,7 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
                            num_steps=num_steps,
                            skip_points=skip_points,
                            buffer_size=buffer_size,
+                           write_to_observables=write_to_observables,
                            model=Observable(model),
                            network=Observable(model.network),
                            measurements...)
@@ -137,27 +158,6 @@ function Base.getproperty(obj::ModelObservable, sym::Symbol)
 end
 
 """
-    _snake_case(str:S) where S <: AbstractString
-
-Helper function to convert type names in CamelCase to property names in snake_case.
-
-Copied from: https://stackoverflow.com/questions/70007955/julia-implementation-for-converting-string-to-snake-case-camelcase
-"""
-function _snake_case(str::S) where {S<:AbstractString}
-    wordpat = r"
-    ^[a-z]+ |                  #match initial lower case part
-    [A-Z][a-z]+ |              #match Words Like This
-    \d*([A-Z](?=[A-Z]|$))+ |   #match ABBREV 30MW 
-    \d+                        #match 1234 (numbers without units)
-    "x
-
-    smartlower(word) = any(islowercase, word) ? lowercase(word) : word
-    words = [smartlower(m.match) for m in eachmatch(wordpat, str)]
-
-    return join(words, "_")
-end
-
-"""
     step!(mo::ModelObservable)
     
 Progress the model one time step forward and update the history. 
@@ -167,10 +167,13 @@ function step!(mo::ModelObservable)
     mo.time += Δt
     mo.num_steps += 1
     network_changed && notify(mo.model)
-    record_measurements!(mo, :step)
+    if mo.num_steps % mo.skip_points == 0
+        record_measurements!(mo, :step)
+    end
     if mo.num_steps % mo.buffer_size == 0
         sleep(0.001)
         notify(mo)
+        println(mo.time)
     end
     return mo
 end
@@ -197,7 +200,7 @@ end
 
 Notify all observables in the ModelObservable.
 """
-function GLMakie.notify(mo::ModelObservable)
+function Observables.notify(mo::ModelObservable)
     notify(mo.network)
     for measurement in mo.measurements
         notify(measurement.log)
@@ -234,13 +237,30 @@ end
 
 Rebind the observables to track the new `model`.
 """
-function rebind_model!(mo::ModelObservable, model::AbstractModel)
+function rebind_model!(mo::ModelObservable, model::AbstractModel,
+                       save_folder::Union{Nothing,String})
     clear!(mo)
     mo.time = 0.0
     mo.num_steps = 0
     mo.model[] = model
     mo.network[] = model.network
-    return record_measurements!(mo, :step)
+
+    for measurement in mo.step_measurements
+        set_save_file!(measurement, save_folder)
+    end
+
+    # save run measurements in the batch folder instead of the run folder
+    if !isnothing(save_folder)
+        batch_folder = joinpath(splitpath(save_folder)[1:(end - 1)])
+    else
+        batch_folder = nothing
+    end
+
+    for measurement in mo.run_measurements
+        set_save_file!(measurement, batch_folder)
+    end
+
+    return mo
 end
 
 """
@@ -276,6 +296,66 @@ function record_measurement!(mo::ModelObservable, measurement::ActiveHyperedgeCo
     return measurement
 end
 
+function record_measurement!(mo::ModelObservable, measurement::MotifCount)
+    label = measurement.label
+    count = get_motif_count(mo.network[])[label]
+    record!(measurement.log, mo.time, count)
+    return measurement
+end
+
+function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
+    label = measurement.label
+    if mo.num_steps <= 2 * mo.skip_points
+        value = Float64(get_motif_count(mo.network[])[label])
+        record!(measurement.log, mo.time, value)
+        return measurement
+    end
+
+    # A "moment closure" function that just returns the simulated number of tripples
+    function tripples(label::Label, x::Vector{Float64}, max_size::Int64)
+        if true
+            return moment_closure(label, x, max_size)
+        end
+        return filter(x -> x.label == label, mo.motif_count)[1].log.last_value
+    end
+
+    p = mo.model[].adaptivity_prob
+    num_nodes = get_num_nodes(mo.network[])
+    max_size = get_max_size(mo.network[])
+
+    motif_count_diff_eq = Dict{Label,Float64}()
+    for label in all_labels(max_size)
+        if order(label) > 1
+            continue
+        end
+        if order(label) == 1
+            motif_count_diff_eq[label] = filter(x -> x.label == label, mo.fake_diff_eq)[1].log.last_value
+        elseif order(label) == 0
+            motif_count_diff_eq[label] = 500.0
+            #state = label.left[A] > 0 ? A : B
+            #motif_count_diff_eq[label] = filter(x -> x.label == state, mo.state_count)[1].log.last_value
+        end
+    end
+
+    x = motif_dict_to_vector(motif_count_diff_eq, max_size)
+    propagation_rule = mo.model[].propagation_rule
+    adaptivity_rule = mo.model[].adaptivity_rule
+    prop_update = prop_term(propagation_rule, tripples, label, x, p, max_size)
+    adapt_update = adapt_term(adaptivity_rule, label, x, p, num_nodes, max_size)
+
+    #! format: on
+    last_meas = measurement.log.last_value
+    num_hyperedges = get_num_hyperedges(mo.network[])
+
+    update = ((1 - p) * prop_update + p * adapt_update) / num_hyperedges
+
+    value = last_meas + update
+
+    record!(measurement.log, mo.time, value)
+
+    return measurement
+end
+
 function record_measurement!(mo::ModelObservable, measurement::ActiveLifetime)
     record!(measurement.log, mo.time)
     return measurement
@@ -283,27 +363,43 @@ end
 
 function record_measurement!(mo::ModelObservable, measurement::FinalMagnetization)
     state_count = get_state_count(mo.network[])
-    magnetization = state_count[S] - state_count[I]
+    magnetization = state_count[A] - state_count[B]
     record!(measurement.log, magnetization)
     return measurement
 end
 
 function record_measurement!(mo::ModelObservable, measurement::AvgHyperedgeCount)
     size = measurement.label
-    avg_hyperedge_count = mean(mo.hyperedge_count[size - 1].log.values[])
-    avg_active_count = mean(mo.active_hyperedge_count[size - 1].log.values[])
-    record!(measurement.log, (total=avg_hyperedge_count, active=avg_active_count))
+    if mo.write_to_observables
+        hyperedge_timeseries = mo.hyperedge_count[size - 1].values[]
+        skip = length(hyperedge_timeseries) ÷ 10
+        avg_hyperedge_count = mean(hyperedge_timeseries[skip:end])
+    else
+        hyperedge_timeseries = mo.hyperedge_count[size - 1].values
+        avg_hyperedge_count = mean(hyperedge_timeseries)
+    end
+    record!(measurement.log, avg_hyperedge_count)
     return measurement
 end
 
-function record_measurement!(mo::ModelObservable, measurement::SlowManifoldPeak)
+function record_measurement!(mo::ModelObservable, measurement::SlowManifoldFit)
     size = measurement.label
-    x = mo.state_count[1].log.values[]
-    y = mo.active_hyperedge_count[size - 1].log.values[]
+    if mo.write_to_observables
+        x = mo.state_count[1].values[]
+        y = mo.active_hyperedge_count[size - 1].values[]
+        skip = length(x) ÷ 10
+        x = x[skip:end]
+        y = y[skip:end]
+    else
+        x = mo.state_count[1].values
+        y = mo.active_hyperedge_count[size - 1].values
+    end
+
     f = Polynomials.fit(x, y, 2) # polynomial fit of degree 2
     a, b, c = coeffs(f) # f(x) = a + bx + cx^2
-    peak = -b / (2 * c)
+    x_peak = -b / (2 * c)
+    peak = a + b * x_peak + c * x_peak^2
     println("size: $size, peak at $peak")
-    record!(measurement.log, peak)
+    record!(measurement.log, (a, b, c))
     return measurement
 end

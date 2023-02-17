@@ -109,7 +109,7 @@ end
 @enum EventType propagate = 0 adapt = 1
 
 mutable struct Event
-    hyperedge::Integer
+    hyperedge::Int64
     time::Real
     action::EventType
     active::Bool
@@ -232,11 +232,11 @@ function step!(model::ContinuousModel)
 end
 
 """
-    _remove_events!(queue::PriorityQueue, hyperedge::Integer)
+    _remove_events!(queue::PriorityQueue, hyperedge::Int64)
 
 Remove all events belonging to the hyperedge `hyperedge`
 """
-function _remove_events!(queue::PriorityQueue, hyperedge::Integer)
+function _remove_events!(queue::PriorityQueue, hyperedge::Int64)
     for (event, _) in queue
         if event.hyperedge == hyperedge
             event.active = false
@@ -246,11 +246,11 @@ function _remove_events!(queue::PriorityQueue, hyperedge::Integer)
 end
 
 """
-    _add_event!(model::ContinuousModel, hyperedge::Integer)
+    _add_event!(model::ContinuousModel, hyperedge::Int64)
 
 Add an event of type `event_type` to the queue.
 """
-function _add_event!(model::ContinuousModel, hyperedge::Integer)
+function _add_event!(model::ContinuousModel, hyperedge::Int64)
     r = rand() * (model.propagation_rate + model.adaptivity_rate)
     if r < model.propagation_rate
         distr = model.propagation_distr
@@ -265,12 +265,12 @@ function _add_event!(model::ContinuousModel, hyperedge::Integer)
 end
 
 """
-    _record_neighbor_activity(network::HyperNetwork, hyperedge::Integer)
+    _record_neighbor_activity(network::HyperNetwork, hyperedge::Int64)
 
 Return a dict that maps all neighboring hyperedges of `hyperedge` to a boolean, that 
 indicates whether the hyperedge is active or not. 
 """
-function _record_neighbor_activity(network::HyperNetwork, hyperedge::Integer)
+function _record_neighbor_activity(network::HyperNetwork, hyperedge::Int64)
     neighboring_hyperedges = Dict{Int64,Bool}()
     for node in get_nodes(network, hyperedge)
         for h in get_hyperedges(network, node)
