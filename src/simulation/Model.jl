@@ -16,19 +16,22 @@ end
 """
 Advances the dynamics of the network by one step. 
 
-Return true if the network has changed, false otherwise. 
+Return if the network has changed and the time step.
 """
 function step!(model::DiscrModel)
     network = model.network
     propagation_rule = model.propagation_rule
     adaptivity_rule = model.adaptivity_rule
 
+    # Δt is equal to 1/K, where K is the number of hyperdeges
+    Δt = 1 / get_num_hyperedges(network)
+
     # choose a random hyperedge
     hyperedge = rand(get_hyperedges(network))
 
     # do nothing if the hyperedge connects vertices with the same state
     if !is_active(network, hyperedge)
-        return false
+        return (false, Δt)
     end
 
     p = rand()
@@ -40,7 +43,7 @@ function step!(model::DiscrModel)
         propagate!(network, propagation_rule, hyperedge)
     end
 
-    return true
+    return (true, Δt)
 end
 
 mutable struct ContinuousModel{P<:PropagationRule,A<:AdaptivityRule} <: AbstractModel{P,A}
@@ -83,7 +86,7 @@ function ContinuousModel{P,A}(network::HyperNetwork,
                 event_type = adapt
             end
             time = rand(distr)
-            event = Event(hyperedge, time, event_type)
+            event = Event(hyperedge, time, event_type, true)
             next_event_time[hyperedge] = 0.0
             enqueue!(event_queue, event, event.time)
         end
@@ -105,10 +108,38 @@ end
 
 @enum EventType propagate = 0 adapt = 1
 
-struct Event
-    hyperedge::Integer
+mutable struct Event
+    hyperedge::Int64
     time::Real
     action::EventType
+    active::Bool
+end
+
+struct IndexedQueues{K,V,I}
+    queues::Dict{I,PriorityQueue{K,V}}
+    get_index::Function
+end
+
+function IndexedQueues{K,V,I}(get_index::Function) where {K,V,I}
+    queues = Dict{I,PriorityQueue{K,V}}()
+    return IndexedQueues(queues, get_index)
+end
+
+Base.length(iq::IndexedQueues) = sum([length(q) for q in values(iq.queues)])
+Base.isempty(iq::IndexedQueues) = all([isempty(q) for q in values(iq.queues)])
+
+function DataStructures.enqueue!(queue::IndexedQueues{K,V,I}, key::K, value::V,
+                                 index::I) where {K,V,I}
+    if !(index in keys(queue.queues))
+        queue.queues[index] = PriorityQueue{K,V}()
+    end
+    return enqueue!(queue.queues[index], key, value)
+end
+
+function DataStructures.enqueue!(queue::IndexedQueues{K,V,I}, key::K,
+                                 value::V) where {K,V,I}
+    index = queue.get_index(key)
+    return enqueue!(queue, key, value, index)
 end
 
 function step!(model::ContinuousModel)
@@ -117,11 +148,21 @@ function step!(model::ContinuousModel)
     adaptivity_rule = model.adaptivity_rule
 
     # Don't do anything if there are no events anymore
-    if length(model.event_queue) == 0
-        return false
+    if isempty(model.event_queue)
+        return (false, 0.0)
     end
 
     event = dequeue!(model.event_queue)
+    while !(event.active || isempty(model.event_queue))
+        event = dequeue!(model.event_queue)
+    end
+
+    # check again if we have emptied the queue
+    if isempty(model.event_queue)
+        return (false, 0.0)
+    end
+
+    Δt = event.time - model.current_time
     model.current_time = event.time
 
     source_hyperedge = event.hyperedge
@@ -129,7 +170,7 @@ function step!(model::ContinuousModel)
     # Should not be necessary... theoretically
     if !is_active(network, source_hyperedge)
         println("A non-active hyperedge was selected by an event. Something went wrong!")
-        return false
+        return (false, 0.0)
     end
 
     network_changed = false
@@ -187,29 +228,29 @@ function step!(model::ContinuousModel)
         _remove_events!(model.event_queue, source_hyperedge)
     end
 
-    return network_changed
+    return (network_changed, Δt)
 end
 
 """
-    _remove_events!(queue::PriorityQueue, hyperedge::Integer)
+    _remove_events!(queue::PriorityQueue, hyperedge::Int64)
 
 Remove all events belonging to the hyperedge `hyperedge`
 """
-function _remove_events!(queue::PriorityQueue, hyperedge::Integer)
+function _remove_events!(queue::PriorityQueue, hyperedge::Int64)
     for (event, _) in queue
         if event.hyperedge == hyperedge
-            delete!(queue, event)
+            event.active = false
         end
     end
     return queue
 end
 
 """
-    _add_event!(model::ContinuousModel, hyperedge::Integer)
+    _add_event!(model::ContinuousModel, hyperedge::Int64)
 
 Add an event of type `event_type` to the queue.
 """
-function _add_event!(model::ContinuousModel, hyperedge::Integer)
+function _add_event!(model::ContinuousModel, hyperedge::Int64)
     r = rand() * (model.propagation_rate + model.adaptivity_rate)
     if r < model.propagation_rate
         distr = model.propagation_distr
@@ -219,17 +260,17 @@ function _add_event!(model::ContinuousModel, hyperedge::Integer)
         event_type = adapt
     end
     event_time = model.current_time + rand(distr)
-    event = Event(hyperedge, event_time, event_type)
+    event = Event(hyperedge, event_time, event_type, true)
     return enqueue!(model.event_queue, event, event.time)
 end
 
 """
-    _record_neighbor_activity(network::HyperNetwork, hyperedge::Integer)
+    _record_neighbor_activity(network::HyperNetwork, hyperedge::Int64)
 
 Return a dict that maps all neighboring hyperedges of `hyperedge` to a boolean, that 
 indicates whether the hyperedge is active or not. 
 """
-function _record_neighbor_activity(network::HyperNetwork, hyperedge::Integer)
+function _record_neighbor_activity(network::HyperNetwork, hyperedge::Int64)
     neighboring_hyperedges = Dict{Int64,Bool}()
     for node in get_nodes(network, hyperedge)
         for h in get_hyperedges(network, node)

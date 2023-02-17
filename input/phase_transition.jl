@@ -5,22 +5,20 @@ using AdaptiveHypergraphs
 params = InputParams(
     NetworkParams(
         num_nodes = 1000,
-        num_hyperedges = (2000, 10, 10),
+        num_hyperedges = (200, 1200, 20),
         infected_prob = 0.5
     ),
     ModelParams(
-        num_time_steps = Int64(1e6),
+        num_time_steps = Int64(1e8),
         adaptivity_rule = RewireToRandom(),
         propagation_rule = ProportionalVoting(),
-        is_discrete = false,
-        propagation_rate = 1.,
-        adaptivity_rate = 1.
+        adaptivity_prob = collect(0.7:0.05:1.)
     ),
     VisualizationParams(
-        skip_points = 10,
-        buffer_size = 1000
+        skip_points = 100,
+        buffer_size = 100000
     ),
     BatchParams(
-        batch_size = 10
+        batch_size = 1
     )
 )

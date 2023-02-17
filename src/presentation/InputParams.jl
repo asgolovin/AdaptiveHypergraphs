@@ -2,7 +2,8 @@ using Parameters
 using DrWatson
 using JSON3
 
-export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams, save_json
+export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams, save_json,
+       load_params
 
 @with_kw struct NetworkParams
     num_nodes::Union{Int64,Vector{Int64}} = 100
@@ -25,6 +26,8 @@ end
     buffer_size::Int64 = 100
     node_colormap::Symbol = :RdYlGn_6
     hyperedge_colormap::Symbol = :thermal
+    misc_colormap::Symbol = :Dark2_3
+    panels::Vector{Symbol} = [:StateCount, :HyperedgeCount, :ActiveHyperedgeCount]
 end
 
 @with_kw struct BatchParams
@@ -33,6 +36,8 @@ end
     # turns on a prompt if the data should be saved. The prompt is a bit annoying, 
     # so it can be turned off completely with this option. 
     prompt_for_save::Bool = false
+    save_tag::Union{String,Nothing} = nothing
+    with_mpi::Bool = false
 end
 
 @with_kw struct InputParams
@@ -88,6 +93,30 @@ function expand(params::InputParams)
     return flattened_params
 end
 
+"""
+    get_expandable_params(params::InputParams)
+
+Get a list of params which are given in a vector-form and will be expanded in `expand(params)`.
+"""
+function get_expandable_params(params::InputParams)
+    param_names = Dict{Symbol,Vector{Symbol}}()
+    param_names[:nparams] = Symbol[]
+    param_names[:mparams] = Symbol[]
+
+    nparams, mparams = params.network_params, params.model_params
+    for key in fieldnames(NetworkParams)
+        if typeof(getfield(nparams, key)) <: Vector
+            push!(param_names[:nparams], key)
+        end
+    end
+    for key in fieldnames(ModelParams)
+        if typeof(getfield(mparams, key)) <: Vector
+            push!(param_names[:mparams], key)
+        end
+    end
+    return param_names
+end
+
 function save_json(io::IO, params::InputParams)
     return JSON3.pretty(io, save_json(params))
 end
@@ -102,4 +131,33 @@ function save_json(params::InputParams)
     json_dict[:batch_params] = struct2dict(params.batch_params)
 
     return JSON3.write(json_dict)
+end
+
+function load_params(path::String)
+    json_string = read(path, String)
+    json = JSON3.read(json_string)
+
+    njson = Dict(json.network_params)
+    njson[:num_hyperedges] = Tuple(njson[:num_hyperedges])
+    nparams = NetworkParams(; njson...)
+
+    mjson = Dict(json.model_params)
+    mjson[:adaptivity_rule] = eval(Symbol(mjson[:adaptivity_rule]))()
+    mjson[:propagation_rule] = eval(Symbol(mjson[:propagation_rule]))()
+    mjson[:adaptivity_rate] = Float64(mjson[:adaptivity_rate])
+    mjson[:propagation_rate] = Float64(mjson[:propagation_rate])
+    mjson[:adaptivity_prob] = Float64(mjson[:adaptivity_prob])
+    mparams = ModelParams(; mjson...)
+
+    vjson = Dict(json.visualization_params)
+    for key in [:node_colormap, :hyperedge_colormap, :misc_colormap]
+        vjson[key] = Symbol(vjson[key])
+    end
+    vjson[:panels] = [Symbol(panel) for panel in vjson[:panels]]
+    vparams = VisualizationParams(; vjson...)
+
+    bparams = BatchParams(; json.batch_params...)
+
+    params = InputParams(nparams, mparams, vparams, bparams)
+    return params
 end
