@@ -1,184 +1,112 @@
 export Dashboard, run!, record!, reset!
 
-struct Dashboard
+"""
+    Dashboard <: AbstractDashboard
+
+A dashboard that actually visualizes stuff.
+"""
+struct Dashboard <: AbstractDashboard
     fig::Figure
     panels::Vector{AbstractPanel}
     mo::ModelObservable
-    is_interactive::Bool
+    measurement_types::Vector{DataType}
 end
 
+#! format: off
 """
     Dashboard(model::AbstractModel;
-              plot_hypergraph::Bool=false,
-              plot_states::Bool=true,
-              plot_hyperedges::Bool=true,
-              plot_active_hyperedges::Bool=true,
-              is_interactive::Bool=false,
-              node_colormap = :RdYlGn_6,
-              hyperedge_colormap = :thermal)
+              vparams::VisualizationParams)
 
 A visualization of the evolution of the hypergraph during the simulation.
 
 # Arguments
-- `skip_points::Int64=1`: if this parameter is set to a value greater than one, then 
-not all datapoints are shown in the plot. Instead, the points are selected with a stride 
-equal to `skip_points`: `1:step_points:end`. This helps to improve perofrmance when the 
-number of time steps is very large. 
+- `model::AbstractModel` - the model on which the dashboard is based on. 
+- `vparams::VisualizationParams` - parameters used for visualization
 """
-function Dashboard(model::AbstractModel;
-                   plot_hypergraph::Bool=false,
-                   plot_states::Bool=true,
-                   plot_hyperedges::Bool=true,
-                   plot_active_hyperedges::Bool=true,
-                   plot_slow_manifold::Bool=true,
-                   plot_active_lifetime::Bool=true,
-                   plot_final_magnetization::Bool=true,
-                   is_interactive::Bool=false,
-                   skip_points::Int64=1,
-                   node_colormap=:RdYlGn_6,
-                   hyperedge_colormap=:thermal)
+function Dashboard(model::AbstractModel,
+                   vparams::VisualizationParams; save_folder::Union{Nothing,String})
+    #! format: on
     fig = Figure(; resolution=(1200, 800))
     display(fig)
-    panels = []
 
-    mo = ModelObservable{typeof(model)}(model, skip_points)
+    # collect a list of the measurements on which the panels depend on
+    panel_symbols = vparams.panels
+    measurements = Vector{DataType}()
+    for panel in panel_symbols
+        append!(measurements, PANEL_DEPENDENCIES[panel])
+    end
+    measurement_types = unique(measurements)
 
+    mo = ModelObservable(model, measurement_types;
+                         skip_points=vparams.skip_points,
+                         buffer_size=vparams.buffer_size,
+                         write_to_observables=true,
+                         save_folder=save_folder)
+
+    # Display plots in the left part of the figure and the info box on the right. 
     plot_box = fig[1, 1] = GridLayout()
-    if is_interactive
-        controls_box = fig[2, 1] = GridLayout()
-    end
+    # info_box = fig[1, 2] = GridLayout()
 
-    # create columns for different panel types
-    col_count = 0
-    if plot_hypergraph
-        col_count += 1
-        hg_box = plot_box[1, col_count]
-    end
-    if plot_states || plot_hyperedges || plot_active_hyperedges
-        col_count += 1
-        history_box = plot_box[1, col_count]
-    end
-    if plot_slow_manifold
-        col_count += 1
-        slow_manifold_box = plot_box[1, col_count]
-    end
-    if plot_active_lifetime || plot_final_magnetization
-        col_count += 1
-        run_box = plot_box[1, col_count]
-    end
+    # ==========================================================================================
+    # -------------------------------------- PLOTS ---------------------------------------------
 
-    if plot_hypergraph
-        panel = HypergraphPanel(hg_box[1, 1], network; node_colormap, hyperedge_colormap)
+    # determine the number of rows and columns 
+    num_panels = length(panel_symbols)
+    nrows = Int64(floor(sqrt(num_panels)))
+    ncols = Int64(ceil(sqrt(num_panels)))
+
+    panels = []
+    graph_properties = Dict(:num_nodes => get_num_nodes(mo.network[]),
+                            :max_hyperedge_size => get_max_size(mo.network[]),
+                            :num_hyperedges => get_num_hyperedges(mo.network[]))
+
+    for (i, panel) in enumerate(panel_symbols)
+        panel_type = eval(panel)
+        col = mod1(i, ncols)
+        row = (i - 1) ÷ ncols + 1
+
+        # HypergraphPanel doesn't take a Measurement and instead needs the network, so 
+        # we treat it separately
+        if panel_type <: HypergraphPanel
+            panel = HypergraphPanel(plot_box[col, row], mo.network,
+                                    graph_properties,
+                                    vparams)
+        else
+            # add the dependent measurements to the arg list
+            measurement_types = PANEL_DEPENDENCIES[panel]
+            measurements = Dict()
+            for type in measurement_types
+                sym = Symbol(_snake_case("$type"))
+                measurements[sym] = getfield(mo, sym)
+            end
+            panel = panel_type(plot_box[col, row], measurements, graph_properties, vparams)
+        end
         push!(panels, panel)
     end
 
-    if plot_states
-        panel = StateDistPanel(history_box[1, 1], mo; node_colormap,
-                               ylow=-0.05get_num_nodes(mo.network[]),
-                               yhigh=1.05get_num_nodes(mo.network[]))
-        push!(panels, panel)
-    end
+    # ==========================================================================================
+    # ------------------------------------ INFO BOX---------------------------------------------
 
-    if plot_hyperedges
-        panel = HyperedgeDistPanel(history_box[2, 1], mo; hyperedge_colormap,
-                                   ylow=-0.05get_num_hyperedges(mo.network[]))
-        push!(panels, panel)
-    end
+    # TODO
 
-    if plot_active_hyperedges
-        active_panel = ActiveHyperedgesPanel(history_box[3, 1], mo; hyperedge_colormap,
-                                             ylow=-0.05get_num_active_hyperedges(mo.network[]))
-        push!(panels, active_panel)
-    end
-
-    if plot_slow_manifold
-        max_mag = get_num_nodes(mo.network[])
-        panel = SlowManifoldPanel(slow_manifold_box[1, 1], mo;
-                                  xlow=-0.05max_mag,
-                                  xhigh=1.05max_mag,
-                                  ylow=-0.01get_num_hyperedges(mo.network[]))
-        push!(panels, panel)
-    end
-
-    if plot_active_lifetime
-        panel = ActiveLifetimePanel(run_box[1, 1], mo)
-        push!(panels, panel)
-    end
-
-    if plot_final_magnetization
-        panel = FinalMagnetizationPanel(run_box[2, 1], mo;
-                                        ylow=-1.05get_num_nodes(mo.network[]),
-                                        yhigh=1.05get_num_nodes(mo.network[]))
-        push!(panels, panel)
-    end
-
-    return Dashboard(fig, panels, mo, is_interactive)
+    return Dashboard(fig, panels, mo, measurement_types)
 end
 
 """
-    run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
-
-Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges. 
-    
-The visualization is updated only once every number of steps given by `buffer_size`.
-"""
-function run!(dashboard::Dashboard, num_steps::Integer, buffer_size::Integer)
-    mo = dashboard.mo
-
-    if dashboard.is_interactive
-        # TODO: something should happen here
-    else
-        for panel in dashboard.panels
-            if typeof(panel) <: AbstractTimeSeriesPanel
-                panel.xhigh = num_steps
-            elseif typeof(panel) <: ActiveLifetimePanel
-                panel.yhigh = num_steps^1.05
-            end
-            set_lims!(panel)
-        end
-
-        active_lifetime = num_steps
-        for i in 1:num_steps
-            step!(mo)
-            num_active_hyperedges = get_num_active_hyperedges(mo.network[])
-            if i % buffer_size == 0 || num_active_hyperedges == 0
-                flush_buffers!(mo)
-                sleep(0.01)
-                notify(mo.network)
-                for panel in dashboard.panels
-                    if !(typeof(panel) <: ActiveLifetimePanel)
-                        set_lims!(panel)
-                    end
-                end
-            end
-
-            # stop the simulation early if we run out of active hyperdeges
-            if num_active_hyperedges == 0
-                active_lifetime = i
-                break
-            end
-        end
-        record_active_lifetime!(mo, active_lifetime)
-        record_final_magnetization!(mo)
-    end
-    return dashboard
-end
-
-"""
-    record!(dashboard::Dashboard, filename::String, num_steps::Integer, buffer_size::Integer, framerate::Integer)
+    record!(dashboard::Dashboard, filename::String, num_steps::Int64, framerate::Int64)
 
 Run the simulation for `num_steps` time steps and record a video of the dashboard. 
 
 The video is saved to ./videos in a .mp4 format. `filename` should only contain the name 
 of the file without the extension.
 """
-function record!(dashboard::Dashboard, filename::String, num_steps::Integer,
-                 buffer_size::Integer, framerate::Integer)
+function record!(dashboard::Dashboard, filename::String, num_steps::Int64,
+                 framerate::Int64)
     savepath = joinpath("videos", filename * ".mp4")
 
-    num_updates = num_steps ÷ buffer_size
+    num_updates = num_steps ÷ mo.buffer_size
     record(dashboard.fig, savepath, 1:num_updates; framerate=framerate, compression=1) do i
-        return run!(dashboard, buffer_size, buffer_size)
+        return run!(dashboard, mo.buffer_size)
     end
     return dashboard
 end
@@ -191,8 +119,8 @@ Reset the dashboard to run the next simulation from the batch.
 The old history plot lines are made inactive and are grayed out. 
 The observables in the ModelObservable are reset to track the new data from `model`.
 """
-function reset!(dashboard::Dashboard, model::AbstractModel)
-
+function reset!(dashboard::AbstractDashboard, model::AbstractModel,
+                save_folder::Union{Nothing,String})
     # gray out the history plot lines
     for panel in dashboard.panels
         if typeof(panel) <: AbstractTimeSeriesPanel ||
@@ -202,8 +130,15 @@ function reset!(dashboard::Dashboard, model::AbstractModel)
     end
 
     # reset observables
-    rebind_model!(dashboard.mo, model)
+    rebind_model!(dashboard.mo, model, save_folder)
     return dashboard
+end
+
+function set_solution(dashboard::Dashboard, t::Vector{Float64},
+                      sol::Dict{Label,Vector{Float64}})
+    for panel in dashboard.panels
+        set_solution(panel, t, sol)
+    end
 end
 
 """

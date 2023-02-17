@@ -3,3 +3,8 @@ videos
 plots
 *.pb.gz
 .vscode
+*.so
+LocalPreferences.toml
+results/*
+final_data
+output
