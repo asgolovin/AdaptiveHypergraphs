@@ -1,34 +1,33 @@
 module AdaptiveHypergraphs
 
-using SimpleHypergraphs
-using ColorSchemes
-using GLMakie
+WITH_DISPLAY = get(ENV, "DISPLAY", "") != ""
 
+include("data/Label.jl")
 include("data/Network.jl")
 
 include("simulation/AdaptivityRule.jl")
 include("simulation/PropagationRule.jl")
 include("simulation/Model.jl")
+include("simulation/MomentExpansion.jl")
 
-include("presentation/HypergraphPlot.jl")
+include("presentation/InputParams.jl")
+@static if WITH_DISPLAY
+    include("presentation/HypergraphPlot.jl")
+end
+include("presentation/Measurements.jl")
 include("presentation/ModelObservable.jl")
-include("presentation/Dashboard.jl")
+@static if WITH_DISPLAY
+    include("presentation/Panels.jl")
+end
+include("presentation/NinjaDashboard.jl")
+@static if WITH_DISPLAY
+    include("presentation/Dashboard.jl")
+else
+    struct Dashboard <: AbstractDashboard end
+    function Dashboard(::Any, ::Any; save_folder::Any)
+        return nothing
+    end
+end
+include("presentation/SimulationBatch.jl")
 
-# ====================================================================================
-# ---------------------------------- TEST CODE ---------------------------------------
-
-n = 30
-network = Observable(HyperNetwork(n, 0.5))
-build_RSC_hg!(network[], (2n, n ÷ 2, 10, 1))
-
-majority_rule = MajorityRule()
-rewiring_rule = RewiringRule(0.5)
-
-model = DiscrModel{MajorityRule, RewiringRule}(network[],
-                                               majority_rule,
-                                               rewiring_rule)
-
-dashboard = Dashboard(model; plot_hypergraph=true, is_interactive=false)
-run!(dashboard, 200, 10)
-# record!(dashboard, "test_record", 100, 10, 1)
 end
