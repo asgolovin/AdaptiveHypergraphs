@@ -1,4 +1,10 @@
 /Manifest.toml
 videos
 plots
-results
+*.pb.gz
+.vscode
+*.so
+LocalPreferences.toml
+results/*
+final_data
+output
