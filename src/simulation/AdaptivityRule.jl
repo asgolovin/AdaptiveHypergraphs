@@ -84,66 +84,72 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
                get_state(network, node) == required_state
     end
 
-    hyperedge_candidates, node_candidates = _rejection_sampling(network,
-                                                                hyperedge_conditions,
-                                                                node_conditions)
+    candidate_id, candidate_type = _rejection_sampling(network,
+                                                       hyperedge_conditions,
+                                                       node_conditions)
 
     affected_hyperedges = _rewire_to_candidate!(network,
                                                 hyperedge,
                                                 selected_node,
-                                                hyperedge_candidates,
-                                                node_candidates)
+                                                candidate_id,
+                                                candidate_type)
     return affected_hyperedges
 end
 
-function _rejection_sampling(network, hyperedge_conditions, node_conditions)
-    candidate_found = false
-    hyperedge_candidates = []
-    node_candidates = []
-    while !candidate_found
+"""
+    _rejection_sampling(network, hyperedge_conditions, node_conditions)
+
+Select candidates for rewiring until a candidate which fulfills all conditions is found.
+
+# Arguments
+- `network`: the hypergraph
+- `hyperedge_conditions`: a function which takes the index of a hyperedge and returns true if the hyperedge can be rewired to, false otherwise
+- `node_conditions`: same, but for the node index
+
+# Return
+- `candidade_id::Int64`: the id of the node or hyperedge. Return `nothing` if the sampling was not successful. 
+- `candidate_type::Symbol`: `:node` or `:hyperedge` depending on which was chosen. Return `nothing` if the sampling was not successful. 
+"""
+function _rejection_sampling(network::HyperNetwork,
+                             hyperedge_conditions::Function,
+                             node_conditions::Function)
+    num_samples = 0
+    max_samples = 100 # stop sampling if the max number of tries is exceeded
+    while num_samples < max_samples
+        num_samples += 1
         r = rand(1:(get_num_hyperedges(network) + get_num_nodes(network)))
         if r <= get_num_hyperedges(network)
             new_hyperedge = get_hyperedges(network)[r]
             if hyperedge_conditions(new_hyperedge)
-                candidate_found = true
-                hyperedge_candidates = [new_hyperedge]
-                node_candidates = []
+                candidate_id = new_hyperedge
+                candidite_type = :hyperedge
+                return candidate_id, candidite_type
             end
         else
             node = r - get_num_hyperedges(network)
             if node_conditions(node)
-                candidate_found = true
-                hyperedge_candidates = []
-                node_candidates = [node]
+                candidate_id = node
+                candidite_type = :node
+                return candidate_id, candidite_type
             end
         end
     end
-    return hyperedge_candidates, node_candidates
+    return nothing, nothing
 end
 
-function _rewire_to_candidate!(network, old_hyperedge, selected_node, hyperedge_candidates,
-                               node_candidates)
-    num_candidates = length(hyperedge_candidates) + length(node_candidates)
-
-    if num_candidates == 0
-        println("The network has no other nodes or hyperedges that node $selected_node can connect with.")
-        return []
-    end
-
-    candidate_id = rand(1:num_candidates)
-
-    #print("Node $selected_node was disconnected from nodes $(get_nodes(network, old_hyperedge)) ")
-
-    if candidate_id <= length(hyperedge_candidates)
-        new_hyperedge = hyperedge_candidates[candidate_id]
-        # print("and connected to nodes $(get_nodes(network, new_hyperedge))\n")
+function _rewire_to_candidate!(network::HyperNetwork, old_hyperedge::Int64,
+                               selected_node::Int64, candidate_id::Int64,
+                               candidate_type::Symbol)
+    if candidate_type == :hyperedge
+        new_hyperedge = candidate_id
         remove_node!(network, selected_node, old_hyperedge)
         include_node!(network, selected_node, new_hyperedge)
-    else
-        new_node = node_candidates[candidate_id - length(hyperedge_candidates)]
-        # print("and connected to node $new_node\n")
+    elseif candidate_type == :node
+        new_node = candidate_id
         remove_node!(network, selected_node, old_hyperedge)
         new_hyperedge = add_hyperedge!(network, [selected_node, new_node])
+    else
+        throw(ArgumentError("candidate_type has to be either :hyperedge or :node, not $candidate_type"))
     end
 
     affected_hyperedges = [new_hyperedge]

@@ -35,15 +35,20 @@ function step!(model::DiscrModel)
     end
 
     p = rand()
+    network_changed = false
     if p < model.adaptivity_prob
-        # println("Executing adaptivity rule")
-        adapt!(network, adaptivity_rule, hyperedge)
+        affected_hyperedges = adapt!(network, adaptivity_rule, hyperedge)
+        if length(affected_hyperedges) > 0
+            network_changed = true
+        end
     else
-        # println("Executing propagation rule")
-        propagate!(network, propagation_rule, hyperedge)
+        affected_nodes = propagate!(network, propagation_rule, hyperedge)
+        if length(affected_nodes) > 0
+            network_changed = true
+        end
     end
 
-    return (true, Δt)
+    return (network_changed, Δt)
 end
 
 mutable struct ContinuousModel{P<:PropagationRule,A<:AdaptivityRule} <: AbstractModel{P,A}
