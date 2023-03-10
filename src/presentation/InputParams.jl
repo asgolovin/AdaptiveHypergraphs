@@ -5,13 +5,13 @@ using JSON3
 export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams, save_json,
        load_params
 
-@with_kw struct NetworkParams
+@with_kw mutable struct NetworkParams
     num_nodes::Union{Int64,Vector{Int64}} = 100
     infected_prob::Union{Float64,Vector{Float64}} = 0.5
     num_hyperedges::Union{Tuple,Vector{<:Tuple}} = (100, 10)
 end
 
-@with_kw struct ModelParams
+@with_kw mutable struct ModelParams
     is_discrete::Union{Bool,Vector{Bool}} = true
     adaptivity_rule::Union{AdaptivityRule,Vector{<:AdaptivityRule}} = RewireToRandom()
     propagation_rule::Union{PropagationRule,Vector{<:PropagationRule}} = MajorityVoting()
@@ -21,7 +21,7 @@ end
     adaptivity_rate::Union{Float64,Vector{Float64}} = 1.0
 end
 
-@with_kw struct VisualizationParams
+@with_kw mutable struct VisualizationParams
     skip_points::Int64 = 1
     buffer_size::Int64 = 100
     node_colormap::Symbol = :RdYlGn_6
@@ -30,7 +30,7 @@ end
     panels::Vector{Symbol} = [:StateCount, :HyperedgeCount, :ActiveHyperedgeCount]
 end
 
-@with_kw struct BatchParams
+@with_kw mutable struct BatchParams
     record_video::Bool = false
     batch_size::Int64 = 10
     # turns on a prompt if the data should be saved. The prompt is a bit annoying, 
