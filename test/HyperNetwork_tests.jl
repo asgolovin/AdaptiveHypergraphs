@@ -220,7 +220,7 @@ end
     end
     @test get_num_hyperedges(network) == num_order_one_motifs
 
-    # count all tripples explicitly and check that we get the correct number
+    # count all triples explicitly and check that we get the correct number
 
     # prepare the data structure
     explicit_results = Dict{Label,Int64}()
@@ -246,7 +246,7 @@ end
         end
     end
 
-    # the tripples are counted twice, so divide the numbers by two
+    # the triples are counted twice, so divide the numbers by two
     for label in keys(explicit_results)
         explicit_results[label] ÷= 2
     end

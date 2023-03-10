@@ -21,7 +21,7 @@ The visualization consists of three consecutive steps:
     node positions are used for the two following steps. 
 
     2. Having obtained the node positions, hyperedges of size greater than two are plotted 
-    using meshes: within each hyperedge, all tripples of nodes are connected with a triangle. 
+    using meshes: within each hyperedge, all triples of nodes are connected with a triangle. 
     This produces a visualization similar to what is usually used to plot simplical complexes: 
     hyperdeges with three nodes are visualized as triangles, hyperdeges with four nodes 
     as tetrahedra and so on. Hyperedges of different sizes are plotted in different colors. 

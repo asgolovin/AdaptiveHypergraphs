@@ -41,10 +41,10 @@ Other than the hypergraph and the states, the struct keeps track of any statisti
 Important assumptions / modifications to traditional hypergraphs:
  - Empty hyperedges or hyperedges with just one node can't exist. If a node is removed from a hyperedge of size two, the hyperedge is deleted.
  - The number of nodes stays constant. Even if a node is not connected to any hyperedeges, it is not deleted. 
+ - Degenerate hyperedges (hyperedges where the same node occures multiple times) can't exist
 
 Assumptions which are not yet quite enforced in the code, but are a TODO:
  - Parallel hyperedges (hyperedges with exactly the same set of nodes) can't exist
- - Degenerate hyperedges (hyperedges where the same node occures multiple times) can't exist
 """
 mutable struct HyperNetwork
     # The underlying hypergraph
@@ -129,7 +129,7 @@ end
     HyperNetwork(n::Int64)
 
 Create an empty network with `n` nodes and no hyperedges.
-All nodes have the oppinion A.
+All nodes have the opinion A.
 """
 function HyperNetwork(n::Int64, max_size::Int64; track_motif_count::Bool=false)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
@@ -141,7 +141,7 @@ end
     HyperNetwork(n::Int64, p0::Float64)
 
 Create an empty network with n nodes and no hyperedges.
-Each node has oppinion A with probability p0. 
+Each node has opinion A with probability p0. 
 """
 function HyperNetwork(n::Int64, p0::Float64, max_size::Int64; track_motif_count::Bool=false)
     node_state = Vector{Union{Nothing,State}}(nothing, n)
@@ -505,7 +505,7 @@ function _get_2nd_order_node_labels(network::HyperNetwork, node::Int64)
     # hyperedges which include the node
     hyperedges = get_hyperedges(network, node)
 
-    # add all tripples which intersect in the node
+    # add all triples which intersect in the node
     int_state = get_state(network, node)
     for (i, he1) in enumerate(hyperedges)
         statecount1 = get_state_count(network, he1)
@@ -515,7 +515,7 @@ function _get_2nd_order_node_labels(network::HyperNetwork, node::Int64)
         end
     end
 
-    # add all tripples which *do not* intersect in the node
+    # add all triples which *do not* intersect in the node
     for he1 in hyperedges
         statecount1 = get_state_count(network, he1)
         for int_node in get_nodes(network, he1)

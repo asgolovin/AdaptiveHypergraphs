@@ -311,8 +311,8 @@ function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
         return measurement
     end
 
-    # A "moment closure" function that just returns the simulated number of tripples
-    function tripples(label::Label, x::Vector{Float64}, max_size::Int64)
+    # A "moment closure" function that just returns the simulated number of triples
+    function triples(label::Label, x::Vector{Float64}, max_size::Int64)
         if true
             return moment_closure(label, x, max_size)
         end
@@ -340,7 +340,7 @@ function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
     x = motif_dict_to_vector(motif_count_diff_eq, max_size)
     propagation_rule = mo.model[].propagation_rule
     adaptivity_rule = mo.model[].adaptivity_rule
-    prop_update = prop_term(propagation_rule, tripples, label, x, p, max_size)
+    prop_update = prop_term(propagation_rule, triples, label, x, p, max_size)
     adapt_update = adapt_term(adaptivity_rule, label, x, p, num_nodes, max_size)
 
     #! format: on
