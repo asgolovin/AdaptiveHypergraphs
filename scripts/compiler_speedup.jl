@@ -10,9 +10,9 @@
 # include("simulation/AdaptivityRule.jl")   -> 0.008 sec
 # include("simulation/PropagationRule.jl")  -> 0.004 sec
 # include("simulation/Model.jl")            -> 0.66 sec
+# include("simulation/InputParams.jl")    -> 2.00 sec
 # include("simulation/MomentExpansion.jl")  -> 9.05 sec!
 
-# include("presentation/InputParams.jl")    -> 2.00 sec
 # include("presentation/HypergraphPlot.jl") -> 22.65 sec
 # include("presentation/Measurements.jl")   -> 0.05 sec
 # include("presentation/ModelObservable.jl") -> 0.52 sec
@@ -49,11 +49,11 @@ println("PropagationRule.jl:")
 println("Model.jl:")
 @time include("../src/simulation/Model.jl") # 0.085 sec
 
+println("InputParams.jl:")
+@time include("../src/simulation/InputParams.jl") # 1.97 !
+
 println("MomentExpansion.jl:")
 @time include("../src/simulation/MomentExpansion.jl") # 0.084 sec
-
-println("InputParams.jl:")
-@time include("../src/presentation/InputParams.jl") # 1.97 !
 
 println("HypergraphPlot.jl:")
 @time include("../src/presentation/HypergraphPlot.jl") # 1.01
