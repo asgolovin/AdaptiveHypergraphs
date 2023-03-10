@@ -2,7 +2,22 @@ export moment_expansion, rhs, moment_closure
 
 using DifferentialEquations
 
-function moment_expansion(params, tspan::NTuple{2,Float64}, moment_closure::Function)
+"""
+    moment_expansion(params::InputParams, tspan::NTuple{2,Float64}, moment_closure::Function)
+
+Compute the mean-field time evolution of the system specified by `params`.
+
+# Arguments
+- `params`: the InputParams used to specify the model and the network
+- `tspan`: the time interval on which to simulate the system
+- `moment_closure`: a funciton which expresses high-order motifs in terms of low-order ones
+
+# Return
+- `t`: a vector of time points
+- `motif_to_solution`: a dict which maps first-order motifs to the time evolution of the corresponding motif
+"""
+function moment_expansion(params::InputParams, tspan::NTuple{2,Float64},
+                          moment_closure::Function)
     nparams = params.network_params
     num_nodes = nparams.num_nodes
     max_size = length(nparams.num_hyperedges) + 1
@@ -35,17 +50,17 @@ function moment_expansion(params, tspan::NTuple{2,Float64}, moment_closure::Func
     sol = solve(problem)
     t = sol.t
 
-    label_to_solution = Dict{Label,Vector{Float64}}()
+    motif_to_solution = Dict{Label,Vector{Float64}}()
 
     solution_matrix = hcat(sol.u...)
 
     labels = filter(x -> order(x) <= 1, all_labels(max_size))
     for label in labels
         id = label_to_id(label, max_size)
-        label_to_solution[label] = solution_matrix[id, 1:end]
+        motif_to_solution[label] = solution_matrix[id, 1:end]
     end
 
-    return t, label_to_solution
+    return t, motif_to_solution
 end
 
 function rhs!(dx, x, p, t)
