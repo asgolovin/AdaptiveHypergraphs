@@ -53,7 +53,7 @@ function start_simulation(params::InputParams)
                              :SecondOrderMotifCountPanel] .∈ Ref(vparams.panels))
     n = nparams.num_nodes
     max_size = length(nparams.num_hyperedges) + 1
-    network = HyperNetwork(n, nparams.infected_prob, max_size; track_motif_count)
+    network = HyperNetwork(n, nparams.state_A_prob, max_size; track_motif_count)
     build_RSC_hg!(network, nparams.num_hyperedges)
 
     model = _create_model(network, mparams)
@@ -119,7 +119,7 @@ function start_simulation(params::InputParams)
             end
 
             max_size = length(nparams.num_hyperedges) + 1
-            network = HyperNetwork(n, nparams.infected_prob, max_size; track_motif_count)
+            network = HyperNetwork(n, nparams.state_A_prob, max_size; track_motif_count)
             build_RSC_hg!(network, nparams.num_hyperedges)
             model = _create_model(network, mparams)
             reset!(dashboard, model, run_folder)

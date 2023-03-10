@@ -119,7 +119,7 @@ params.model_params.adaptivity_prob = 0.85
 
 for (i, m0) in enumerate(magn_analytical)
     println("$m0")
-    params.network_params.infected_prob = (m0 + 1) * 0.5
+    params.network_params.state_A_prob = (m0 + 1) * 0.5
     tspan = (0.0, 1000.0)
     t, sol = moment_expansion(params, tspan, moment_closure)
     for label in all_labels(max_size)

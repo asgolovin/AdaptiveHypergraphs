@@ -6,7 +6,7 @@ params = InputParams(
     NetworkParams(
         num_nodes = 1000,
         num_hyperedges = (200, 1200, 20),
-        infected_prob = 0.5
+        state_A_prob = 0.5
     ),
     ModelParams(
         num_time_steps = Int64(1e8),

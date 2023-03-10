@@ -7,7 +7,7 @@ export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams
 
 @with_kw mutable struct NetworkParams
     num_nodes::Union{Int64,Vector{Int64}} = 100
-    infected_prob::Union{Float64,Vector{Float64}} = 0.5
+    state_A_prob::Union{Float64,Vector{Float64}} = 0.5
     num_hyperedges::Union{Tuple,Vector{<:Tuple}} = (100, 10)
 end
 

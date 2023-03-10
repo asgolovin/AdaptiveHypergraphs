@@ -56,7 +56,7 @@ vparams = params.visualization_params
 
 n = nparams.num_nodes
 max_size = length(nparams.num_hyperedges) + 1
-network = HyperNetwork(n, nparams.infected_prob, max_size)
+network = HyperNetwork(n, nparams.state_A_prob, max_size)
 build_RSC_hg!(network, nparams.num_hyperedges)
 tspan = (0.0, 1000.0)
 

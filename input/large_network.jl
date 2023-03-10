@@ -4,33 +4,30 @@ using AdaptiveHypergraphs
 
 params = InputParams(
     NetworkParams(
-        num_nodes = 100,
-        num_hyperedges = (500, 500),
-        infected_prob = 0.5,
+        num_nodes = 1000,
+        num_hyperedges = (2000, 20),
+        state_A_prob = 0.2,
     ),
     ModelParams(
+        is_discrete = true,
         num_time_steps = Int64(1e6),
         adaptivity_rule = RewireToRandom(),
         propagation_rule = ProportionalVoting(),
         adaptivity_prob = 0.5
     ),
     VisualizationParams(
-        skip_points = 1,
-        buffer_size = 1000,
+        skip_points = 1000,
+        buffer_size = 50000,
         misc_colormap = :Set1_7,
         panels = [:StateDistPanel,
                   :HyperedgeDistPanel,
                   :ActiveHyperedgeDistPanel,
                   :SlowManifoldPanel,
-                  #:FakeDiffEqPanel,
-                  :FirstOrderMotifCountPanel,
-                  :SecondOrderMotifCountPanel,
-                  #:MomentClosurePanel
         ]
     ),
     BatchParams(
-        batch_size = 5,
+        batch_size = 50,
         with_mpi = false,
-        prompt_for_save = true,
+        prompt_for_save = false,
     )
 )

@@ -4,9 +4,9 @@ using DifferentialEquations
 
 function moment_expansion(params, tspan::NTuple{2,Float64}, moment_closure::Function)
     nparams = params.network_params
-    num_nodes::Int64 = nparams.num_nodes
-    max_size::Int64 = length(nparams.num_hyperedges) + 1
-    A_share::Float64 = nparams.infected_prob
+    num_nodes = nparams.num_nodes
+    max_size = length(nparams.num_hyperedges) + 1
+    A_share = nparams.state_A_prob
     B_share = 1 - A_share
 
     # calculate the initial expected distribution of nodes and motifs
