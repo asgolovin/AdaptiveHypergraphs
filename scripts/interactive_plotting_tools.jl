@@ -7,7 +7,7 @@ using AdaptiveHypergraphs
 
 screen_config = Dict(:pt_per_unit => 1)
 
-CairoMakie.activate!(; screen_config...)
+#CairoMakie.activate!(; screen_config...)
 
 Label = AdaptiveHypergraphs.Label
 
@@ -76,14 +76,13 @@ function load_meas(folder, measurements::Vector)
         empty!(meas.log.observable_values[])
         append!(meas.log.observable_indices[], df.index[1:skip_points:end])
         append!(meas.log.observable_values[], df.value[1:skip_points:end])
-        notify(meas.log.observable_indices)
     end
 
     return measurements
 end
 
 function create_fig(panel_symbols)
-    size_inches = (6, 4)
+    size_inches = (3, 2)
     size_pt = 2 .* 72 .* size_inches
     fig = Figure(; resolution=size_pt, fontsize=10)
 

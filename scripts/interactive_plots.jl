@@ -1,15 +1,14 @@
-include("./plotting_tools.jl")
+include("./interactive_plotting_tools.jl")
 
 # =============================================================
 # -------------------------- INPUT ----------------------------
 
 input_folder = joinpath(projectdir(),
-                        "results/run_2023-02-13_19-31-11_phase_transition_small_p")
+                        "final_data/run_2023-02-23_13-32-26_motifs_D4")
 
-panel_symbols = [:StateDistPanel, :HyperedgeDistPanel, :ActiveHyperedgeDistPanel,
-                 :SlowManifoldPanel]
+panel_symbols = [:StateDistPanel, :HyperedgeDistPanel, :MomentClosurePanel]
 
-skip_points = 100
+skip_points = 10
 
 # -------------------------------------------------------------
 # =============================================================
@@ -25,10 +24,6 @@ for batchdir in readdir(input_folder; join=true)
     end
     batch_num = parse(Int64, match(r"batch_([0-9]+)", batchdir)[1])
 
-    if batch_num != 1
-        continue
-    end
-
     for rundir in readdir(batchdir; join=true)
         if !isdir(rundir)
             continue
@@ -36,12 +31,26 @@ for batchdir in readdir(input_folder; join=true)
 
         run_num = parse(Int64, match(r"run_([0-9]+)", splitdir(rundir)[end])[1])
 
+        if run_num != 1
+            continue
+        end
+
+        println("$run_num")
+
         for panel in panels
             deactivate_lines!(panel)
         end
 
         for meas_sym in keys(measurements)
+            println("$meas_sym")
             load_meas(rundir, measurements[meas_sym])
+        end
+
+        for meas_sym in keys(measurements)
+            for meas in measurements[meas_sym]
+                println("$meas_sym")
+                notify(meas.log.observable_values)
+            end
         end
     end
 end
