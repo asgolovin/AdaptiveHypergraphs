@@ -1,6 +1,6 @@
 using AutoHashEquals
 
-export Hyperedge, Label, State, order, all_labels
+export Hyperedge, Label, State, order, size, all_labels
 
 @enum State::Bool A = false B = true
 
