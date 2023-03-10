@@ -8,9 +8,9 @@ include("data/Network.jl")
 include("simulation/AdaptivityRule.jl")
 include("simulation/PropagationRule.jl")
 include("simulation/Model.jl")
+include("simulation/InputParams.jl")
 include("simulation/MomentExpansion.jl")
 
-include("presentation/InputParams.jl")
 @static if WITH_DISPLAY
     include("presentation/HypergraphPlot.jl")
 end
