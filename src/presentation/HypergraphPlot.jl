@@ -6,7 +6,7 @@ using ColorSchemes
 
 export hypergraphplot, hypergraphplot!
 
-GLMakie.@recipe(HypergraphPlot) do scene
+@recipe(HypergraphPlot) do scene
     return Attributes(; node_colormap=:RdYlGn_6,
                       hyperedge_colormap=:thermal)
 end
