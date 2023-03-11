@@ -6,6 +6,11 @@ using ColorSchemes
 
 export hypergraphplot, hypergraphplot!
 
+GLMakie.@recipe(HypergraphPlot) do scene
+    return Attributes(; node_colormap=:RdYlGn_6,
+                      hyperedge_colormap=:thermal)
+end
+
 """
     hypergraphplot(network::HyperNetwork)
     hypergraphplot!(ax, network::HyperNetwork)
@@ -29,11 +34,6 @@ The visualization consists of three consecutive steps:
     3. Finally, hyperdeges with two nodes, i.e., simple edges, are plotted as lines. The 
     color of the lines is sampled from the hyperdege colormap. 
 """
-GLMakie.@recipe(HypergraphPlot) do scene
-    return Attributes(; node_colormap=:RdYlGn_6,
-                      hyperedge_colormap=:thermal)
-end
-
 function GLMakie.plot!(hgplot::HypergraphPlot)
     network = hgplot[1]
 

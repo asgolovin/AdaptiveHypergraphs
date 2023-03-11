@@ -121,7 +121,7 @@ let cache::Union{Vector{AbstractMotif},Nothing} = nothing,
     cached_size::Union{Int64,Nothing} = nothing,
     cached_int_size::Union{Int64,Nothing} = nothing
 
-    global function all_motifs(max_size::Int64, int_size::Int64=1)
+    global function all_motifs(max_size::Int64, int_size::Int64=max_size - 1)
         if !isnothing(cache) && max_size == cached_size && int_size == cached_int_size
             return cache
         end

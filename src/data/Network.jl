@@ -6,8 +6,8 @@ using Combinatorics
 
 export HyperNetwork,
        add_hyperedge!, include_node!, delete_hyperedge!, remove_node!, set_state!,
-       get_nodes, get_hyperedges, get_state, get_state_map, get_state_count,
-       get_hyperedge_dist, get_num_hyperedges, get_num_active_hyperedges,
+       get_nodes, get_hyperedges, get_intersecting_hyperedges, get_state, get_state_map,
+       get_state_count, get_hyperedge_dist, get_num_hyperedges, get_num_active_hyperedges,
        get_num_nodes, get_node_degree, get_hyperedge_size, get_max_size, get_motif_count,
        is_active, get_twosection_graph, build_regular_hg!, build_RSC_hg!
 
@@ -463,41 +463,68 @@ function get_hyperedges(network::HyperNetwork, node::Int64)
     return network.hyperedge_uid[mids]
 end
 
+"""
+Return all hyperedges which intersect with the given `hyperedge`
+"""
+function get_intersecting_hyperedges(network::HyperNetwork, hyperedge::Int64)
+    @assert hyperedge in network.hyperedge_uid
+    intersecting_hyperedges = []
+    for node in get_nodes(network, hyperedge)
+        append!(intersecting_hyperedges, get_hyperedges(network, node))
+    end
+    unique!(intersecting_hyperedges)
+    # remove the hyperedge itself from the list
+    filter!(x -> x != hyperedge, intersecting_hyperedges)
+    return intersecting_hyperedges
+end
+
+"""
+Return the first-order motif corresponding to the hyperedge `hyperedge`
+"""
 function _get_1st_order_motif(network::HyperNetwork, hyperedge::Int64)
     statecount = get_state_count(network, hyperedge)
     return OrderOneMotif(statecount[A], statecount[B])
 end
 
 """
-Return all second-order motifs which contain the hyperedge and intersect in the node `int_node`.
+Return the second-order motif formed by two intersecting hyperedges `hyperedge1` and `hyperedge2`.
 """
-function _get_2nd_order_motifs(network::HyperNetwork, hyperedge::Int64, int_node::Int64)
-    motifs = []
-    int_state = get_state(network, int_node)
-    statecount1 = get_state_count(network, hyperedge)
-    for neighbor in get_hyperedges(network, int_node)
-        if neighbor == hyperedge
-            continue
+function _get_2nd_order_motif(network::HyperNetwork, hyperedge1::Int64, hyperedge2::Int64)
+    statecount1 = get_state_count(network, hyperedge1)
+    statecount2 = get_state_count(network, hyperedge2)
+    # collect all nodes in which the hyperedges intersect
+    int_nodes = []
+    for node in get_nodes(network, hyperedge1)
+        if node ∈ get_nodes(network, hyperedge2)
+            push!(int_nodes, node)
         end
-        statecount2 = get_state_count(network, neighbor)
-        left = copy(statecount1)
-        left[int_state] -= 1
-        int = int_state == A ? (1, 0) : (0, 1)
-        right = copy(statecount2)
-        right[int_state] -= 1
-        motif = OrderTwoMotif((left[A], left[B]), int, (right[A], right[B]))
-        push!(motifs, motif)
     end
-    return motifs
+    int_statecount = countmap([get_state(network, node) for node in int_nodes])
+    for state in instances(State)
+        if state ∉ keys(int_statecount)
+            int_statecount[state] = 0
+        end
+    end
+    statecount1[A] -= int_statecount[A]
+    statecount2[A] -= int_statecount[A]
+    statecount1[B] -= int_statecount[B]
+    statecount2[B] -= int_statecount[B]
+
+    motif = OrderTwoMotif((statecount1[A], statecount1[B]),
+                          (int_statecount[A], int_statecount[B]),
+                          (statecount2[A], statecount2[B]))
+
+    return motif
 end
 
 """
-Return all second-order motifs which contain the hyperedge. 
+Return all second-order motifs which contain the hyperedge `hyperedge`. 
 """
 function _get_2nd_order_motifs(network::HyperNetwork, hyperedge::Int64)
     motifs = []
-    for int_node in get_nodes(network, hyperedge)
-        append!(motifs, _get_2nd_order_motifs(network, hyperedge, int_node))
+    for intersecting_he in get_intersecting_hyperedges(network, hyperedge)
+        motif = _get_2nd_order_motif(network, hyperedge, intersecting_he)
+        push!(motifs, motif)
     end
     return motifs
 end
@@ -513,48 +540,20 @@ function _get_2nd_order_node_motifs(network::HyperNetwork, node::Int64)
     # add all triples which intersect in the node
     int_state = get_state(network, node)
     for (i, he1) in enumerate(hyperedges)
-        statecount1 = get_state_count(network, he1)
         for he2 in hyperedges[(i + 1):end]
-            statecount2 = get_state_count(network, he2)
-            left = copy(statecount1)
-            left[int_state] -= 1
-            int = int_state == A ? (1, 0) : (0, 1)
-            right = copy(statecount2)
-            right[int_state] -= 1
-            motif = OrderTwoMotif((left[A], left[B]), int, (right[A], right[B]))
+            motif = _get_2nd_order_motif(network, he1, he2)
             push!(motifs, motif)
         end
     end
 
     # add all triples which *do not* intersect in the node
     for he1 in hyperedges
-        statecount1 = get_state_count(network, he1)
-        for int_node in get_nodes(network, he1)
-            if int_node == node
+        for he2 in get_intersecting_hyperedges(network, he1)
+            if node ∈ get_nodes(network, he2)
                 continue
             end
-            int_state = get_state(network, int_node)
-            neighbors = get_hyperedges(network, int_node)
-            for he2 in neighbors
-                if he2 == he1
-                    continue
-                end
-                # A tiny edge case: if the hyperedges intersect in more than one node AND 
-                # one of those nodes is the node under consideration, then the motif will 
-                # be counted twice. To prevent this, we only count the motif in the case 
-                # where he1 < he2. 
-                if he2 ∈ hyperedges && node in get_nodes(network, he2) && he1 > he2
-                    continue
-                end
-                statecount2 = get_state_count(network, he2)
-                left = copy(statecount1)
-                left[int_state] -= 1
-                int = int_state == A ? (1, 0) : (0, 1)
-                right = copy(statecount2)
-                right[int_state] -= 1
-                motif = OrderTwoMotif((left[A], left[B]), int, (right[A], right[B]))
-                push!(motifs, motif)
-            end
+            motif = _get_2nd_order_motif(network, he1, he2)
+            push!(motifs, motif)
         end
     end
     return motifs
