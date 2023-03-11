@@ -1,6 +1,10 @@
 module AdaptiveHypergraphs
 
-WITH_DISPLAY = get(ENV, "DISPLAY", "") != ""
+@static if Sys.islinux()
+    WITH_DISPLAY = get(ENV, "LRZ_SYSTEM_SEGMENT", "") != "CMUC2"
+else
+    WITH_DISPLAY = true
+end
 
 include("data/Motif.jl")
 include("data/Network.jl")
