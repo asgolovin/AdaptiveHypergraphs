@@ -174,7 +174,7 @@ if plot_analytical
         t, sol = moment_expansion(params, tspan, moment_closure)
 
         num_active_hyperedges = Dict(s => 0.0 for s in 2:max_size)
-        for label in all_labels(max_size)
+        for label in all_motifs(max_size)
             if AH.order(label) != 1
                 continue
             end

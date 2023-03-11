@@ -56,7 +56,7 @@ mutable struct HyperNetwork
     # whether to keep track of the number of motifs (expensive!)
     track_motif_count::Bool
     # Motif -> number of motifs
-    motif_count::Dict{Label,Int64}
+    motif_count::Dict{AbstractMotif,Int64}
     # Size -> number of active hyperedges
     active_hyperedges::Dict{Int64,Int64}
     # Number of nodes in a particular state
@@ -103,7 +103,7 @@ function HyperNetwork(n::Int64,
     hg = Hypergraph{Bool,State}(matrix; v_meta=node_state)
 
     # initialize empty data structures
-    motif_count = Dict{Label,Int64}([l => 0 for l in all_labels(max_size)])
+    motif_count = Dict{AbstractMotif,Int64}([l => 0 for l in all_motifs(max_size)])
     active_hyperedges = Dict([size => 0 for size in 2:max_size])
     state_count = countmap(node_state)
     # fill the missing keys
@@ -112,8 +112,8 @@ function HyperNetwork(n::Int64,
             state_count[state] = 0
         end
     end
-    motif_count[Label("[A]")] = state_count[A]
-    motif_count[Label("[B]")] = state_count[B]
+    motif_count[OrderZeroMotif(A)] = state_count[A]
+    motif_count[OrderZeroMotif(B)] = state_count[B]
     hyperedge_dist = Dict([size => 0 for size in 2:max_size])
     hyperedge_size = Dict{Int64,Int64}()
     hyperedge_uid = Vector{Int64}()
@@ -173,9 +173,9 @@ function Base.show(io::IO, ::MIME"text/plain", network::HyperNetwork)
                 "  size $size => $num_hyperedges hyperdeges, $num_active/$num_hyperedges active")
     end
     println(io, "motifs:")
-    for label in all_labels(get_max_size(network))
-        num_motifs = network.motif_count[label]
-        println(io, "  $label => $num_motifs motifs")
+    for motif in all_motifs(get_max_size(network))
+        num_motifs = network.motif_count[motif]
+        println(io, "  $motif => $num_motifs motifs")
     end
 end
 
@@ -216,10 +216,10 @@ function add_hyperedge!(network::HyperNetwork, nodes)
 
     # increase new values in motif count
     if network.track_motif_count
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] += 1
-        for label in _get_2nd_order_labels(network, hyperedge)
-            network.motif_count[label] += 1
+        motif = _get_1st_order_motif(network, hyperedge)
+        network.motif_count[motif] += 1
+        for motif in _get_2nd_order_motifs(network, hyperedge)
+            network.motif_count[motif] += 1
         end
     end
 
@@ -241,10 +241,10 @@ function include_node!(network::HyperNetwork, node::Int64, hyperedge::Int64)
 
     # decrease old values in motif_count
     if network.track_motif_count
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] -= 1
-        for label in _get_2nd_order_labels(network, hyperedge)
-            network.motif_count[label] -= 1
+        motif = _get_1st_order_motif(network, hyperedge)
+        network.motif_count[motif] -= 1
+        for motif in _get_2nd_order_motifs(network, hyperedge)
+            network.motif_count[motif] -= 1
         end
     end
 
@@ -263,10 +263,10 @@ function include_node!(network::HyperNetwork, node::Int64, hyperedge::Int64)
 
     # increase new values in motif_count
     if network.track_motif_count
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] += 1
-        for label in _get_2nd_order_labels(network, hyperedge)
-            network.motif_count[label] += 1
+        motif = _get_1st_order_motif(network, hyperedge)
+        network.motif_count[motif] += 1
+        for motif in _get_2nd_order_motifs(network, hyperedge)
+            network.motif_count[motif] += 1
         end
     end
 
@@ -294,10 +294,10 @@ function delete_hyperedge!(network::HyperNetwork, hyperedge::Int64)
 
     # decrease old values in motif_count
     if network.track_motif_count
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] -= 1
-        for label in _get_2nd_order_labels(network, hyperedge)
-            network.motif_count[label] -= 1
+        motif = _get_1st_order_motif(network, hyperedge)
+        network.motif_count[motif] -= 1
+        for motif in _get_2nd_order_motifs(network, hyperedge)
+            network.motif_count[motif] -= 1
         end
     end
 
@@ -348,10 +348,10 @@ function remove_node!(network::HyperNetwork, node::Int64,
 
     # decrease old values in motif_count
     if network.track_motif_count
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] -= 1
-        for label in _get_2nd_order_labels(network, hyperedge)
-            network.motif_count[label] -= 1
+        motif = _get_1st_order_motif(network, hyperedge)
+        network.motif_count[motif] -= 1
+        for motif in _get_2nd_order_motifs(network, hyperedge)
+            network.motif_count[motif] -= 1
         end
     end
 
@@ -365,10 +365,10 @@ function remove_node!(network::HyperNetwork, node::Int64,
 
     # increase new values in motif_count
     if network.track_motif_count
-        label = _get_1st_order_label(network, hyperedge)
-        network.motif_count[label] += 1
-        for label in _get_2nd_order_labels(network, hyperedge)
-            network.motif_count[label] += 1
+        motif = _get_1st_order_motif(network, hyperedge)
+        network.motif_count[motif] += 1
+        for motif in _get_2nd_order_motifs(network, hyperedge)
+            network.motif_count[motif] += 1
         end
     end
 
@@ -399,11 +399,11 @@ function set_state!(network::HyperNetwork, node::Int64, state::State)
     # decrease old values in motif_count
     if network.track_motif_count
         for hyperedge in get_hyperedges(network, node)
-            label = _get_1st_order_label(network, hyperedge)
-            network.motif_count[label] -= 1
+            motif = _get_1st_order_motif(network, hyperedge)
+            network.motif_count[motif] -= 1
         end
-        for label in _get_2nd_order_node_labels(network, node)
-            network.motif_count[label] -= 1
+        for motif in _get_2nd_order_node_motifs(network, node)
+            network.motif_count[motif] -= 1
         end
     end
 
@@ -411,17 +411,17 @@ function set_state!(network::HyperNetwork, node::Int64, state::State)
 
     network.state_count[old_state] -= 1
     network.state_count[state] += 1
-    network.motif_count[Label("[A]")] = network.state_count[A]
-    network.motif_count[Label("[B]")] = network.state_count[B]
+    network.motif_count[OrderZeroMotif(A)] = network.state_count[A]
+    network.motif_count[OrderZeroMotif(B)] = network.state_count[B]
 
     # increase old values in motif_count
     if network.track_motif_count
         for hyperedge in get_hyperedges(network, node)
-            label = _get_1st_order_label(network, hyperedge)
-            network.motif_count[label] += 1
+            motif = _get_1st_order_motif(network, hyperedge)
+            network.motif_count[motif] += 1
         end
-        for label in _get_2nd_order_node_labels(network, node)
-            network.motif_count[label] += 1
+        for motif in _get_2nd_order_node_motifs(network, node)
+            network.motif_count[motif] += 1
         end
     end
 
@@ -463,16 +463,16 @@ function get_hyperedges(network::HyperNetwork, node::Int64)
     return network.hyperedge_uid[mids]
 end
 
-function _get_1st_order_label(network::HyperNetwork, hyperedge::Int64)
+function _get_1st_order_motif(network::HyperNetwork, hyperedge::Int64)
     statecount = get_state_count(network, hyperedge)
-    return Label(statecount)
+    return OrderOneMotif(statecount[A], statecount[B])
 end
 
 """
-Return all second-order labels which contain the hyperedge and intersect in the node `int_node`.
+Return all second-order motifs which contain the hyperedge and intersect in the node `int_node`.
 """
-function _get_2nd_order_labels(network::HyperNetwork, hyperedge::Int64, int_node::Int64)
-    labels = []
+function _get_2nd_order_motifs(network::HyperNetwork, hyperedge::Int64, int_node::Int64)
+    motifs = []
     int_state = get_state(network, int_node)
     statecount1 = get_state_count(network, hyperedge)
     for neighbor in get_hyperedges(network, int_node)
@@ -480,28 +480,33 @@ function _get_2nd_order_labels(network::HyperNetwork, hyperedge::Int64, int_node
             continue
         end
         statecount2 = get_state_count(network, neighbor)
-        label = Label(statecount1, statecount2, int_state)
-        push!(labels, label)
+        left = copy(statecount1)
+        left[int_state] -= 1
+        int = int_state == A ? (1, 0) : (0, 1)
+        right = copy(statecount2)
+        right[int_state] -= 1
+        motif = OrderTwoMotif((left[A], left[B]), int, (right[A], right[B]))
+        push!(motifs, motif)
     end
-    return labels
+    return motifs
 end
 
 """
-Return all second-order labels which contain the hyperedge. 
+Return all second-order motifs which contain the hyperedge. 
 """
-function _get_2nd_order_labels(network::HyperNetwork, hyperedge::Int64)
-    labels = []
+function _get_2nd_order_motifs(network::HyperNetwork, hyperedge::Int64)
+    motifs = []
     for int_node in get_nodes(network, hyperedge)
-        append!(labels, _get_2nd_order_labels(network, hyperedge, int_node))
+        append!(motifs, _get_2nd_order_motifs(network, hyperedge, int_node))
     end
-    return labels
+    return motifs
 end
 
 """
-Return all second-order labels which contain the given node.
+Return all second-order motifs which contain the given node.
 """
-function _get_2nd_order_node_labels(network::HyperNetwork, node::Int64)
-    labels = []
+function _get_2nd_order_node_motifs(network::HyperNetwork, node::Int64)
+    motifs = []
     # hyperedges which include the node
     hyperedges = get_hyperedges(network, node)
 
@@ -511,7 +516,13 @@ function _get_2nd_order_node_labels(network::HyperNetwork, node::Int64)
         statecount1 = get_state_count(network, he1)
         for he2 in hyperedges[(i + 1):end]
             statecount2 = get_state_count(network, he2)
-            push!(labels, Label(statecount1, statecount2, int_state))
+            left = copy(statecount1)
+            left[int_state] -= 1
+            int = int_state == A ? (1, 0) : (0, 1)
+            right = copy(statecount2)
+            right[int_state] -= 1
+            motif = OrderTwoMotif((left[A], left[B]), int, (right[A], right[B]))
+            push!(motifs, motif)
         end
     end
 
@@ -529,18 +540,24 @@ function _get_2nd_order_node_labels(network::HyperNetwork, node::Int64)
                     continue
                 end
                 # A tiny edge case: if the hyperedges intersect in more than one node AND 
-                # one of those nodes is the node under consideration, then the label will 
-                # be counted twice. To prevent this, we only count the label in the case 
+                # one of those nodes is the node under consideration, then the motif will 
+                # be counted twice. To prevent this, we only count the motif in the case 
                 # where he1 < he2. 
                 if he2 ∈ hyperedges && node in get_nodes(network, he2) && he1 > he2
                     continue
                 end
                 statecount2 = get_state_count(network, he2)
-                push!(labels, Label(statecount1, statecount2, int_state))
+                left = copy(statecount1)
+                left[int_state] -= 1
+                int = int_state == A ? (1, 0) : (0, 1)
+                right = copy(statecount2)
+                right[int_state] -= 1
+                motif = OrderTwoMotif((left[A], left[B]), int, (right[A], right[B]))
+                push!(motifs, motif)
             end
         end
     end
-    return labels
+    return motifs
 end
 
 function get_state(network::HyperNetwork, node::Int64)

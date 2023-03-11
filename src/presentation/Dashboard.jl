@@ -135,7 +135,7 @@ function reset!(dashboard::AbstractDashboard, model::AbstractModel,
 end
 
 function set_solution(dashboard::Dashboard, t::Vector{Float64},
-                      sol::Dict{Label,Vector{Float64}})
+                      sol::Dict{AbstractMotif,Vector{Float64}})
     for panel in dashboard.panels
         set_solution(panel, t, sol)
     end

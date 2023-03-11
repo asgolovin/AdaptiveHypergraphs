@@ -5,8 +5,8 @@ using AdaptiveHypergraphs
 params = InputParams(
     NetworkParams(
         num_nodes = 1000,
-        num_hyperedges = (2000, 20),
-        state_A_prob = 0.2,
+        num_hyperedges = (2000, 20, 20),
+        state_A_prob = 0.5,
     ),
     ModelParams(
         is_discrete = true,
@@ -26,7 +26,7 @@ params = InputParams(
         ]
     ),
     BatchParams(
-        batch_size = 50,
+        batch_size = 5,
         with_mpi = false,
         prompt_for_save = false,
     )

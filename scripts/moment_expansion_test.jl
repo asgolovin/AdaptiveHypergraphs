@@ -91,14 +91,14 @@ node_colormap = params.visualization_params.node_colormap
 linecolors = []
 linestyles = []
 colorscheme = colorschemes[node_colormap]
-for (i, label) in enumerate(keys(sol))
-    AB_ratio = label.left_total[AdaptiveHypergraphs.A] / (size(label)[1])
+for (i, motif) in enumerate(keys(sol))
+    AB_ratio = motif.left_motif.AdaptiveHypergraphs.A / (size(motif)[1])
     push!(linecolors, get(colorscheme, AB_ratio, (0.0, 1.0)))
-    push!(linestyles, [nothing, :dash, :dot][size(label)[1]])
+    push!(linestyles, [nothing, :dash, :dot][size(motif)[1]])
 end
 
-for (i, label) in enumerate(keys(sol))
-    lines!(t, sol[label]; label="$label", color=linecolors[i], linestyle=linestyles[i],
+for (i, motif) in enumerate(keys(sol))
+    lines!(t, sol[motif]; label="$motif", color=linecolors[i], linestyle=linestyles[i],
            linewidth=3.0)
 end
 

@@ -44,8 +44,8 @@ function create_measurements(folder, meas_type::DataType)
         labeltype = fieldtype(meas_type, :label)
         if labeltype <: State
             label = label_str == "A" ? AdaptiveHypergraphs.A : AdaptiveHypergraphs.B
-        elseif labeltype <: Label
-            label = Label(label_str)
+        elseif labeltype <: AbstractMotif
+            label = motif_from_string(label_str)
         elseif labeltype <: Int64
             label = parse(Int64, label_str)
         else

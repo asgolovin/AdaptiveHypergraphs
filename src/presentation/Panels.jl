@@ -195,15 +195,15 @@ function set_solution(panel::HyperedgeDistPanel, t, sol)
     for size in keys(panel.u_sol)
         empty!(panel.u_sol[size][])
     end
-    for label in keys(sol)
-        s = size(label)[1]
-        if s == 1
+    for motif in keys(sol)
+        if order(motif) == 0
             continue
         end
+        s = size(motif)
         if length(panel.u_sol[s][]) == 0
-            panel.u_sol[s][] = copy(sol[label])
+            panel.u_sol[s][] = copy(sol[motif])
         else
-            panel.u_sol[s][] += sol[label]
+            panel.u_sol[s][] += sol[motif]
         end
     end
     return panel
@@ -258,15 +258,18 @@ function set_solution(panel::ActiveHyperedgeDistPanel, t, sol)
     for size in keys(panel.u_sol)
         empty!(panel.u_sol[size][])
     end
-    for label in keys(sol)
-        s = size(label)[1]
-        if s == 1 || label.left[A] == 0 || label.left[B] == 0
+    for motif in keys(sol)
+        if order(motif) == 0
+            continue
+        end
+        s = size(motif)
+        if !is_active(motif)
             continue
         end
         if length(panel.u_sol[s][]) == 0
-            panel.u_sol[s][] = copy(sol[label])
+            panel.u_sol[s][] = copy(sol[motif])
         else
-            panel.u_sol[s][] += copy(sol[label])
+            panel.u_sol[s][] += copy(sol[motif])
         end
     end
     return panel
@@ -281,7 +284,7 @@ mutable struct FirstOrderMotifCountPanel <: AbstractTimeSeriesPanel
     ylow::Union{Real,Nothing}
     yhigh::Union{Real,Nothing}
     t_sol::Observable{Vector{Float64}}
-    u_sol::Dict{Label,Observable{Vector{Float64}}}
+    u_sol::Dict{AbstractMotif,Observable{Vector{Float64}}}
 end
 
 function FirstOrderMotifCountPanel(box::GridPosition,
@@ -299,29 +302,29 @@ function FirstOrderMotifCountPanel(box::GridPosition,
 
     title = "Number of first-order motifs"
     first_order_motif_count = filter(x -> order(x.label) == 1, motif_count)
-    first_order_labels = [m.label for m in first_order_motif_count]
+    first_order_motifs = [m.label for m in first_order_motif_count]
     # labels to use in the legend
-    legend_labels = ["$label" for label in first_order_labels]
+    labels = ["$label" for label in first_order_motifs]
 
     linecolors = []
     colorscheme = colorschemes[node_colormap]
-    for label in first_order_labels
-        numA = label.left_total[A] + label.right[A]
-        numB = label.left_total[B] + label.right[B]
+    for motif in first_order_motifs
+        numA = motif.A
+        numB = motif.B
         ratio = numB / (numA + numB)
         linecolor = get(colorscheme, ratio)
         push!(linecolors, linecolor)
     end
 
     ax, lines, logs = _plot_time_series(box, first_order_motif_count, lims; title,
-                                        linecolors, labels=legend_labels)
+                                        linecolors, labels)
 
     # plot the analytical solution
     t_sol = Observable(Float64[])
-    u_sol = Dict{Label,Observable{Vector{Float64}}}()
-    for (i, label) in enumerate(first_order_labels)
-        u_sol[label] = Observable(Float64[])
-        lines!(ax, t_sol, u_sol[label]; color=linecolors[i], linewidth=2.0)
+    u_sol = Dict{AbstractMotif,Observable{Vector{Float64}}}()
+    for (i, motif) in enumerate(first_order_motifs)
+        u_sol[motif] = Observable(Float64[])
+        lines!(ax, t_sol, u_sol[motif]; color=linecolors[i], linewidth=2.0)
     end
 
     return FirstOrderMotifCountPanel(logs, ax, lines, xlow, xhigh,
@@ -331,11 +334,11 @@ end
 function set_solution(panel::FirstOrderMotifCountPanel, t, sol)
     empty!(panel.t_sol[])
     append!(panel.t_sol[], t)
-    for label in keys(sol)
-        if order(label) != 1
+    for motif in keys(sol)
+        if order(motif) != 1
             continue
         end
-        panel.u_sol[label][] = copy(sol[label])
+        panel.u_sol[motif][] = copy(sol[motif])
     end
     return panel
 end
@@ -375,16 +378,15 @@ function SecondOrderMotifCountPanel(box::GridPosition,
             hidexdecorations!(ax)
         end
         fixed_size_motif_count = filter(x -> order(x.label) == 2, motif_count)
-        fixed_size_motif_count = filter(x -> x.label.left[A] + x.label.left[B] +
-                                             x.label.int[A] + x.label.int[B] == size,
+        fixed_size_motif_count = filter(x -> Base.size(x.label.left_motif) == size,
                                         fixed_size_motif_count)
         for (i, meas) in enumerate(fixed_size_motif_count)
-            label = meas.label
-            numA = label.left_total[A] + label.right[A]
-            numB = label.left_total[B] + label.right[B]
+            motif = meas.label
+            numA = motif.left_motif.A + motif.right.A
+            numB = motif.left_motif.B + motif.right.B
             ratio = numB / (numA + numB)
             linecolor = get(colorscheme, ratio)
-            l = lines!(ax, meas.indices, meas.values; label="$label", color=linecolor)
+            l = lines!(ax, meas.indices, meas.values; label="$motif", color=linecolor)
             push!(lines, l)
             push!(size_logs, meas.log)
         end
@@ -425,7 +427,7 @@ function MomentClosurePanel(box::GridPosition,
     # - intersect in an A-node (B-nodes should behave symmetrically)
     triples = filter(x -> order(x.label) == 2, motif_count)
     int_state = A
-    filter!(x -> x.label.int[int_state] == 1, triples)
+    filter!(x -> x.label.int[Symbol(int_state)] == 1, triples)
 
     num_int_nodes = filter(x -> x.label == int_state, state_count)[1].values
     num_triples = length(triples)
@@ -435,39 +437,41 @@ function MomentClosurePanel(box::GridPosition,
     logs = Vector{Vector{MeasurementLog}}()
 
     for (i, triple) in enumerate(triples)
-        label = triple.label
+        motif = triple.label
 
         # The moment closure is done by replacing [X|Y|Z] by [XY] * [YZ] / [Y]. 
         # Here, we determine XY and YZ and the corresponding labels.
-        numA_left = label.left_total[A]
-        numB_left = label.left_total[B]
-        numA_right = label.right_total[A]
-        numB_right = label.right_total[B]
-        label_left = Label("[A$numA_left B$numB_left]")
-        label_right = Label("[A$numA_right B$numB_right]")
+        left_motif = motif.left_motif
+        right_motif = motif.right_motif
 
         # [XY]
-        left_motif = filter(x -> x.label == label_left, motif_count)[1].values
+        left_motif_values = filter(x -> x.label == left_motif, motif_count)[1].values
         # [YZ]
-        right_motif = filter(x -> x.label == label_right, motif_count)[1].values
+        right_motif_values = filter(x -> x.label == right_motif, motif_count)[1].values
 
         # compute the combinatorical prefactor
-        int_state = label.int_state
-        left_count = label.left_total[int_state]
-        right_count = label.right_total[int_state]
-        issymmetrical = label_left == label_right ? 0.5 : 1.0
+        int_state = motif.int.A > 0 ? A : B
+        if int_state == A
+            left_count = left_motif.A
+            right_count = right_motif.A
+        else
+            left_count = left_motif.B
+            right_count = right_motif.B
+        end
+        issymmetrical = left_motif == right_motif ? 0.5 : 1.0
         prefactor = issymmetrical * left_count * right_count
 
         # The resulting closure approximation
-        prediction = @lift prefactor * $left_motif .* $right_motif ./ $num_int_nodes
+        prediction = @lift prefactor * $left_motif_values .* $right_motif_values ./
+                           $num_int_nodes
 
         l1 = lines!(ax, triple.indices, prediction;
-                    label="$label_left * $label_right / [ $int_state ]",
+                    label="$left_motif * $right_motif / [ $int_state ]",
                     color=linecolors[i])
 
         # The actual number of triples
         l2 = lines!(ax, triple.indices, triple.values;
-                    label="$label", color=linecolors[i] * 0.5, linewidth=0.7)
+                    label="$motif", color=linecolors[i] * 0.5, linewidth=0.7)
 
         push!(lines, l1)
         push!(lines, l2)
@@ -504,7 +508,7 @@ function FakeDiffEqPanel(box::GridPosition,
     num_hyperedges = graph_properties[:num_hyperedges]
     colormap = vparams.misc_colormap
 
-    plot_conditions = x -> x.label.left[A] > 0
+    plot_conditions = x -> x.label.A > 0
     #plot_conditions = x -> true
 
     fake_diff_eq = filter(plot_conditions, fake_diff_eq)

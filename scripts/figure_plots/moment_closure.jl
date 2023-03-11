@@ -14,17 +14,20 @@ data_folder = DataFolder(input_folder, :simulation)
 
 num_nodes = 10000
 max_size = 4
-triples = [Label("[A3|A|A]"), Label("[AB|A|B]"), Label("[B3|A|A]"), Label("[B2|A|B2]")]
-mc_labels = filter(x -> AH.order(x) <= 1, all_labels(max_size))
+triples = [OrderTwoMotif((3, 0), (1, 0), (1, 0)),
+           OrderTwoMotif((1, 1), (1, 0), (0, 1)),
+           OrderTwoMotif((0, 3), (1, 0), (1, 0)),
+           OrderTwoMotif((0, 2), (1, 0), (0, 2))]
+mc_motifs = filter(x -> AH.order(x) <= 1, all_motifs(max_size))
 
-triple_latex_labels = Dict(Label("[B2|A|B2]") => "[B²|A|B²]",
-                           Label("[AB|A|B]") => "[AB|A|B]",
-                           Label("[B3|A|A]") => "[B³|A|A]",
-                           Label("[A3|A|A]") => "[A³|A|A]")
-mc_latex_labels = Dict(Label("[B2|A|B2]") => "1/2 [AB²][AB²]/[A]",
-                       Label("[AB|A|B]") => "2 [A²B][AB]/[A]",
-                       Label("[B3|A|A]") => "2 [AB³][A²]/[A]",
-                       Label("[A3|A|A]") => "8 [A⁴][A²]/[A]")
+triple_labels = Dict(OrderTwoMotif((0, 2), (1, 0), (0, 2)) => "[B²|A|B²]",
+                     OrderTwoMotif((1, 1), (1, 0), (0, 1)) => "[AB|A|B]",
+                     OrderTwoMotif((0, 3), (1, 0), (1, 0)) => "[B³|A|A]",
+                     OrderTwoMotif((3, 0), (1, 0), (1, 0)) => "[A³|A|A]")
+mc_labels = Dict(OrderTwoMotif((0, 2), (1, 0), (0, 2)) => "1/2 [AB²][AB²]/[A]",
+                 OrderTwoMotif((1, 1), (1, 0), (0, 1)) => "2 [A²B][AB]/[A]",
+                 OrderTwoMotif((0, 3), (1, 0), (1, 0)) => "2 [AB³][A²]/[A]",
+                 OrderTwoMotif((3, 0), (1, 0), (1, 0)) => "8 [A⁴][A²]/[A]")
 
 node_colormap = :RdYlGn_6
 hyperedge_colormap = :thermal
@@ -72,10 +75,10 @@ for (batch_folder, batch_num) in data_folder
             continue
         end
 
-        mc_motifs = Dict(label => [] for label in mc_labels)
-        for label in mc_labels
-            if AH.order(label) == 0
-                if label.left[AH.A] == 1
+        mc_motifs = Dict(motif => [] for motif in mc_motifs)
+        for motif in mc_motifs
+            if AH.order(motif) == 0
+                if motif.left.A == 1
                     indices, values = load_data("state_count_A.csv", run_folder)
                     indices = indices[1:skip_points:end]
                     values = values[1:skip_points:end]
@@ -85,38 +88,42 @@ for (batch_folder, batch_num) in data_folder
                     values = values[1:skip_points:end]
                 end
             else
-                indices, values = load_data("motif_count_$label.csv", run_folder)
+                indices, values = load_data("motif_count_$motif.csv", run_folder)
                 indices = indices[1:skip_points:end]
                 values = values[1:skip_points:end]
             end
-            mc_motifs[label] = values
+            mc_motifs[motif] = values
         end
 
-        for (i, triple_label) in enumerate(triples)
-            indices, triple = load_data("motif_count_$triple_label.csv", run_folder)
+        for (i, triple_motif) in enumerate(triples)
+            indices, triple = load_data("motif_count_$triple_motif.csv", run_folder)
             indices = indices[1:skip_points:end]
             triple = triple[1:skip_points:end]
 
-            left_label = Label(triple_label.left_total)
-            right_label = Label(triple_label.right_total)
-            intersection = Label(triple_label.int)
+            left_motif = triple_motif.left_motif
+            right_motif = triple_motif.right_motif
+            int_state = triple_motif.int.A > 0 ? AH.A : AH.B
 
             # compute the combinatorical prefactor
-            int_state = triple_label.int_state
-            left_count = triple_label.left_total[int_state]
-            right_count = triple_label.right_total[int_state]
-            issymmetrical = left_label == right_label ? 0.5 : 1
+            if int_state == AH.A
+                left_count = left_motif.A
+                right_count = right_motif.B
+            else
+                left_count = left_motif.A
+                right_count = right_motif.B
+            end
+            issymmetrical = left_motif == right_motif ? 0.5 : 1
             prefactor = issymmetrical * left_count * right_count
 
-            closure = prefactor .* mc_motifs[left_label] .* mc_motifs[right_label] ./
+            closure = prefactor .* mc_motifs[left_motif] .* mc_motifs[right_motif] ./
                       mc_motifs[intersection]
 
-            println("$triple_label: prefactor: $prefactor")
+            println("$triple_motif: prefactor: $prefactor")
 
-            lines!(ax, indices, triple; label=triple_latex_labels[triple_label],
+            lines!(ax, indices, triple; label=triple_motifs[triple_motif],
                    color=linecolors[i], linewidth=1.5)
             lines!(ax, indices, closure;
-                   label=mc_latex_labels[triple_label],
+                   label=mc_motifs[triple_motif],
                    color=linecolors[i] * 0.6, linewidth=1.5)
         end
     end
@@ -124,8 +131,8 @@ end
 
 group_lines = [LineElement(; color=linecolors[i], linewidth=2) for i in 1:4]
 group_lines_dark = [LineElement(; color=linecolors[i] * 0.6, linewidth=2) for i in 1:4]
-group_labels = [triple_latex_labels[triples[i]] for i in 1:4]
-group_labels_dark = [mc_latex_labels[triples[i]] for i in 1:4]
+group_labels = [triple_motifs[triples[i]] for i in 1:4]
+group_labels_dark = [mc_motifs[triples[i]] for i in 1:4]
 
 leg = Legend(fig[1, 2],
              collect(collect.(zip(group_lines, group_lines_dark))),

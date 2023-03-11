@@ -332,10 +332,11 @@ end
 
 mutable struct MotifCount <: AbstractStepMeasurement
     log::MeasurementLog{Float64,Int64}
-    label::Label
+    label::AbstractMotif
 end
 
-function MotifCount(label::Label; buffer_size::Int64=0, write_to_observables::Bool=true,
+function MotifCount(label::AbstractMotif; buffer_size::Int64=0,
+                    write_to_observables::Bool=true,
                     save_folder::Union{Nothing,String})
     save_file = _create_save_file(save_folder, "motif_count", "$label")
     log = MeasurementLog{Float64,Int64}(; buffer_size, write_to_observables, save_file,
@@ -345,10 +346,11 @@ end
 
 mutable struct FakeDiffEq <: AbstractStepMeasurement
     log::MeasurementLog{Float64,Float64}
-    label::Label
+    label::AbstractMotif
 end
 
-function FakeDiffEq(label::Label; buffer_size::Int64=0, write_to_observables::Bool=true,
+function FakeDiffEq(label::AbstractMotif; buffer_size::Int64=0,
+                    write_to_observables::Bool=true,
                     save_folder::Union{Nothing,String})
     save_file = _create_save_file(save_folder, "fake_diff_eq", "$label")
     log = MeasurementLog{Float64,Float64}(; buffer_size, write_to_observables, save_file,

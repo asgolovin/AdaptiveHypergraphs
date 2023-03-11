@@ -18,7 +18,7 @@ data_folder = DataFolder(input_folder, :simulation)
 
 num_nodes = 10000
 max_size = 3
-labels = filter(x -> AH.order(x) == 1, all_labels(max_size))
+labels = filter(x -> AH.order(x) == 1, all_motifs(max_size))
 active_labels = filter(x -> x.left[AH.A] != 0 && x.left[AH.B] != 0, labels)
 inactive_labels = filter(x -> x ∉ active_labels, labels)
 node_colormap = :RdYlGn_6

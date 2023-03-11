@@ -122,7 +122,7 @@ for (i, m0) in enumerate(magn_analytical)
     params.network_params.state_A_prob = (m0 + 1) * 0.5
     tspan = (0.0, 1000.0)
     t, sol = moment_expansion(params, tspan, moment_closure)
-    for label in all_labels(max_size)
+    for label in all_motifs(max_size)
         if AH.order(label) == 1 && label.left[AH.A] > 0 && label.left[AH.B] > 0
             size = AH.size(label)[1]
             density_analytical[size][i] += sol[label][end] / num_nodes

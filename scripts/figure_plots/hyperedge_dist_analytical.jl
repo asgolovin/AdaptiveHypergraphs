@@ -87,12 +87,12 @@ params = load_params(joinpath(input_folder, "batch_003", "input_params.json"))
 tspan = (0.0, 100.0)
 t, sol = moment_expansion(params, tspan, moment_closure)
 total_hyperedges_analytical = Dict(s => zero(t) for s in 2:max_size)
-for label in all_labels(max_size)
-    if AH.order(label) != 1
+for motif in all_motifs(max_size)
+    if AH.order(motif) != 1
         continue
     end
-    size = AH.size(label)[1]
-    total_hyperedges_analytical[size] .+= sol[label]
+    size = AH.size(motif)
+    total_hyperedges_analytical[size] .+= sol[motif]
 end
 
 for size in 2:max_size

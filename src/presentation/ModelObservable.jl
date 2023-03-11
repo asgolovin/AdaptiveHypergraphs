@@ -100,13 +100,13 @@ function ModelObservable(model::AbstractModel, measurement_types::Vector{DataTyp
             measurements[sym] = [type(size; save_folder=save_folder, log_params...)
                                  for size in 2:max_size]
         elseif type <: MotifCount
-            measurements[sym] = [type(label; save_folder=save_folder, log_params...)
-                                 for label in all_labels(max_size)
-                                 if order(label) > 0]
+            measurements[sym] = [type(motif; save_folder=save_folder, log_params...)
+                                 for motif in all_motifs(max_size)
+                                 if order(motif) > 0]
         elseif type <: FakeDiffEq
-            measurements[sym] = [type(label; save_folder=save_folder, log_params...)
-                                 for label in all_labels(max_size)
-                                 if order(label) == 1]
+            measurements[sym] = [type(motif; save_folder=save_folder, log_params...)
+                                 for motif in all_motifs(max_size)
+                                 if order(motif) == 1]
         elseif type <: AvgHyperedgeCount || type <: SlowManifoldFit
             measurements[sym] = [type(size; save_folder=save_folder) for size in 2:max_size]
         else
@@ -297,51 +297,48 @@ function record_measurement!(mo::ModelObservable, measurement::ActiveHyperedgeCo
 end
 
 function record_measurement!(mo::ModelObservable, measurement::MotifCount)
-    label = measurement.label
-    count = get_motif_count(mo.network[])[label]
+    motif = measurement.label
+    count = get_motif_count(mo.network[])[motif]
     record!(measurement.log, mo.time, count)
     return measurement
 end
 
 function record_measurement!(mo::ModelObservable, measurement::FakeDiffEq)
-    label = measurement.label
+    motif = measurement.label
     if mo.num_steps <= 2 * mo.skip_points
-        value = Float64(get_motif_count(mo.network[])[label])
+        value = Float64(get_motif_count(mo.network[])[motif])
         record!(measurement.log, mo.time, value)
         return measurement
     end
 
     # A "moment closure" function that just returns the simulated number of triples
-    function triples(label::Label, x::Vector{Float64}, max_size::Int64)
-        if true
-            return moment_closure(label, x, max_size)
-        end
-        return filter(x -> x.label == label, mo.motif_count)[1].log.last_value
+    function triples(motif::OrderTwoMotif, x::Vector{Float64}, max_size::Int64)
+        return filter(x -> x.label == motif, mo.motif_count)[1].log.last_value
     end
 
     p = mo.model[].adaptivity_prob
     num_nodes = get_num_nodes(mo.network[])
     max_size = get_max_size(mo.network[])
 
-    motif_count_diff_eq = Dict{Label,Float64}()
-    for label in all_labels(max_size)
-        if order(label) > 1
+    motif_count_diff_eq = Dict{AbstractMotif,Float64}()
+    for motif in all_motifs(max_size)
+        if order(motif) > 1
             continue
         end
-        if order(label) == 1
-            motif_count_diff_eq[label] = filter(x -> x.label == label, mo.fake_diff_eq)[1].log.last_value
-        elseif order(label) == 0
-            motif_count_diff_eq[label] = 500.0
-            #state = label.left[A] > 0 ? A : B
-            #motif_count_diff_eq[label] = filter(x -> x.label == state, mo.state_count)[1].log.last_value
+        if order(motif) == 1
+            motif_count_diff_eq[motif] = filter(x -> x.label == motif, mo.fake_diff_eq)[1].log.last_value
+        elseif order(motif) == 0
+            motif_count_diff_eq[motif] = 500.0
+            #state = motif.left.A > 0 ? A : B
+            #motif_count_diff_eq[motif] = filter(x -> x.label == state, mo.state_count)[1].log.last_value
         end
     end
 
     x = motif_dict_to_vector(motif_count_diff_eq, max_size)
     propagation_rule = mo.model[].propagation_rule
     adaptivity_rule = mo.model[].adaptivity_rule
-    prop_update = prop_term(propagation_rule, triples, label, x, p, max_size)
-    adapt_update = adapt_term(adaptivity_rule, label, x, p, num_nodes, max_size)
+    prop_update = prop_term(propagation_rule, triples, motif, x, p, max_size)
+    adapt_update = adapt_term(adaptivity_rule, motif, x, p, num_nodes, max_size)
 
     #! format: on
     last_meas = measurement.log.last_value

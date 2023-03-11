@@ -4,7 +4,7 @@
 # output of `@time AdaptiveHypergraphs`: 
 # >> 79.965480 seconds (140.74 M allocations: 8.807 GiB, 2.12% gc time, 5.40% compilation time: 66% of which was recompilation)
 
-# include("data/Label.jl")  -> 0.49 sec
+# include("data/Motif.jl")  -> 0.49 sec
 # include("data/Network.jl") -> 0.11 sec
 
 # include("simulation/AdaptivityRule.jl")   -> 0.008 sec
@@ -35,7 +35,7 @@ println("SimpleHypergraphs:")
 @time using SimpleHypergraphs # 0.00022 sec
 
 println("Label.jl:")
-@time include("../src/data/Label.jl") # 0.87 sec
+@time include("../src/data/Motif.jl") # 0.87 sec
 
 println("Network.jl:")
 @time include("../src/data/Network.jl") # 0.14 sec

@@ -2,7 +2,7 @@ module AdaptiveHypergraphs
 
 WITH_DISPLAY = get(ENV, "DISPLAY", "") != ""
 
-include("data/Label.jl")
+include("data/Motif.jl")
 include("data/Network.jl")
 
 include("simulation/AdaptivityRule.jl")

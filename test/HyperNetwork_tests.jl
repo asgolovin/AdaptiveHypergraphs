@@ -195,27 +195,27 @@ end
 
     # check that the number of active size-2 edges is equal to [AB]
     true_value = get_num_active_hyperedges(network, 2)
-    motif_prediction = network.motif_count[Label("[AB]")]
+    motif_prediction = network.motif_count[OrderOneMotif(1, 1)]
     @test true_value == motif_prediction
 
     # same but for size 3
     true_value = get_num_active_hyperedges(network, 3)
-    motif_prediction = network.motif_count[Label("[A2B]")] +
-                       network.motif_count[Label("[AB2]")]
+    motif_prediction = network.motif_count[OrderOneMotif(2, 1)] +
+                       network.motif_count[OrderOneMotif(1, 2)]
     @test true_value == motif_prediction
 
     # size 4
     true_value = get_num_active_hyperedges(network, 4)
-    motif_prediction = network.motif_count[Label("[A3B]")] +
-                       network.motif_count[Label("[A2B2]")] +
-                       network.motif_count[Label("[AB3]")]
+    motif_prediction = network.motif_count[OrderOneMotif(3, 1)] +
+                       network.motif_count[OrderOneMotif(2, 2)] +
+                       network.motif_count[OrderOneMotif(1, 3)]
     @test true_value == motif_prediction
 
     # test that the total number of order-one motifs is equal to the number of hyperdeges
     num_order_one_motifs = 0
-    for label in all_labels(4)
-        if order(label) == 1
-            num_order_one_motifs += network.motif_count[label]
+    for motif in all_motifs(4)
+        if order(motif) == 1
+            num_order_one_motifs += network.motif_count[motif]
         end
     end
     @test get_num_hyperedges(network) == num_order_one_motifs
@@ -223,10 +223,10 @@ end
     # count all triples explicitly and check that we get the correct number
 
     # prepare the data structure
-    explicit_results = Dict{Label,Int64}()
-    for label in all_labels(4)
-        if order(label) == 2
-            explicit_results[label] = 0
+    explicit_results = Dict{AbstractMotif,Int64}()
+    for motif in all_motifs(4)
+        if order(motif) == 2
+            explicit_results[motif] = 0
         end
     end
 
@@ -240,19 +240,24 @@ end
                     continue
                 end
                 statecount2 = get_state_count(network, neighbor)
-                label = Label(statecount1, statecount2, int_state)
-                explicit_results[label] += 1
+                left = copy(statecount1)
+                left[int_state] -= 1
+                int = int_state == A ? (1, 0) : (0, 1)
+                right = copy(statecount2)
+                right[int_state] -= 1
+                motif = OrderTwoMotif((left[A], left[B]), int, (right[A], right[B]))
+                explicit_results[motif] += 1
             end
         end
     end
 
     # the triples are counted twice, so divide the numbers by two
-    for label in keys(explicit_results)
-        explicit_results[label] ÷= 2
+    for motif in keys(explicit_results)
+        explicit_results[motif] ÷= 2
     end
 
-    for label in keys(explicit_results)
-        println("Comparing $label with $(explicit_results[label])")
-        @test explicit_results[label] == network.motif_count[label]
+    for motif in keys(explicit_results)
+        println("Comparing $motif with $(explicit_results[motif])")
+        @test explicit_results[motif] == network.motif_count[motif]
     end
 end
