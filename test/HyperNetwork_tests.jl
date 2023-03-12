@@ -213,7 +213,7 @@ end
 
     # test that the total number of order-one motifs is equal to the number of hyperdeges
     num_order_one_motifs = 0
-    for motif in all_motifs(4; int_size=3)
+    for motif in all_motifs(4, 3)
         if order(motif) == 1
             num_order_one_motifs += network.motif_count[motif]
         end
@@ -224,7 +224,7 @@ end
 
     # prepare the data structure
     explicit_results = Dict{AbstractMotif,Int64}()
-    for motif in all_motifs(4; int_size=3)
+    for motif in all_motifs(4, 3)
         if order(motif) == 2
             explicit_results[motif] = 0
         end
@@ -232,7 +232,7 @@ end
 
     # COUNT THEM ALL
     for he1 in get_hyperedges(network)
-        for he2 in get_intersecting_hyperedges(network, node)
+        for he2 in get_intersecting_hyperedges(network, he1)
             motif = AdaptiveHypergraphs._get_2nd_order_motif(network, he1, he2)
             explicit_results[motif] += 1
         end
@@ -244,7 +244,6 @@ end
     end
 
     for motif in keys(explicit_results)
-        println("Comparing $motif with $(explicit_results[motif])")
         @test explicit_results[motif] == network.motif_count[motif]
     end
 end
