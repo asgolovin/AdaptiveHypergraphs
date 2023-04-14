@@ -4,9 +4,10 @@ include("./interactive_plotting_tools.jl")
 # -------------------------- INPUT ----------------------------
 
 input_folder = joinpath(projectdir(),
-                        "final_data/run_2023-02-23_13-32-26_motifs_D4")
+                        "results/run_2023-03-12_11-58-37_intersection_N_1e3")
 
-panel_symbols = [:StateDistPanel, :HyperedgeDistPanel, :MomentClosurePanel]
+panel_symbols = [:StateDistPanel, :FirstOrderMotifCountPanel, :SecondOrderMotifCountPanel,
+                 :ActiveHyperedgeDistPanel]
 
 skip_points = 10
 
@@ -31,24 +32,16 @@ for batchdir in readdir(input_folder; join=true)
 
         run_num = parse(Int64, match(r"run_([0-9]+)", splitdir(rundir)[end])[1])
 
-        if run_num != 1
-            continue
-        end
-
-        println("$run_num")
-
         for panel in panels
             deactivate_lines!(panel)
         end
 
         for meas_sym in keys(measurements)
-            println("$meas_sym")
             load_meas(rundir, measurements[meas_sym])
         end
 
         for meas_sym in keys(measurements)
             for meas in measurements[meas_sym]
-                println("$meas_sym")
                 notify(meas.log.observable_values)
             end
         end

@@ -1,8 +1,6 @@
 using AdaptiveHypergraphs
 const AH = AdaptiveHypergraphs
 
-const Label = AH.Label
-
 include("figure_plotting_tools.jl")
 
 # ======================================================
@@ -75,10 +73,10 @@ for (batch_folder, batch_num) in data_folder
             continue
         end
 
-        mc_motifs = Dict(motif => [] for motif in mc_motifs)
+        mc_motif_values = Dict(motif => [] for motif in mc_motifs)
         for motif in mc_motifs
             if AH.order(motif) == 0
-                if motif.left.A == 1
+                if motif.state == AH.A
                     indices, values = load_data("state_count_A.csv", run_folder)
                     indices = indices[1:skip_points:end]
                     values = values[1:skip_points:end]
@@ -92,7 +90,7 @@ for (batch_folder, batch_num) in data_folder
                 indices = indices[1:skip_points:end]
                 values = values[1:skip_points:end]
             end
-            mc_motifs[motif] = values
+            mc_motif_values[motif] = values
         end
 
         for (i, triple_motif) in enumerate(triples)
@@ -103,27 +101,29 @@ for (batch_folder, batch_num) in data_folder
             left_motif = triple_motif.left_motif
             right_motif = triple_motif.right_motif
             int_state = triple_motif.int.A > 0 ? AH.A : AH.B
+            intersection = OrderZeroMotif(int_state)
 
             # compute the combinatorical prefactor
             if int_state == AH.A
                 left_count = left_motif.A
-                right_count = right_motif.B
+                right_count = right_motif.A
             else
-                left_count = left_motif.A
+                left_count = left_motif.B
                 right_count = right_motif.B
             end
             issymmetrical = left_motif == right_motif ? 0.5 : 1
             prefactor = issymmetrical * left_count * right_count
 
-            closure = prefactor .* mc_motifs[left_motif] .* mc_motifs[right_motif] ./
-                      mc_motifs[intersection]
+            closure = prefactor .* mc_motif_values[left_motif] .*
+                      mc_motif_values[right_motif] ./
+                      mc_motif_values[intersection]
 
             println("$triple_motif: prefactor: $prefactor")
 
-            lines!(ax, indices, triple; label=triple_motifs[triple_motif],
+            lines!(ax, indices, triple; label=triple_labels[triple_motif],
                    color=linecolors[i], linewidth=1.5)
             lines!(ax, indices, closure;
-                   label=mc_motifs[triple_motif],
+                   label=mc_labels[triple_motif],
                    color=linecolors[i] * 0.6, linewidth=1.5)
         end
     end
@@ -131,8 +131,8 @@ end
 
 group_lines = [LineElement(; color=linecolors[i], linewidth=2) for i in 1:4]
 group_lines_dark = [LineElement(; color=linecolors[i] * 0.6, linewidth=2) for i in 1:4]
-group_labels = [triple_motifs[triples[i]] for i in 1:4]
-group_labels_dark = [mc_motifs[triples[i]] for i in 1:4]
+group_labels = [triple_labels[triples[i]] for i in 1:4]
+group_labels_dark = [mc_labels[triples[i]] for i in 1:4]
 
 leg = Legend(fig[1, 2],
              collect(collect.(zip(group_lines, group_lines_dark))),
