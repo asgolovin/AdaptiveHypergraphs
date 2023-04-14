@@ -88,6 +88,10 @@ function adapt!(network::HyperNetwork, adaptivity_rule::RewireToSame,
                                                        hyperedge_conditions,
                                                        node_conditions)
 
+    if isnothing(candidate_id) || isnothing(candidate_type)
+        return []
+    end
+
     affected_hyperedges = _rewire_to_candidate!(network,
                                                 hyperedge,
                                                 selected_node,
@@ -114,7 +118,7 @@ function _rejection_sampling(network::HyperNetwork,
                              hyperedge_conditions::Function,
                              node_conditions::Function)
     num_samples = 0
-    max_samples = 100 # stop sampling if the max number of tries is exceeded
+    max_samples = 1000 # stop sampling if the max number of tries is exceeded
     while num_samples < max_samples
         num_samples += 1
         r = rand(1:(get_num_hyperedges(network) + get_num_nodes(network)))
