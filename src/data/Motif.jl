@@ -1,5 +1,5 @@
 export AbstractMotif, OrderZeroMotif, OrderOneMotif, OrderTwoMotif, State, order, size,
-       all_motifs
+       all_motifs, motif_from_string
 
 @enum State::Bool A = false B = true
 
@@ -9,6 +9,16 @@ abstract type AbstractMotif end
 
 struct OrderZeroMotif <: AbstractMotif
     state::State
+end
+
+function Base.getproperty(obj::OrderZeroMotif, sym::Symbol)
+    if sym === :A
+        return obj.state == A ? 1 : 0
+    elseif sym === :B
+        return obj.state == B ? 1 : 0
+    else
+        return getfield(obj, sym)
+    end
 end
 
 struct OrderOneMotif <: AbstractMotif
@@ -203,5 +213,65 @@ function _to_str(motif_part::MotifPart)
 end
 
 function motif_from_string(motif_string)
-    # TODO
+    # strip whitespaces
+    motif_string = replace(motif_string, r"\s" => "")
+    # matches the "A2B8" part of the string
+    inner_patt = r"(A(\d+)?)?(B(\d+)?)?"
+    # matches "[ $1 | $2 | $3 ]
+    outer_patt = r"\[([AB1-9]+)?\|?([AB1-9]+)?\|?([AB1-9]+)?\]"
+
+    # match the outer pattern
+    m_outer = match(outer_patt, motif_string)
+    if isnothing(m_outer)
+        throw(ArgumentError("The motif string $motif_string does not match the outer pattern."))
+    end
+
+    inner_strings = m_outer[1], m_outer[2], m_outer[3]
+
+    # match the inner pattern for each of the inner substrings
+    motif_composition = []
+    for str in inner_strings
+        if isnothing(str)
+            push!(motif_composition, (0, 0))
+            continue
+        end
+
+        m_inner = match(inner_patt, str)
+        if isnothing(m_inner)
+            throw(ArgumentError("The string $str does not match the inner pattern."))
+        end
+        if isnothing(m_inner[1])
+            numA = 0
+        elseif isnothing(m_inner[2])
+            numA = 1
+        else
+            numA = parse(Int64, m_inner[2])
+        end
+
+        if isnothing(m_inner[3])
+            numB = 0
+        elseif isnothing(m_inner[4])
+            numB = 1
+        else
+            numB = parse(Int64, m_inner[4])
+        end
+
+        push!(motif_composition, (numA, numB))
+    end
+
+    if motif_composition[2] == (0, 0) &&
+       motif_composition[3] == (0, 0)
+        if motif_composition[1] ∈ [(1, 0), (0, 1)]
+            if motif_composition[1] == (1, 0)
+                motif = OrderZeroMotif(A)
+            else
+                motif = OrderZeroMotif(B)
+            end
+        else
+            motif = OrderOneMotif(motif_composition[1]...)
+        end
+    else
+        motif = OrderTwoMotif(motif_composition...)
+    end
+    return motif
 end
