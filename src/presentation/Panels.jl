@@ -97,6 +97,8 @@ mutable struct StateDistPanel <: AbstractTimeSeriesPanel
     xhigh::Union{Real,Nothing}
     ylow::Union{Real,Nothing}
     yhigh::Union{Real,Nothing}
+    t_sol::Observable{Vector{Float64}}
+    u_sol::Dict{State,Observable{Vector{Float64}}}
 end
 
 function StateDistPanel(box::GridPosition,
@@ -116,7 +118,25 @@ function StateDistPanel(box::GridPosition,
     linecolors = get(colorschemes[node_colormap], 1:num_states, (1, num_states))
     labels = ["# of $(m.label) nodes" for m in state_count]
     ax, lines, logs = _plot_time_series(box, state_count, lims; title, linecolors, labels)
-    return StateDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh)
+
+    # plot the analytical solution
+    t_sol = Observable(Float64[])
+    u_sol = Dict{State,Observable{Vector{Float64}}}()
+    for (i, state) in enumerate(instances(State))
+        u_sol[state] = Observable(Float64[])
+        lines!(ax, t_sol, u_sol[state]; color=linecolors[i], linewidth=2.0)
+    end
+
+    return StateDistPanel(logs, ax, lines, xlow, xhigh, ylow, yhigh, t_sol, u_sol)
+end
+
+function set_solution(panel::StateDistPanel, t, sol)
+    empty!(panel.t_sol[])
+    append!(panel.t_sol[], t)
+    for state in instances(State)
+        panel.u_sol[state][] = copy(sol[OrderZeroMotif(state)])
+    end
+    return panel
 end
 
 mutable struct HyperedgeDistPanel <: AbstractTimeSeriesPanel
