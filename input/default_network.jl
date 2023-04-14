@@ -6,18 +6,18 @@ params = InputParams(
     NetworkParams(
         num_nodes = 1000,
         num_hyperedges = (2000, 20, 20),
-        state_A_prob = 0.5,
+        state_A_prob = 0.75,
     ),
     ModelParams(
         is_discrete = true,
         num_time_steps = Int64(1e6),
-        adaptivity_rule = RewireToRandom(),
+        adaptivity_rule = RewireToSame(),
         propagation_rule = ProportionalVoting(),
-        adaptivity_prob = 0.5
+        adaptivity_prob = 0.55
     ),
     VisualizationParams(
         skip_points = 1000,
-        buffer_size = 50000,
+        buffer_size = 10000,
         misc_colormap = :Set1_7,
         panels = [:StateDistPanel,
                   :HyperedgeDistPanel,
@@ -26,7 +26,7 @@ params = InputParams(
         ]
     ),
     BatchParams(
-        batch_size = 5,
+        batch_size = 3,
         with_mpi = false,
         prompt_for_save = false,
     )

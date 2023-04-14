@@ -1,7 +1,7 @@
 using AdaptiveHypergraphs
 using MPI
 
-default_input = "../input/large_network.jl"
+default_input = "../input/default_network.jl"
 
 # command-line interface
 if length(ARGS) > 0
