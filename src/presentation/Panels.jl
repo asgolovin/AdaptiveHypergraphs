@@ -3,7 +3,7 @@ using ColorSchemes
 
 export AbstractPanel, AbstractTimeSeriesPanel, HypergraphPanel, StateDistPanel,
        HyperedgeDistPanel, MomentClosurePanel, ActiveHyperedgeDistPanel, SlowManifoldPanel,
-       deactivate_lines!,
+       FirstOrderMotifCountPanel, SecondOrderMotifCountPanel, deactivate_lines!,
        set_lims!
 
 """
