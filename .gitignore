@@ -4,8 +4,9 @@ plots
 *.pb.gz
 .vscode
 *.so
+*.dll
 LocalPreferences.toml
-results/*
+results
 final_data
 output
 figures
