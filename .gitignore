@@ -6,6 +6,7 @@ LocalPreferences.toml
 *.dll
 results
 output
-figures/thesis
-data/thesis
+figures
+data
+!data/*.tar.xz
 sandbox
