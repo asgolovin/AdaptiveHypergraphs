@@ -1,11 +1,12 @@
 /Manifest.toml
+LocalPreferences.toml
 *.pb.gz
 .vscode
 *.so
 *.dll
-LocalPreferences.toml
 results
-final_data
 output
 figures
+data
+!data/*.tar.xz
 sandbox
