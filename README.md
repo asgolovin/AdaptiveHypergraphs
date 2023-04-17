@@ -49,7 +49,8 @@ julia> include("./scripts/main.jl")
 
 from the Julia REPL. Alternatively, if you are using VS Code, navigate to the `main.jl` file and run it using the command "Julia: Execute active file in REPL". 
 
-> **Note**
+> **Note**: Long compile time at first start
+>
 > When you load the code into a REPL for the first time, Julia precompiles the code and all libraries which the code uses. This can take an annoyingly long amount of time, especially at the very first start. Unfortunately, most of this time comes from precompiling the dependent packages, so there is little we can do about it. Here is a [video](https://youtu.be/kmGnutu7_ZY) of adorable manul kittens you can watch while the code compiles. 
 >
 > To reduce this time, do not kill the Julia REPL; restarting the simulation from the same REPL is vastly faster than the first run. Do not close the window with the dashboard either; subsequent runs of the simulation will reuse it. You can also change the simulation parameters in the input file between simulation runs without restarting the REPL. 
