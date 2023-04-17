@@ -19,10 +19,10 @@ prop_rule = :rts
 
 if prop_rule == :rtr
     input_folder = input_folder_rtr
-    filename = "./figures/slow_manifold_graph_rtr.pdf"
+    filename = "./figures/thesis/slow_manifold_graph_rtr.pdf"
 else
     input_folder = input_folder_rts
-    filename = "./figures/slow_manifold_graph_rts.pdf"
+    filename = "./figures/thesis/slow_manifold_graph_rts.pdf"
 end
 
 # ------------------------------------------------------

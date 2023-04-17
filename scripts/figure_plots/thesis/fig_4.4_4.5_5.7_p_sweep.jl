@@ -59,16 +59,16 @@ skip_middle = Dict(:maj_rts => 1,
 prompt = true
 
 if plot_type == :total
-    filename = "./figures/p_sweep_hyperedges.pdf"
+    filename = "./figures/thesis/p_sweep_hyperedges.pdf"
     title = "Stable distribution of hyperedges"
     ylabel = "# of hyperedges"
     ylims = (0, 12400)
     yticks = 0:2500:12000
 elseif plot_type == :active
     if plot_analytical
-        filename = "./figures/p_sweep_active_analytical.pdf"
+        filename = "./figures/thesis/p_sweep_active_analytical.pdf"
     else
-        filename = "./figures/p_sweep_active.pdf"
+        filename = "./figures/thesis/p_sweep_active.pdf"
     end
     title = "Parabola height"
     ylabel = L"density of active links $\rho_{d_i}$"

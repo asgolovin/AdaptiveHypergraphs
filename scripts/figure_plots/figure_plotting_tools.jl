@@ -27,7 +27,18 @@ tum_scheme = ColorScheme([TUM_accent_orange,
 screen_config = Dict(:pt_per_unit => 1)
 CairoMakie.activate!(; screen_config...)
 
-mytheme = Theme(; fontsize=15)
+mytheme = Theme(;
+                Axis=(titlesize=12,
+                      xticksize=3,
+                      yticksize=3,
+                      ylabelpadding=2,
+                      xticklabelsize=10,
+                      yticklabelsize=10,
+                      xticklabelspace=10.0,
+                      xticklabelsvisible=true,
+                      yticklabelsvisible=true,
+                      xlabelsize=12,
+                      ylabelsize=12))
 set_theme!(mytheme)
 
 function fit_parabola(x, y, fixed_at_one::Bool=false)

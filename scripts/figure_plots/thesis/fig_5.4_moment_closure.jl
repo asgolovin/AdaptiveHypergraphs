@@ -38,7 +38,7 @@ skip_points = 20
 
 prompt = true
 
-filename = "./figures/moment_closure.pdf"
+filename = "./figures/thesis/moment_closure.pdf"
 ylabel = "# of motifs"
 ylims = (0, 5000)
 xticks = 0:20:100

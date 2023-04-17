@@ -20,7 +20,7 @@ prompt = true
 # which run to plot in bold
 highlight_run = [5, 5, 1, 5, 5]
 
-filename = "./figures/slow_manifold_hypergraph_special_p01.pdf"
+filename = "./figures/thesis/slow_manifold_hypergraph_special_p01.pdf"
 
 # ------------------------------------------------------
 # ======================================================

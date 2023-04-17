@@ -20,7 +20,7 @@ linecolors = get(colorschemes[hyperedge_colormap], [1, 2.5, 3], (1, max_size))
 
 prompt = true
 
-filename = "./figures/slow_manifold_hypergraph_analytical.pdf"
+filename = "./figures/thesis/slow_manifold_hypergraph_analytical.pdf"
 
 # ------------------------------------------------------
 # ======================================================

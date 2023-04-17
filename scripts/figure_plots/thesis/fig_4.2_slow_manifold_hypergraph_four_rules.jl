@@ -26,22 +26,26 @@ num_nodes = 10000
 max_size = 4
 hyperedge_colormap = :thermal
 linecolors = get(colorschemes[hyperedge_colormap], [1, 2.5, 3], (1, max_size))
-
+# number of datapoints that are skipped for the fits
+skip_initial = Dict(:maj_rts => 1,
+                    :maj_rtr => 1,
+                    :prop_rts => 300,
+                    :prop_rtr => 100)
 # plot every nth point 
 skip_middle = Dict(:maj_rts => 1,
                    :maj_rtr => 1,
                    :prop_rts => 5,
                    :prop_rtr => 10)
-
+plot_fits = false
 prompt = true
 
 # which run to plot in bold
-highlight_run = Dict(:maj_rts => 5,
-                     :maj_rtr => 5,
-                     :prop_rts => 5,
-                     :prop_rtr => 5)
+highlight_run = Dict(:maj_rts => [5, 5, 5, 5, 5],
+                     :maj_rtr => [5, 5, 5, 5, 5],
+                     :prop_rts => [9, 5, 3, 3, 7],
+                     :prop_rtr => [5, 5, 5, 5, 5])
 
-filename = "./figures/hyperedge_dist_all_four.pdf"
+filename = "./figures/thesis/slow_manifold_hypergraph_all_four.pdf"
 
 # ------------------------------------------------------
 # ======================================================
@@ -64,57 +68,91 @@ for (i, panel) in enumerate(panels)
                        xlabelsize=13,
                        ylabelsize=13,
                        titlefont="Latin Modern Roman")
-    axis[panel].xticks = 0:20:100
-    axis[panel].yticks = 0:2500:12000
-
     if row == 1
         hidexdecorations!(axis[panel]; grid=false)
     else
-        axis[panel].xlabel = L"time $t$"
+        axis[panel].xlabel = L"magnetization $m$"
     end
-
     if col == 2
         hideydecorations!(axis[panel]; grid=false)
     else
-        axis[panel].ylabel = "# of hyperedges"
+        axis[panel].ylabel = L"density of active links $\rho_{d_i}$"
     end
+    axis[panel].yticks = 0.0:0.2:0.6
+    #axis[panel].xminorticks = -1:0.1:1
+    #axis[panel].xminorticksvisible = true
+    #axis[panel].xminorgridvisible = true
 end
 
 for panel in panels
+    magnetization_data = []
+    density_data = Dict(s => [] for s in 2:max_size)
+
     data_folder = DataFolder(input_folders[panel], :simulation)
     ax = axis[panel]
+    skip_init = skip_initial[panel]
     skip_mid = skip_middle[panel]
 
     for (batch_folder, batch_num) in data_folder
-        if batch_num != 3
-            continue
-        end
         for (run_folder, run_num) in batch_folder
+            if panel == :prop_rts && run_num > 5
+                skip_mid = 100
+            end
+
+            filename = "state_count_A.csv"
+            path = joinpath(run_folder, filename)
+            df = CSV.read(path, DataFrame; delim=", ")
+
+            state_count_A = df.value
+            magnetization = 2 .* (state_count_A ./ num_nodes) .- 1
+            magnetization = vcat(magnetization[1:skip_init],
+                                 magnetization[(skip_init + 1):skip_mid:end])
+
+            if batch_num == 3
+                append!(magnetization_data, magnetization[skip_init:end])
+            end
+
             for size in 2:max_size
-                filename = "hyperedge_count_$size.csv"
+                filename = "active_hyperedge_count_$size.csv"
                 path = joinpath(run_folder, filename)
                 df = CSV.read(path, DataFrame; delim=", ")
 
-                time = df.index
-                hyperedge_count = df.value
+                active_hyperedeges = df.value
+                active_density = active_hyperedeges ./ num_nodes
+                active_density = vcat(active_density[1:skip_init],
+                                      active_density[(skip_init + 1):skip_mid:end])
+
+                if batch_num == 3
+                    append!(density_data[size], active_density[skip_init:end])
+                end
 
                 linecolor = linecolors[size - 1]
                 label = "size $size"
 
                 # plot one trajectory in a darker color and with a label
-                if run_num == highlight_run[panel]
-                    lines!(ax, time, hyperedge_count; color=linecolor,
-                           label=label, linewidth=1.5)
+                if run_num == highlight_run[panel][batch_num]
+                    lines!(ax, magnetization, active_density; color=linecolor,
+                           label=label, linewidth=0.7)
                 else
-                    lines!(ax, time, hyperedge_count; color=(linecolor, 0.3),
-                           linewidth=1.5)
+                    lines!(ax, magnetization, active_density; color=(linecolor, 0.3),
+                           linewidth=0.7)
                 end
             end
         end
     end
 
-    xlims!(ax, (0, 100))
-    ylims!(ax, (0, 12400))
+    xlims!(ax, (-1, 1))
+    ylims!(ax, (0, 0.65))
+
+    if plot_fits
+        if panel != :maj_rts && panel != :maj_rtr
+            for size in 2:max_size
+                p, cov = fit_parabola(magnetization_data, density_data[size], false)
+                x = collect(-1:0.01:1)
+                lines!(ax, x, p.(x); color=:red, label="polynomial fit")
+            end
+        end
+    end
 end
 
 leg = Legend(fig[1, 2], axis[:prop_rtr]; merge=true, orientation=:vertical, labelsize=12)

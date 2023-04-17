@@ -9,7 +9,7 @@ include("figure_plotting_tools.jl")
 input_folder = joinpath(projectdir(),
                         "./final_data/run_2023-04-14_15-08-19_motifs_all_rules")
 
-title = "Total number of hyperedges"
+title = "Total number of motifs"
 
 num_nodes = 10000
 max_size = 4
@@ -17,13 +17,9 @@ hyperedge_colormap = :thermal
 linecolors = get(colorschemes[hyperedge_colormap], [1, 2.5, 3], (1, max_size))
 
 # show a prompt whether the figure should be saved
-prompt = true
+prompt = false
 
-filename = "./figures/hyperedge_dist_analytical.pdf"
-
-batch_labels = ["Prop., rewire-to-random", "Majority, rewire-to-random",
-                "Prop., rewire-to-same",
-                "Majority, rewire-to-same"]
+filename = "./figures/fig_2_motif_count.pdf"
 
 # ------------------------------------------------------
 # ======================================================

@@ -37,7 +37,7 @@ linecolors = get(colorschemes[hyperedge_colormap], [1, 2.5, 3], (1, max_size + 1
 
 prompt = true
 
-filename = "./figures/motifs_analytical.pdf"
+filename = "./figures/thesis/motifs_analytical.pdf"
 ylabel = "# of motifs"
 ylims = (0, 7000)
 yticks = 0:2000:8000
