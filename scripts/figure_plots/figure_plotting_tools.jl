@@ -27,8 +27,7 @@ tum_scheme = ColorScheme([TUM_accent_orange,
 screen_config = Dict(:pt_per_unit => 1)
 CairoMakie.activate!(; screen_config...)
 
-mytheme = Theme(; fontsize=15,
-                font="Latin Modern Roman")
+mytheme = Theme(; fontsize=15)
 set_theme!(mytheme)
 
 function fit_parabola(x, y, fixed_at_one::Bool=false)
@@ -119,4 +118,44 @@ function load_data(filename, run_folder)
     time = df.index
     value = df.value
     return (time, value)
+end
+
+"""
+Compute the maximum of two vectors element-wise, works for 
+vectors of different length. 
+
+# Example: 
+    julia> safe_max([1, 2, 3, 4], [43, 77, -1])
+    [43, 77, 3, 4]
+"""
+function safe_max(vector1, vector2)
+    l1 = length(vector1)
+    l2 = length(vector2)
+    if l1 == l2
+        return max.(vector1, vector2)
+    elseif l1 < l2
+        return vcat(max.(vector1, vector2[1:l1]), vector2[(l1 + 1):end])
+    else
+        return vcat(max.(vector1[1:l2], vector2), vector1[(l2 + 1):end])
+    end
+end
+
+"""
+Compute the minimum of two vectors element-wise, works for 
+vectors of different length. 
+
+# Example: 
+    julia> safe_min([1, 2, 3, 4], [43, 77, -1])
+    [1, 2, -1, 4]
+"""
+function safe_min(vector1, vector2)
+    l1 = length(vector1)
+    l2 = length(vector2)
+    if l1 == l2
+        return min.(vector1, vector2)
+    elseif l1 < l2
+        return vcat(min.(vector1, vector2[1:l1]), vector2[(l1 + 1):end])
+    else
+        return vcat(min.(vector1[1:l2], vector2), vector1[(l2 + 1):end])
+    end
 end
