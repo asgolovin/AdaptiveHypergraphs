@@ -7,9 +7,9 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 #input_folder = joinpath(projectdir(),
-#"final_data/#run_2023-02-06_21-50-23_prop_voting_rtr")
+#"data/thesis/#run_2023-02-06_21-50-23_prop_voting_rtr")
 input_folder = joinpath(projectdir(),
-                        "final_data/run_2023-02-23_17-46-21_slow_manifold_p08")
+                        "data/thesis/run_2023-02-23_17-46-21_slow_manifold_p08")
 
 title = "Slow manifold plot"
 

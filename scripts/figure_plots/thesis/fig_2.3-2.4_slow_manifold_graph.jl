@@ -4,9 +4,9 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 input_folder_rtr = joinpath(projectdir(),
-                            "final_data/run_2023-02-17_18-00-07_simple_graph_rtr")
+                            "data/thesis/run_2023-02-17_18-00-07_simple_graph_rtr")
 input_folder_rts = joinpath(projectdir(),
-                            "final_data/run_2023-02-17_18-00-08_simple_graph_rts")
+                            "data/thesis/run_2023-02-17_18-00-08_simple_graph_rts")
 
 num_nodes = 10000
 max_size = 4

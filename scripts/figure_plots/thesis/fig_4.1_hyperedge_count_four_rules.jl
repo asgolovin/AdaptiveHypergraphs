@@ -4,13 +4,13 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 folder_maj_rts = joinpath(projectdir(),
-                          "final_data/run_2023-02-06_14-54-33_maj_voting_rts")
+                          "data/thesis/run_2023-02-06_14-54-33_maj_voting_rts")
 folder_maj_rtr = joinpath(projectdir(),
-                          "final_data/run_2023-02-06_14-54-34_maj_voting_rtr")
+                          "data/thesis/run_2023-02-06_14-54-34_maj_voting_rtr")
 folder_prop_rts = joinpath(projectdir(),
-                           "final_data/run_2023-02-07_00-09-40_prop_voting_rts_merged")
+                           "data/thesis/run_2023-02-07_00-09-40_prop_voting_rts_merged")
 folder_prop_rtr = joinpath(projectdir(),
-                           "final_data/run_2023-02-06_21-50-23_prop_voting_rtr")
+                           "data/thesis/run_2023-02-06_21-50-23_prop_voting_rtr")
 
 panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 titles = Dict(:maj_rts => "Majority voting, rewire-to-same",
