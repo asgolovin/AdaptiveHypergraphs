@@ -7,7 +7,7 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 input_folder = joinpath(projectdir(),
-                        "final_data/run_2023-02-06_21-50-23_prop_voting_rtr")
+                        "data/thesis/run_2023-02-06_21-50-23_prop_voting_rtr")
 
 title = "Total number of hyperedges"
 

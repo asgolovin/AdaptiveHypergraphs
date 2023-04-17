@@ -12,7 +12,7 @@ const AH = AdaptiveHypergraphs
 # -------------------- INPUT ---------------------------
 
 input_folder = joinpath(projectdir(),
-                        "final_data/run_2023-03-12_16-02-12_motif_intersection_N_1e3")
+                        "data/thesis/run_2023-03-12_16-02-12_motif_intersection_N_1e3")
 data_folder = DataFolder(input_folder, :simulation)
 
 num_nodes = 1000

@@ -4,7 +4,7 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 input_folder = joinpath(projectdir(),
-                        "final_data/run_2023-02-25_16-12-33_maj_voting_rts_p01")
+                        "data/thesis/run_2023-02-25_16-12-33_maj_voting_rts_p01")
 
 panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 title = "Majority voting, rewire-to-same"

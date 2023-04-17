@@ -7,7 +7,7 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 input_folder = joinpath(projectdir(),
-                        "final_data/run_2023-02-23_13-32-26_motifs_D4")
+                        "data/thesis/run_2023-02-23_13-32-26_motifs_D4")
 data_folder = DataFolder(input_folder, :simulation)
 
 num_nodes = 10000
