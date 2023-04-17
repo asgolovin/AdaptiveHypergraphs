@@ -1,6 +1,4 @@
 /Manifest.toml
-videos
-plots
 *.pb.gz
 .vscode
 *.so
@@ -10,3 +8,4 @@ results
 final_data
 output
 figures
+sandbox
