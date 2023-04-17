@@ -1,11 +1,11 @@
 /Manifest.toml
+LocalPreferences.toml
 *.pb.gz
 .vscode
 *.so
 *.dll
-LocalPreferences.toml
 results
-final_data
 output
-figures
+figures/thesis
+data/thesis
 sandbox
