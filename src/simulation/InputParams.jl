@@ -23,8 +23,7 @@ end
     # Which propagation rule to use.
     propagation_rule::Union{PropagationRule,Vector{<:PropagationRule}} = MajorityVoting()
     # Maximum duration of the simulation in continuous time. 
-    #max_duration::Union{Float64,Vector{Float64}} = 100.
-    num_time_steps::Union{Int64,Vector{Int64}} = 500
+    max_duration::Union{Float64,Vector{Float64}} = 100.0
     # Probability that the adaptivity rule (and not the propagation rule) is executed in a given time step.
     # Only relevant if is_discrete = true
     adaptivity_prob::Union{Float64,Vector{Float64}} = 0.5
@@ -35,8 +34,7 @@ end
 end
 
 @with_kw mutable struct VisualizationParams
-    # Take measurements only every n-th time-step. If skip_points = 1, measurements are 
-    # taken every time step. 
+    # Take measurements only every n-th time-step. If skip_points = 1, measurements are collected at every time-step. 
     skip_points::Int64 = 1
     # Number of time-steps to simulate before the data is written to file or to the interactive visualization. 
     buffer_size::Int64 = 100

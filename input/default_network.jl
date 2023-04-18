@@ -10,7 +10,7 @@ params = InputParams(
     ),
     ModelParams(
         is_discrete = true,
-        num_time_steps = Int64(1e6),
+        max_duration = 100.,
         adaptivity_rule = RewireToSame(),
         propagation_rule = ProportionalVoting(),
         adaptivity_prob = 0.55

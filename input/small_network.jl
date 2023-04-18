@@ -9,7 +9,7 @@ params = InputParams(
         state_A_prob = 0.3
     ),
     ModelParams(
-        num_time_steps = 100,
+        max_duration = 100.0,
         adaptivity_prob = 0.2,
         adaptivity_rule = RewireToSame(),
         propagation_rule = MajorityVoting()

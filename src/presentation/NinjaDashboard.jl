@@ -65,17 +65,19 @@ end
 """
     run!(dashboard::AbstractDashboard, num_steps::Int64)
 
-Run the simulation for `num_steps` time steps or until the hypergraph runs out of active hyperedges.
+Run the simulation for the amount of time set by `duration` or until the hypergraph runs out of active hyperedges.
 """
-function run!(dashboard::AbstractDashboard, num_steps::Int64)
+function run!(dashboard::AbstractDashboard, duration::Float64)
     mo = dashboard.mo
+    i = mo.num_steps
+    active_lifetime = duration
 
-    active_lifetime = num_steps
-    for i in 1:num_steps
+    while mo.time <= duration
         step!(mo)
+        i += 1
         num_active_hyperedges = get_num_active_hyperedges(mo.network[])
 
-        # a hack to say that the type has to be Dashboard
+        # a hack to say that the type has to be Dashboard without mentioning the Dashboard
         if !(typeof(dashboard) <: NinjaDashboard)
             if i % mo.buffer_size == 0 || num_active_hyperedges == 0
                 for panel in dashboard.panels

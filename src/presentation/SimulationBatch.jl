@@ -93,9 +93,8 @@ function start_simulation(params::InputParams)
 
         if typeof(dashboard) <: Dashboard
             # compute a new analytical solution
-            duration = param.model_params.num_time_steps * 1.5 /
-                       sum(param.network_params.num_hyperedges)
-            tspan = (0.0, duration)
+            max_duration = param.model_params.max_duration
+            tspan = (0.0, max_duration)
             t_sol, u_sol = moment_expansion(param, tspan, moment_closure)
             set_solution(dashboard, t_sol, u_sol)
         end
@@ -121,7 +120,7 @@ function start_simulation(params::InputParams)
             model = _create_model(network, mparams)
             reset!(dashboard, model, run_folder)
 
-            run!(dashboard, mparams.num_time_steps)
+            run!(dashboard, mparams.max_duration)
             sleep(0.01)
         end
     end
