@@ -7,6 +7,6 @@ LocalPreferences.toml
 results
 output
 figures
-data
+data/*
 !data/*.tar.xz
 sandbox
