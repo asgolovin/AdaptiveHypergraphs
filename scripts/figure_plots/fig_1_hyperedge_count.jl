@@ -21,17 +21,15 @@ prompt = true
 
 filename = "./figures/fig_1_hyperedge_count.pdf"
 
-batch_labels = ["Prop., rewire-to-random", "Majority, rewire-to-random",
-                "Prop., rewire-to-same",
-                "Majority, rewire-to-same"]
+batch_labels = ["Prop. voting, rewire-to-random", "Majority voting, rewire-to-random",
+                "Prop. voting, rewire-to-same",
+                "Majority voting, rewire-to-same"]
 
 # ------------------------------------------------------
 # ======================================================
 
 # create figure
-size_inches = (3.40, 2.8)
-size_pt = 1.5 * 72 .* size_inches
-fig = Figure(; resolution=size_pt, figure_padding=(7.0, 10.0, 5.0, 5.0))
+fig = create_figure(:large, 2 / 1)
 subplots = fig[1, 1] = GridLayout()
 
 axes_matrix = []
@@ -39,19 +37,7 @@ axes_matrix = []
 for row in 1:2
     push!(axes_matrix, [])
     for col in 1:2
-        ax = Axis(subplots[row, col];
-                  titlesize=12,
-                  xticksize=3,
-                  yticksize=3,
-                  ylabelpadding=2,
-                  xticklabelsize=10,
-                  yticklabelsize=10,
-                  xticklabelspace=10.0,
-                  xticklabelsvisible=true,
-                  yticklabelsvisible=true,
-                  xlabelsize=12,
-                  ylabelsize=12,
-                  titlefont=:regular)
+        ax = Axis(subplots[row, col])
         ax.xticks = 0:20:100
         ax.yticks = 0:2500:12000
         if row == 1
@@ -100,14 +86,14 @@ for (batch_folder, batch_num) in data_folder
     for size in 2:max_size
         band!(axes_matrix[row][col], time, num_hyperedges_min[size],
               num_hyperedges_max[size];
-              color=(linecolors[size - 1], 0.3), label="simulation")
+              color=(linecolors[size - 1], 0.5), label="simulation")
     end
 
     xlims!(axes_matrix[row][col], (0, 100))
     ylims!(axes_matrix[row][col], (0, 12400))
 
     # find the analytical solution
-    params = load_params(joinpath(input_folder, "batch_003", "input_params.json"))
+    params = load_params(joinpath(batch_folder.folder, "input_params.json"))
     tspan = (0.0, 100.0)
     t, sol = moment_expansion(params, tspan, moment_closure)
     total_hyperedges_analytical = Dict(s => zero(t) for s in 2:max_size)
@@ -132,22 +118,17 @@ colors = [PolyElement(; color=linecolors[i]) for i in 1:(max_size - 1)]
 plot_type_labels = ["mean-field", "simulation"]
 color_labels = ["size $size" for size in 2:max_size]
 
-"""
-leg = Legend(fig[2, 1],
+leg = Legend(fig[1, 2],
              [plot_types, colors],
              [plot_type_labels, color_labels],
-             ["Line type:", "Color:"];
-             orientation=:horizontal,
-             labelsize=12,
-             titlesize=12,
-             titlefont="Latin Modern Roman Bold")
+             ["Plot type:", "Color:"];
+             labelsize=10,
+             titlesize=12)
 leg.gridshalign = :left
 leg.gridsvalign = :top
-leg.nbanks = 3
-"""
 
 display(fig)
 
 if prompt
-    prompt_for_save(filename, fig; pt_per_unit=0.666)
+    prompt_for_save(filename, fig)
 end

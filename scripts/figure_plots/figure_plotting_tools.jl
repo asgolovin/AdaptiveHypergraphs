@@ -7,25 +7,7 @@ using Polynomials
 using DrWatson
 using REPL.TerminalMenus
 
-TUM_primary_blue = colorant"#0065BD"
-TUM_secondary_light_blue = colorant"#005293"
-TUM_secondary_dark_blue = colorant"#003359"
-TUM_secondary_dark_gray = colorant"#333333"
-TUM_secondary_medium_gray = colorant"#808080"
-TUM_secondary_light_gray = colorant"#CCCCC6"
-TUM_accent_gray = colorant"#DAD7CB"
-TUM_accent_orange = colorant"#E37222"
-TUM_accent_green = colorant"#A2AD00"
-TUM_accent_very_light_blue = colorant"#98C6EA"
-TUM_accent_light_blue = colorant"#64A0C8"
-
-tum_scheme = ColorScheme([TUM_accent_orange,
-                          TUM_accent_green,
-                          TUM_accent_light_blue,
-                          TUM_secondary_light_gray])
-
-screen_config = Dict(:pt_per_unit => 1)
-CairoMakie.activate!(; screen_config...)
+CairoMakie.activate!()
 
 mytheme = Theme(;
                 Axis=(titlesize=12,
@@ -40,6 +22,18 @@ mytheme = Theme(;
                       xlabelsize=12,
                       ylabelsize=12))
 set_theme!(mytheme)
+
+function create_figure(size::Symbol, aspect_ratio::Float64=4 / 3)
+    if size == :small
+        width = 3.34
+    elseif size == :large
+        width = 7.0
+    end
+    size_inches = (width, width / aspect_ratio)
+    size_units = 72 / 0.75 .* size_inches
+    fig = Figure(; resolution=size_units, figure_padding=(7.0, 10.0, 5.0, 5.0))
+    return fig
+end
 
 function fit_parabola(x, y, fixed_at_one::Bool=false)
     if fixed_at_one
@@ -112,14 +106,14 @@ function Base.iterate(f::DataFolder, state)
     return (result, state)
 end
 
-function prompt_for_save(filename, fig; pt_per_unit=0.666)
+function prompt_for_save(filename, fig;)
     ans = Base.prompt("Press space and then twice Enter")
     options = ["no", "yes"]
     menu = RadioMenu(options)
 
     choice = request("Save the figure to file $filename?", menu)
     if choice == 2
-        save(filename, fig; pt_per_unit)
+        save(filename, fig)
     end
 end
 
