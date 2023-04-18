@@ -6,40 +6,99 @@ export InputParams, NetworkParams, ModelParams, VisualizationParams, BatchParams
        load_params
 
 @with_kw mutable struct NetworkParams
+    # Number of nodes in the hypergraph
     num_nodes::Union{Int64,Vector{Int64}} = 100
+    # Probability that a given node is in state A
     state_A_prob::Union{Float64,Vector{Float64}} = 0.5
+    # Number of hyperedges of every size in the hypergraph. For example, (100, 10) means that there 
+    # are 100 hyperedges of size 2 and 10 of size 3.
     num_hyperedges::Union{Tuple,Vector{<:Tuple}} = (100, 10)
 end
 
 @with_kw mutable struct ModelParams
+    # True if the model is solved in discrete time, false if in continuous.
     is_discrete::Union{Bool,Vector{Bool}} = true
+    # Which adaptivity rule to use.
     adaptivity_rule::Union{AdaptivityRule,Vector{<:AdaptivityRule}} = RewireToRandom()
+    # Which propagation rule to use.
     propagation_rule::Union{PropagationRule,Vector{<:PropagationRule}} = MajorityVoting()
+    # Maximum duration of the simulation in continuous time. 
+    #max_duration::Union{Float64,Vector{Float64}} = 100.
     num_time_steps::Union{Int64,Vector{Int64}} = 500
+    # Probability that the adaptivity rule (and not the propagation rule) is executed in a given time step.
+    # Only relevant if is_discrete = true
     adaptivity_prob::Union{Float64,Vector{Float64}} = 0.5
-    propagation_rate::Union{Float64,Vector{Float64}} = 1.0
+    # The rate of the adaptivity events. Only relevant if is_discrete = false.
     adaptivity_rate::Union{Float64,Vector{Float64}} = 1.0
+    # The rate of the propagation events. Only relevant if is_discrete = false.
+    propagation_rate::Union{Float64,Vector{Float64}} = 1.0
 end
 
 @with_kw mutable struct VisualizationParams
+    # Take measurements only every n-th time-step. If skip_points = 1, measurements are 
+    # taken every time step. 
     skip_points::Int64 = 1
+    # Number of time-steps to simulate before the data is written to file or to the interactive visualization. 
     buffer_size::Int64 = 100
+    # The colormap used to plot the states of nodes
     node_colormap::Symbol = :RdYlGn_6
+    # The colormap used to plot hyperedges of different sizes
     hyperedge_colormap::Symbol = :thermal
+    # The colormap used for any other plots
     misc_colormap::Symbol = :Dark2_3
+    # Which panels (or subplots) to display in the interactive visualization. This parameter also determines 
+    # which measurements will be collected. Some measurements like the number of motifs are expensive to 
+    # collect, so if a measurement is not required by any of the panels, it will not be measured. 
+    # Therefore, this parameter is relevant even if the simulation is executed in parallel with MPI 
+    # without an interactive visualization. 
+    # A map with dependencies of panels on measurements can be found in the file NinjaDashboard.jl.
+    # Has to be a symbol with the same name as an AbstractPanel struct. 
     panels::Vector{Symbol} = [:StateCount, :HyperedgeCount, :ActiveHyperedgeCount]
 end
 
 @with_kw mutable struct BatchParams
+    # If true, a video of the evolution of the dashboard is recorded
     record_video::Bool = false
+    # How often to repeat a simulation at the same parameters to collect different stochastic
+    # realizations of the trajectory. 
     batch_size::Int64 = 10
-    # turns on a prompt if the data should be saved. The prompt is a bit annoying, 
-    # so it can be turned off completely with this option. 
+    # If true, a prompt will be shown asking if the data should be saved to a file. If false, the data *will not* 
+    # be saved if the simulation is execited without MPI and it *will always* be saved if the 
+    # simulation is executed in parallel with MPI. 
     prompt_for_save::Bool = false
+    # A tag which is appended to the name of the save folder
     save_tag::Union{String,Nothing} = nothing
+    # If true, the simulation will be execited non-interactively (without a life visualization) with MPI support. 
+    # To actually run the simulation in parallel, you have to jun the main.jl script with mpirun or mpiexec *and* set 
+    # with_mpi = true. 
     with_mpi::Bool = false
 end
 
+"""
+    InputParams
+
+The parameters of the simulation. See the file ./simulation/InputParams.jl for the 
+documentation of individual settings. Default values are provided for all settings. 
+
+Every network and model parameter allows to pass a vector of values instead of a single 
+value. In this case, simulations are executed for every value in the vector. It is possible 
+to vectorize several parameters - in this case, a Cartesian product of all sets is taken. 
+
+# Examples
+    InputParams(
+        NetworkParams(num_nodes = 42),
+        ModelParams(adaptivity_prob = 0.1)
+    )
+
+This creates a network with 42 nodes and adaptivity_prob = 0.1. All other parameters 
+like the number of hyperedges, initial magnetization, visualization and batch parameters are set to default values. 
+
+    InputParams(
+        ModelParams(adaptivity_prob = [0.25, 0.5, 0.75])
+    )
+
+This executes three batches of the simulation, one for each value of adaptivity_prob. 
+"""
 @with_kw struct InputParams
     network_params::NetworkParams = NetworkParams()
     model_params::ModelParams = ModelParams()
@@ -64,7 +123,8 @@ The function produces a list of params with a Cartesian product of both sets:
 {{1, "a"}, {2, "a"}, {3, "a"}, {1, "b"}, {2, "b"}, {3, "b"}}. Non-vectored params are left unchanged. 
 
 For a param to be expanded, it has to have type Vector; other iterables are not supported. 
-Furthermore, only vectors in NetworkParams and ModelParams are supported, since it doesn't make much sense to change visualization and batch params between batches.
+Furthermore, only vectors in NetworkParams and ModelParams are supported, since it doesn't make much sense 
+to change visualization and batch params between batches.
 """
 function expand(params::InputParams)
     vparams, bparams = params.visualization_params, params.batch_params
