@@ -200,6 +200,10 @@ function load_params(path::String)
     nparams = NetworkParams(; njson...)
 
     mjson = Dict(json.model_params)
+    if :num_time_steps in keys(mjson)
+        mjson[:max_duration] = mjson[:num_time_steps] / sum(nparams.num_hyperedges)
+        delete!(mjson, :num_time_steps)
+    end
     mjson[:adaptivity_rule] = eval(Symbol(mjson[:adaptivity_rule]))()
     mjson[:propagation_rule] = eval(Symbol(mjson[:propagation_rule]))()
     mjson[:adaptivity_rate] = Float64(mjson[:adaptivity_rate])
