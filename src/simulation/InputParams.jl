@@ -51,7 +51,10 @@ end
     # without an interactive visualization. 
     # A map with dependencies of panels on measurements can be found in the file NinjaDashboard.jl.
     # Has to be a symbol with the same name as an AbstractPanel struct. 
-    panels::Vector{Symbol} = [:StateCount, :HyperedgeCount, :ActiveHyperedgeCount]
+    panels::Vector{Symbol} = [:StateDistPanel,
+                              :HyperedgeDistPanel,
+                              :ActiveHyperedgeDistPanel,
+                              :SlowManifoldPanel]
 end
 
 @with_kw mutable struct BatchParams
