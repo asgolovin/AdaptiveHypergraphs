@@ -453,8 +453,15 @@ function get_nodes(network::HyperNetwork, hyperedge::Int64)
     return collect(keys(filter(d -> d.second, getvertices(network.hg, mid))))
 end
 
+"""
+    get_hyperedges(network::HyperNetwork)
+
+Return the UIDs of hyperedges. 
+
+WARNING: for performance reasons, this function does not copy the vector of UIDs. The vector should not be modified outside of the function!
+"""
 function get_hyperedges(network::HyperNetwork)
-    return copy(network.hyperedge_uid)
+    return network.hyperedge_uid
 end
 
 function get_hyperedges(network::HyperNetwork, node::Int64)

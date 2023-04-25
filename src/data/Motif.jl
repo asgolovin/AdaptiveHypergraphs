@@ -57,7 +57,7 @@ The motifs of order zero and one are ordered like [A], [B], [A2], [AB], [B2], [A
 function index(motif::OrderOneMotif)
     motif_size = size(motif)
     # the index at which the motifs of size `motif_size` start
-    offset = sum([s for s in 2:motif_size]) + 1
+    offset = ((1 + motif_size) * motif_size) ÷ 2
     return offset + motif.B
 end
 
