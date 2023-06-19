@@ -4,10 +4,9 @@ include("./interactive_plotting_tools.jl")
 # -------------------------- INPUT ----------------------------
 
 input_folder = joinpath(projectdir(),
-                        "results/run_2023-03-12_11-58-37_intersection_N_1e3")
+                        "data/run_2023-04-24_14-46-47_maj_voting_rts")
 
-panel_symbols = [:StateDistPanel, :FirstOrderMotifCountPanel, :SecondOrderMotifCountPanel,
-                 :ActiveHyperedgeDistPanel]
+panel_symbols = [:StateDistPanel, :ActiveHyperedgeDistPanel, :SlowManifoldPanel]
 
 skip_points = 10
 
@@ -24,6 +23,12 @@ for batchdir in readdir(input_folder; join=true)
         continue
     end
     batch_num = parse(Int64, match(r"batch_([0-9]+)", batchdir)[1])
+    if batch_num != 10
+        continue
+    end
+
+    input_params = load_params(joinpath(batchdir, "input_params.json"))
+    @show input_params.model_params.adaptivity_prob
 
     for rundir in readdir(batchdir; join=true)
         if !isdir(rundir)

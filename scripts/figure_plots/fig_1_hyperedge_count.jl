@@ -7,23 +7,35 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 input_folder = joinpath(projectdir(),
-                        "./data/run_2023-04-18_11-09-04_motifs_all_rules")
-
-title = "Total number of hyperedges"
+                        "results/run_2023-06-16_10-40-16_motifs_maj")
 
 num_nodes = 10000
 max_size = 4
-hyperedge_colormap = :thermal
-linecolors = get(colorschemes[hyperedge_colormap], [1, 2.5, 3], (1, max_size))
+linecolors = hyperedge_linecolors(max_size)
 
 # show a prompt whether the figure should be saved
-prompt = true
+prompt = false
 
 filename = "./figures/fig_1_hyperedge_count.pdf"
 
-batch_labels = ["Prop. voting, rewire-to-random", "Majority voting, rewire-to-random",
-                "Prop. voting, rewire-to-same",
-                "Majority voting, rewire-to-same"]
+panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
+
+titles = Dict(:maj_rts => "Majority voting, rewire-to-same",
+              :maj_rtr => "Majority voting, rewire-to-random",
+              :prop_rts => "Prop. voting, rewire-to-same",
+              :prop_rtr => "Prop. voting, rewire-to-random")
+
+batch_to_panel = Dict(1 => :prop_rtr,
+                      2 => :maj_rtr,
+                      3 => :prop_rts,
+                      4 => :maj_rts)
+
+xlabel = L"$t$"
+ylabel = L"$\mathbf{M}(t)$"
+xticks = 0:20:100
+yticks = 0:2500:12000
+xlims = (0.0, 100.0)
+ylims = (0, 12400)
 
 # ------------------------------------------------------
 # ======================================================
@@ -32,46 +44,21 @@ batch_labels = ["Prop. voting, rewire-to-random", "Majority voting, rewire-to-ra
 fig = create_figure(:large, 2 / 1)
 subplots = fig[1, 1] = GridLayout()
 
-axes_matrix = []
-
-for row in 1:2
-    push!(axes_matrix, [])
-    for col in 1:2
-        ax = Axis(subplots[row, col])
-        ax.xticks = 0:20:100
-        ax.yticks = 0:2500:12000
-        if row == 1
-            ax.xticksvisible = false
-            ax.xticklabelsvisible = false
-        else
-            ax.xlabel = L"$t$"
-        end
-        if col == 2
-            ax.yticksvisible = false
-            ax.yticklabelsvisible = false
-        else
-            ax.ylabel = L"$\mathbf{M}(t)$"
-        end
-
-        push!(axes_matrix[row], ax)
-    end
-end
-
-colgap!(subplots, 15)
-rowgap!(subplots, 15)
+axes_matrix = add_four_rules_axes!(subplots, titles,
+                                   xlabel, ylabel,
+                                   xticks, yticks,
+                                   xlims, ylims)
 
 data_folder = DataFolder(input_folder, :simulation)
 
 for (batch_folder, batch_num) in data_folder
-    row = (batch_num + 1) ÷ 2
-    col = mod1(batch_num, 2)
-
-    axes_matrix[row][col].title = batch_labels[batch_num]
+    panel = batch_to_panel[batch_num]
 
     num_hyperedges_max = Dict(size => Float64[] for size in 2:max_size)
     num_hyperedges_min = Dict(size => Float64[] for size in 2:max_size)
     time = Float64[]
 
+    # accumulate maximum and minimum number of hyperedges
     for (run_folder, run_num) in batch_folder
         for size in 2:max_size
             indices, values = load_data("hyperedge_count_$size.csv", run_folder)
@@ -83,18 +70,16 @@ for (batch_folder, batch_num) in data_folder
         end
     end
 
+    # draw the simulation results
     for size in 2:max_size
-        band!(axes_matrix[row][col], time, num_hyperedges_min[size],
+        band!(axes_matrix[panel], time, num_hyperedges_min[size],
               num_hyperedges_max[size];
-              color=(linecolors[size - 1], 0.5), label="simulation")
+              color=(linecolors[size - 1], 0.5))
     end
-
-    xlims!(axes_matrix[row][col], (0, 100))
-    ylims!(axes_matrix[row][col], (0, 12400))
 
     # find the analytical solution
     params = load_params(joinpath(batch_folder.folder, "input_params.json"))
-    tspan = (0.0, 100.0)
+    tspan = xlims
     t, sol = moment_expansion(params, tspan, moment_closure)
     total_hyperedges_analytical = Dict(s => zero(t) for s in 2:max_size)
     for motif in all_motifs(max_size)
@@ -105,13 +90,15 @@ for (batch_folder, batch_num) in data_folder
         total_hyperedges_analytical[size] .+= sol[motif]
     end
 
+    # draw the analytical solution
     for size in 2:max_size
-        lines!(axes_matrix[row][col], t, total_hyperedges_analytical[size];
+        lines!(axes_matrix[panel], t, total_hyperedges_analytical[size];
                color=linecolors[size - 1],
-               linewidth=1.7, linestyle=:dash, label="mean-field, size $size")
+               linewidth=1.7, linestyle=:dash)
     end
 end
 
+# draw the legend
 plot_types = [LineElement(; color=linecolors[1], linewidth=1.7, linestyle=:dash),
               PolyElement(; color=(linecolors[1], 0.3))]
 colors = [PolyElement(; color=linecolors[i]) for i in 1:(max_size - 1)]
@@ -121,9 +108,7 @@ color_labels = ["size $size" for size in 2:max_size]
 leg = Legend(fig[1, 2],
              [plot_types, colors],
              [plot_type_labels, color_labels],
-             ["Plot type:", "Color:"];
-             labelsize=10,
-             titlesize=12)
+             ["Plot type:", "Color:"])
 leg.gridshalign = :left
 leg.gridsvalign = :top
 

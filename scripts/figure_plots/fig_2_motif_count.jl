@@ -7,17 +7,14 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 input_folder = joinpath(projectdir(),
-                        "./data/run_2023-04-14_15-08-19_motifs_all_rules")
-
-title = "Total number of motifs"
-
-motifs = filter(x -> typeof(x) <: OrderOneMotif, all_motifs(max_size))
+                        "results/run_2023-06-16_10-40-16_motifs_maj")
 
 num_nodes = 10000
 max_size = 4
-hyperedge_colormap = :thermal
 node_colormap = :RdYlGn_6
-#linecolors = get(colorschemes[hyperedge_colormap], [1, 2.5, 3], (1, max_size))
+
+motifs = filter(x -> typeof(x) <: OrderOneMotif, all_motifs(max_size))
+
 colorscheme = colorschemes[node_colormap]
 linecolors = Dict()
 for (i, motif) in enumerate(motifs)
@@ -26,17 +23,29 @@ for (i, motif) in enumerate(motifs)
 end
 
 # show a prompt whether the figure should be saved
-prompt = true
+prompt = false
 
 filename = "./figures/fig_2_motif_count.pdf"
 
-batch_labels = ["Prop. voting,\n rewire-to-random", "Majority voting,\n rewire-to-random",
-                "Prop. voting,\n rewire-to-same",
-                "Majority voting,\n rewire-to-same"]
+panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 
+titles = Dict(:maj_rts => "Majority voting,\nrewire-to-same",
+              :maj_rtr => "Majority voting,\nrewire-to-random",
+              :prop_rts => "Prop. voting,\nrewire-to-same",
+              :prop_rtr => "Prop. voting,\nrewire-to-random")
+
+batch_to_panel = Dict(1 => :prop_rtr,
+                      2 => :maj_rtr,
+                      3 => :prop_rts,
+                      4 => :maj_rts)
+
+xlabel = L"$t$"
+ylabel = "Number of motifs"
+xticks = 0:20:100
+xlims = (0.0, 100.0)
 # every row has its own ymax and ticks
-ymax = [11000, 5000, 1500]
-yticks = [0:3000:11000, 0:2000:6000, 0:500:1500]
+ymax = [14000, 5500, 2000]
+yticks = [0:3000:14000, 0:2000:6000, 0:500:2000]
 
 # ------------------------------------------------------
 # ======================================================
@@ -45,41 +54,44 @@ yticks = [0:3000:11000, 0:2000:6000, 0:500:1500]
 fig = create_figure(:large, 4 / 3)
 subplots = fig[1, 1] = GridLayout()
 
-axes_matrix = []
+axes_matrix = Dict(panel => [] for panel in panels)
 
-for row in 1:3
-    push!(axes_matrix, [])
-    for col in 1:4
-        ax = Axis(subplots[row, col])
-        ax.xticks = 0:20:100
+for (col, panel) in enumerate(panels)
+    for row in 1:(max_size - 1)
+        local ax = Axis(subplots[row, col])
+        ax.xticks = xticks
         ax.yticks = yticks[row]
+        xlims!(ax, xlims)
+        ylims!(ax, (-0.03 * ymax[row], ymax[row]))
         if row != 3
             ax.xticksvisible = false
             ax.xticklabelsvisible = false
         else
-            ax.xlabel = L"$t$"
+            ax.xlabel = xlabel
         end
         if col != 1
             ax.yticksvisible = false
             ax.yticklabelsvisible = false
         else
-            ax.ylabel = L"$\mathbf{M}(t)$"
+            ax.ylabel = ylabel
         end
 
-        push!(axes_matrix[row], ax)
+        push!(axes_matrix[panel], ax)
     end
 end
 
 data_folder = DataFolder(input_folder, :simulation)
 
 for (batch_folder, batch_num) in data_folder
-    col = batch_num
-    axes_matrix[1][col].title = batch_labels[batch_num]
+    panel = batch_to_panel[batch_num]
+
+    axes_matrix[panel][1].title = titles[panel]
 
     num_motifs_max = Dict(motif => Float64[] for motif in motifs)
     num_motifs_min = Dict(motif => Float64[] for motif in motifs)
     time = Float64[]
 
+    # accumulate the maximum and minimum number of motifs
     for (run_folder, run_num) in batch_folder
         for motif in motifs
             indices, values = load_data("motif_count_$motif.csv", run_folder)
@@ -91,28 +103,28 @@ for (batch_folder, batch_num) in data_folder
         end
     end
 
+    # plot the motifs
     for s in 2:max_size
         row = s - 1
         for motif in filter(x -> size(x) == s, motifs)
-            band!(axes_matrix[row][col], time, num_motifs_min[motif],
+            band!(axes_matrix[panel][row], time, num_motifs_min[motif],
                   num_motifs_max[motif];
-                  color=(linecolors[motif], 0.5), label="simulation")
+                  color=(linecolors[motif], 0.5))
         end
-        xlims!(axes_matrix[row][col], (0, 100))
-        ylims!(axes_matrix[row][col], (-0.03 * ymax[row], ymax[row]))
     end
 
     # find the analytical solution
     params = load_params(joinpath(batch_folder.folder, "input_params.json"))
-    tspan = (0.0, 100.0)
+    tspan = xlims
     t, sol = moment_expansion(params, tspan, moment_closure)
 
+    # plot the analytical solution
     for s in 2:max_size
         row = s - 1
         for motif in filter(x -> size(x) == s, motifs)
-            lines!(axes_matrix[row][col], t, sol[motif];
+            lines!(axes_matrix[panel][row], t, sol[motif];
                    color=linecolors[motif],
-                   linewidth=1.7, linestyle=:dash, label="$motif")
+                   linewidth=1.7, linestyle=:dash)
         end
     end
 end
@@ -120,18 +132,24 @@ end
 # plot the legends for every row
 for s in 2:max_size
     row = s - 1
-    colors = [PolyElement(; color=linecolors[motif])
-              for motif in filter(x -> size(x) == s, motifs)]
-    color_labels = ["$motif" for motif in filter(x -> size(x) == s, motifs)]
-    color_labels = [rpad(label, 10, " ") for label in color_labels]
+    local colors = [PolyElement(; color=linecolors[motif])
+                    for motif in filter(x -> size(x) == s, motifs)]
 
-    leg = Legend(subplots[row, 5],
-                 colors,
-                 color_labels;
-                 orientation=:vertical,
-                 labelsize=10,
-                 titlesize=12,
-                 width=80)
+    local color_labels = ["$motif" for motif in filter(x -> size(x) == s, motifs)]
+    # replace the numbers by superscripts and add a tiny space ("hair space") after the superscripts
+    color_labels = [replace(motif, "2" => "² ", "3" => "³ ", "4" => "⁴ ", " " => " ")
+                    for motif in color_labels]
+    # replace double hair space by a single hair space
+    color_labels = [replace(motif, "  " => " ")
+                    for motif in color_labels]
+
+    local leg = Legend(subplots[row, 5],
+                       colors,
+                       color_labels;
+                       orientation=:vertical,
+                       labelsize=10,
+                       titlesize=12,
+                       width=80)
 end
 
 colgap!(subplots, 15)

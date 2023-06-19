@@ -5,9 +5,7 @@ using DataFrames
 
 using AdaptiveHypergraphs
 
-screen_config = Dict(:pt_per_unit => 1)
-
-#CairoMakie.activate!(; screen_config...)
+GLMakie.activate!()
 
 Label = AdaptiveHypergraphs.Label
 
