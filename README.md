@@ -30,7 +30,13 @@ where the version number in the brackets can be different depending on your Juli
 
 Now, execute the `instantiate` command (you don't need to press `]` again if you are still in the Pkg prompt) to install the packages. Once everything is installed, press backspace or Ctrl-C to exit Pkg and return to the Julia REPL. 
 
-Everything should be installed now and you should be ready to go. 
+If the instantiation progress throws any errors from the `PyCall` package, try setting the `PYTHON` environment variable to an empty string in your Julia REPL:
+
+```
+ENV["PYTHON"] = ""
+```
+
+And call `instantiate` again. 
 
 ## Reproducing the figures
 
