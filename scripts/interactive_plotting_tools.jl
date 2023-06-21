@@ -1,6 +1,8 @@
 using CairoMakie
 using DrWatson
 using CSV
+using Colors
+using ColorSchemes
 using DataFrames
 
 using AdaptiveHypergraphs
@@ -18,6 +20,12 @@ Label = AdaptiveHypergraphs.Label
 # | | | ...
 # | | run_002
 # | | <run_measurement_name>_<label>.csv
+
+hyperedge_colormap = :thermal
+function hyperedge_linecolors(max_size)
+    return get(colorschemes[hyperedge_colormap], [1, 2.5, 3],
+               (1, max_size))
+end
 
 """
 Create a vector of empty measurements of a specific type
@@ -80,9 +88,9 @@ function load_meas(folder, measurements::Vector)
 end
 
 function create_fig(panel_symbols)
-    size_inches = (3, 2)
-    size_pt = 2 .* 72 .* size_inches
-    fig = Figure(; resolution=size_pt, fontsize=10)
+    size_inches = (10, 6)
+    size_pt = 72 .* size_inches
+    fig = Figure(; resolution=size_pt, fontsize=16)
 
     num_axes = length(panel_symbols)
     nrows = Int64(floor(sqrt(num_axes)))

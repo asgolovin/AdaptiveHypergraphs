@@ -1,3 +1,0 @@
-fig 9: first compute the height of the parabola at m0 = 0
-fig 10: throw out every fourth point in the parabola computation
-fig 11: use abs of mean magnetization instead of mean of abs

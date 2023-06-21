@@ -23,7 +23,7 @@ for batchdir in readdir(input_folder; join=true)
         continue
     end
     batch_num = parse(Int64, match(r"batch_([0-9]+)", batchdir)[1])
-    if batch_num != 10
+    if batch_num != 17
         continue
     end
 

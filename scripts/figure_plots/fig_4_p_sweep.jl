@@ -8,7 +8,7 @@ include("figure_plotting_tools.jl")
 # ======================================================
 # -------------------- INPUT ---------------------------
 
-draw_error_bars = false
+draw_error_bars = true
 
 folder_maj_rts = joinpath(projectdir(),
                           "data/run_2023-04-24_14-46-47_maj_voting_rts")
@@ -22,8 +22,8 @@ folder_prop_rtr = joinpath(projectdir(),
 panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 titles = Dict(:maj_rts => "Majority voting,\nrewire-to-same",
               :maj_rtr => "Majority voting,\nrewire-to-random",
-              :prop_rts => "Proportional voting,\nrewire-to-same",
-              :prop_rtr => "Proportional voting,\nrewire-to-random")
+              :prop_rts => "Proportional voting\nrewire-to-same",
+              :prop_rtr => "Proportional voting\nrewire-to-random")
 
 input_folders = Dict(:maj_rts => folder_maj_rts,
                      :maj_rtr => folder_maj_rtr,
@@ -32,162 +32,268 @@ input_folders = Dict(:maj_rts => folder_maj_rts,
 
 num_nodes = 10000
 max_size = 4
-hyperedge_colormap = :thermal
-linecolors = get(colorschemes[hyperedge_colormap], [1, 2.5, 3], (1, max_size))
+linecolors = hyperedge_linecolors(max_size)
 
 prompt = false
 
-# remove first seconds of the simulation
-initial_cutoff = 30
+# number of active hyperedges below which the simulation counts as converged
+converged_threshold = 10
 
 filename = "./figures/fig_4_p_sweep.pdf"
 
 xlabel = L"$p$"
-ylabel = L"$\rho_i$"
+ylabel = L"$|m(t \rightarrow \infty)|$"
 xticks = 0:0.2:1
 yticks = 0:0.2:1
 xlims = (-0.02, 1.02)
-ylims = (nothing, 0.5)
+ylims = (-0.02, 1.2)
 
 max_Δp = 1
-max_Δh = 0.15
+max_Δm = 0.06
 
-cache_file = "./analytical_stable_points.csv"
+cache_file = "scripts/figure_plots/cache/analytical_stable_points"
 
 # ------------------------------------------------------
 # ======================================================
 
-function sim_parabola_height(batch_folder)
-    # Collect data from all runs, then fit a parabola to all the data
-    magnetization_all_runs = Float64[]
-    active_hyperedges_all_runs = Dict(s => Float64[] for s in 2:max_size)
-
+"""
+Compute the absolute magnetization in the absorbing state 
+from the simulated data
+"""
+function simulated_abs_magnetization(batch_folder)
+    # first, collect the final magnetization for each run separately, then take the 
+    # average across all runs
+    magnetization = Float64[]
     params = load_params(joinpath(batch_folder.folder, "input_params.json"))
     p = params.model_params.adaptivity_prob
 
     for (run_folder, _) in batch_folder
-        indices, state_count_A = load_data("state_count_A.csv", run_folder)
+        # check if the simulation has converged (number of acitve hyperedges is close to 0)
+        _, values = load_data("active_hyperedge_count_2.csv", run_folder)
+        if values[end] > converged_threshold
+            continue
+        end
+
+        _, state_count_A = load_data("state_count_A.csv", run_folder)
         mag = 2 .* state_count_A ./ num_nodes .- 1
-
-        mask = indices .> initial_cutoff
-        # filter out all values which lie in the center
-        roots = abs(mag[end])
-        mask = mask .| (abs.(mag) .> roots * 0.8)
-
-        # if there are too few data points, take only the last value
-        if sum(mask) < 10
-            mask = fill(false, length(mag))
-            mask[end] = true
-        end
-        append!(magnetization_all_runs, mag[mask])
-
-        for size in 2:max_size
-            _, active_hyperedges = load_data("active_hyperedge_count_$size.csv", run_folder)
-            active_hyperedges = Vector{Float64}(active_hyperedges)
-            active_hyperedges ./= num_nodes
-            append!(active_hyperedges_all_runs[size], active_hyperedges[mask])
-        end
+        append!(magnetization, abs(mag[end]))
     end
 
-    height_by_size = Dict(s => 0.0 for s in 2:max_size)
-    height_error = Dict(s => 0.0 for s in 2:max_size)
-
-    for size in 2:max_size
-        parabola, cov = fit_parabola(magnetization_all_runs,
-                                     active_hyperedges_all_runs[size])
-        height_by_size[size] = parabola(0.0)
-        height_error[size] = sqrt(cov[1, 1])
-    end
-    return p, height_by_size, height_error
+    return p, mean(magnetization), std(magnetization)
 end
 
-function analytical_parabola_height(params)
+"""
+Compute the analytical stable point in the (ρ, m)-coordinates 
+(active hyperedge density and magnetization). 
+"""
+function analytical_stable_point(params)
     tspan = (0.0, 200.0)
-    params.network_params.state_A_prob = 0.5
     num_nodes = params.network_params.num_nodes
 
-    function compute_parabola_height(p)
-        params.model_params.adaptivity_prob = p
-        params.network_params.state_A_prob = 0.5
-        t, sol = moment_expansion(params, tspan, moment_closure)
+    t, sol = moment_expansion(params, tspan, moment_closure)
 
-        height_by_size = Dict(s => 0.0 for s in 2:max_size)
-        for a in 1:(max_size - 1), b in 1:(max_size - a)
-            active_hyperedges = sol[OrderOneMotif(a, b)][end]
-            active_hyperedges /= num_nodes
-            height_by_size[a + b] += active_hyperedges
+    num_A_nodes = sol[OrderZeroMotif(AH.A)][end]
+    mag = 2 * num_A_nodes / num_nodes - 1
+
+    # get the total number of active hyperedges
+    active_hyperedges = 0
+    for a in 1:(max_size - 1), b in 1:(max_size - a)
+        active_hyperedges += sol[OrderOneMotif(a, b)][end]
+    end
+
+    mag = 2 * num_A_nodes / num_nodes - 1
+    active_hyperedge_density = active_hyperedges / num_nodes
+
+    return active_hyperedge_density, mag
+end
+
+"""
+Compute the absolute magnetization in the absorbing state analytically
+for majority voting.
+    
+Here, we just let the system evolve until it reaches an absorbing stable state. 
+"""
+function analytical_abs_magnetization_maj(params)
+    params.network_params.state_A_prob = 0.5001
+
+    cached_values = Dict{Float64,Float64}()
+    prop_rule = typeof(params.model_params.adaptivity_rule) <: RewireToRandom ? "rtr" :
+                "rts"
+    cache_file_local = "$(cache_file)_maj_$(prop_rule).csv"
+    if isfile(cache_file_local)
+        open(cache_file_local) do io
+            for line in eachline(io)
+                pair = split(line, ",")
+                key = parse(Float64, pair[1])
+                value = parse(Float64, pair[2])
+                cached_values[key] = value
+            end
+        end
+    end
+
+    # since the magnetization can change very rapidly, we choose 
+    # the values of p adaptively. 
+    function compute_mag(p)
+        if p in keys(cached_values)
+            return cached_values[p]
+        end
+        params.model_params.adaptivity_prob = p
+        _, mag = analytical_stable_point(params)
+        cached_values[p] = mag
+        mkpath(splitdir(cache_file_local)[1])
+        open(cache_file_local, "a") do io
+            return write(io, "$(p),$(mag)\n")
+        end
+        return mag
+    end
+
+    p, mag = adaptive_sweep((0.0, 1.0), compute_mag, max_Δp, max_Δm)
+
+    p = Vector{Float64}(p)
+    mag = Vector{Float64}(mag)
+
+    return p, mag
+end
+
+"""
+Compute the absolute magnetization in the absorbing state analytically
+for proportional voting. 
+
+Here, we calculate multiple points on the slow manifold and fit a parabola 
+to the points. The absolute magnetization is estimated from the roots 
+of the parabola. 
+"""
+function analytical_abs_magnetization_prop(params)
+    cached_values = Dict{Float64,Float64}()
+    adaptivity_rule = params.model_params.adaptivity_rule
+    prop_rule = typeof(adaptivity_rule) <: RewireToRandom ? "rtr" : "rts"
+    rule_cache_file = "$(cache_file)_prop_$(prop_rule).csv"
+    if isfile(rule_cache_file)
+        open(rule_cache_file) do io
+            for line in eachline(io)
+                pair = split(line, ",")
+                key = parse(Float64, pair[1])
+                value = parse(Float64, pair[2])
+                cached_values[key] = value
+            end
+        end
+    end
+
+    # since the magnetization can change very rapidly, we choose 
+    # the values of p adaptively. 
+    function compute_absorbing_mag(p)
+        if p in keys(cached_values)
+            return cached_values[p]
         end
 
-        return height_by_size
+        params.model_params.adaptivity_prob = p
+
+        # compute the stable state for different initial magnetizations
+        # and fit a parabola to the data points
+        magnetization_vec = Float64[]
+        active_hyperedges_vec = Float64[]
+
+        # first, compute the height of the parabola at m0 = 0 to see if the parabola exists
+        params.network_params.state_A_prob = 0.5
+        active_hyperedge_density, mag = analytical_stable_point(params)
+        # if the height of the parabola is equal to zero at m0 = 0, then 
+        # the magnetization in the absorbing state is also equal to zero. 
+        if active_hyperedge_density < 1e-6
+            cached_values[p] = 0
+            open(rule_cache_file, "a") do io
+                return write(io, "$(p),0\n")
+            end
+            return 0ö
+        end
+
+        # if the parabola does exist, compute the magnetization at neighboring points
+        # and fit a parabola to the results to obtain the roots. 
+        for initial_mag in -0.95:0.1:0.95
+            params.network_params.state_A_prob = initial_mag * 0.5 + 0.5
+
+            active_hyperedge_density, mag = analytical_stable_point(params)
+
+            # if the stable state has a non-zero denisty of active hyperedges, use it to compute 
+            # the parabola. 
+            if active_hyperedge_density > 1e-6
+                push!(magnetization_vec, mag)
+                push!(active_hyperedges_vec, active_hyperedge_density)
+            end
+        end
+
+        if length(magnetization_vec) < 3
+            mag = 0
+            cached_values[p] = mag
+            open(rule_cache_file, "a") do io
+                return write(io, "$(p),$(mag)\n")
+            end
+            return mag
+        end
+
+        polynomial, cov = fit_parabola(magnetization_vec, active_hyperedges_vec, false)
+        @show polynomial
+
+        mag = roots(polynomial)[2]
+        cached_values[p] = mag
+        mkpath(splitdir(rule_cache_file)[1])
+        open(rule_cache_file, "a") do io
+            return write(io, "$(p),$(mag)\n")
+        end
+
+        return mag
     end
 
-    p_sweep = vcat([0.0, 0.01, 0.02], collect(0.1:0.1:1.0))
-    height_sweep = []
-    for p in p_sweep
-        height = compute_parabola_height(p)
-        push!(height_sweep, height)
-    end
+    p, mag = adaptive_sweep((0.0, 1.0), compute_absorbing_mag, max_Δp, max_Δm)
 
-    return p_sweep, height_sweep
+    p = Vector{Float64}(p)
+    mag = Vector{Float64}(mag)
+
+    return p, mag
 end
 
 # create figure
+# fig = create_figure(:large, 2 / 1, 0.8)
 fig = create_figure(:large, 3 / 2)
-ax_gridpos = fig[1, 1]
+ax_gridpos = fig[1, 1] = GridLayout()
 
-axis = add_four_rules_axes!(fig, titles, xlabel, ylabel, xticks, yticks, xlims, ylims)
+axis = add_four_rules_axes!(ax_gridpos, titles,
+                            xlabel, ylabel,
+                            xticks, yticks,
+                            xlims, ylims)
 
 for panel in panels
+    @show panel
     p_sweep = Float64[]
-    parabola_height = Dict(s => Float64[] for s in 2:max_size)
-    parabola_height_error = Dict(s => Float64[] for s in 2:max_size)
+    magnetization = Float64[]
+    magnetization_error = Float64[]
 
     data_folder = DataFolder(input_folders[panel], :simulation)
     for (batch_folder, batch_num) in data_folder
-        p, height, error = sim_parabola_height(batch_folder)
+        p, mag, error = simulated_abs_magnetization(batch_folder)
         push!(p_sweep, p)
-        for size in 2:max_size
-            push!(parabola_height[size], height[size])
-            push!(parabola_height_error[size], error[size])
-        end
+        push!(magnetization, mag)
+        push!(magnetization_error, error)
     end
 
-    for size in 2:max_size
-        scatter!(axis[panel], p_sweep, parabola_height[size];
-                 markersize=8, marker=:xcross, label="simulation",
-                 color=linecolors[size - 1])
-        if draw_error_bars
-            errorbars!(axis[panel], p_sweep, parabola_height[size],
-                       parabola_height_error[size];
-                       whiskerwidth=7, linewidth=0.5)
-        end
+    scatter!(axis[panel], p_sweep, magnetization;
+             markersize=8, marker=:xcross, label="simulation")
+    if draw_error_bars
+        errorbars!(axis[panel], p_sweep, magnetization, magnetization_error;
+                   whiskerwidth=7, linewidth=0.5)
     end
 
     params = load_params(joinpath(input_folders[panel], "batch_001", "input_params.json"))
-    p, parabola_height = analytical_parabola_height(params)
-    for size in 2:max_size
-        height = [d[size] for d in parabola_height]
-        lines!(axis[panel], p, height;
-               linewidth=1.7,
-               linestyle=:dash, label="mean-field",
-               color=linecolors[size - 1])
+    if panel == :maj_rtr || panel == :maj_rts
+        p, mag = analytical_abs_magnetization_maj(params)
+    else
+        p, mag = analytical_abs_magnetization_prop(params)
     end
+    lines!(axis[panel], p, mag;
+           linewidth=1.7,
+           linestyle=:dash, label="mean-field")
 end
 
-plot_types = [LineElement(; color=linecolors[1], linewidth=1.7, linestyle=:dash),
-              MarkerElement(; marker=:xcross, markersize=8, color=linecolors[1])]
-colors = [PolyElement(; color=linecolors[i]) for i in 1:(max_size - 1)]
-plot_type_labels = ["mean-field", "simulation"]
-color_labels = ["size $size" for size in 2:max_size]
-
-leg = Legend(fig[1, 2],
-             [plot_types, colors],
-             [plot_type_labels, color_labels],
-             ["Line type", "Color:"];
-             orientation=:vertical,
-             labelsize=12,
-             titlesize=12)
-leg.gridshalign = :left
+Legend(fig[1, 2], axis[:prop_rtr]; merge=true, orientation=:vertical, labelsize=12)
 
 display(fig)
 

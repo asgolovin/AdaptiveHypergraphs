@@ -6,15 +6,14 @@ include("figure_plotting_tools.jl")
 # ======================================================
 # -------------------- INPUT ---------------------------
 
-input_folder = joinpath(projectdir(),
-                        "results/run_2023-06-16_10-40-16_motifs_maj")
+input_folder = joinpath(projectdir(), "./data/run_2023-04-18_11-09-04_motifs_all_rules")
 
 num_nodes = 10000
 max_size = 4
 linecolors = hyperedge_linecolors(max_size)
 
 # show a prompt whether the figure should be saved
-prompt = false
+prompt = true
 
 filename = "./figures/fig_1_hyperedge_count.pdf"
 

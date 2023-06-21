@@ -222,7 +222,7 @@ function prompt_for_save(filename, fig;)
 
     choice = request("Save the figure to file $filename?", menu)
     if choice == 2
-        save(filename, fig)
+        safesave(filename, fig)
     end
 end
 

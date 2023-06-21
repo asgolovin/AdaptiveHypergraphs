@@ -7,7 +7,7 @@ include("figure_plotting_tools.jl")
 # -------------------- INPUT ---------------------------
 
 input_folder = joinpath(projectdir(),
-                        "results/run_2023-06-16_10-40-16_motifs_maj")
+                        "./data/run_2023-04-18_11-09-04_motifs_all_rules")
 
 num_nodes = 10000
 max_size = 4
@@ -44,8 +44,8 @@ ylabel = "Number of motifs"
 xticks = 0:20:100
 xlims = (0.0, 100.0)
 # every row has its own ymax and ticks
-ymax = [14000, 5500, 2000]
-yticks = [0:3000:14000, 0:2000:6000, 0:500:2000]
+ymax = [11500, 5500, 1700]
+yticks = [0:2000:10000, 0:1000:6000, 0:500:2000]
 
 # ------------------------------------------------------
 # ======================================================

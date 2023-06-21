@@ -59,7 +59,7 @@ filename = "./figures/fig_3_slow_manifold.pdf"
 fig = create_figure(:large, 3 / 2)
 ax_gridpos = fig[1, 1] = GridLayout()
 
-axis = add_four_rules_axes!(fig, titles, xlabel, ylabel, xticks, yticks)
+axis = add_four_rules_axes!(ax_gridpos, titles, xlabel, ylabel, xticks, yticks)
 
 for panel in panels
     magnetization_data = []
