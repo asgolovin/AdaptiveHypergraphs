@@ -1,0 +1,18 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: AdaptiveHypergraphs.jl
+message: >-
+  Supporting code for the paper "Polyadic Opinion Formation:
+  The Adaptive Voter Model on a Hypergraph".
+type: software
+authors:
+  - given-names: Anastasia
+    family-names: Golovin
+    email: anastasia.golovin@tum.de
+    orcid: 'https://orcid.org/0009-0005-3490-1354'
+    affiliation: >-
+      School of Computation, Information and Technology,
+      Technical University of Munich, Boltzmannstraße 3,
+      85748 Garching bei München, Germany
