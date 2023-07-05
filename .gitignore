@@ -8,5 +8,4 @@ results
 output
 figures
 data/*
-!data/*.tar.xz
 sandbox
