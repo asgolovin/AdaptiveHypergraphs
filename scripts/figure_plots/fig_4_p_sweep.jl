@@ -208,7 +208,7 @@ function analytical_abs_magnetization_prop(params)
 
         # if the parabola does exist, compute the magnetization at neighboring points
         # and fit a parabola to the results to obtain the roots. 
-        for initial_mag in -0.95:0.1:0.95
+        for initial_mag in -0.95:0.05:0.95
             params.network_params.state_A_prob = initial_mag * 0.5 + 0.5
 
             active_hyperedge_density, mag = analytical_stable_point(params)
