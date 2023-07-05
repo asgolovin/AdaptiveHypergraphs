@@ -1,6 +1,8 @@
 # AdaptiveHypergraphs
 
-🚧 Under construction 🚧
+An interactive simulation of the adaptive voter model on hypergraphs. 
+
+This repository contains the code and figures of the paper "Polyadic Opinion Formation: The Adaptive Voter Model on a Hypergraph". 
 
 ## Installation instructions
 
@@ -32,16 +34,21 @@ Now, execute the `instantiate` command (you don't need to press `]` again if you
 
 If the instantiation progress throws any errors from the `PyCall` package, try setting the `PYTHON` environment variable to an empty string in your Julia REPL:
 
-```
-ENV["PYTHON"] = ""
+```julia
+julia> ENV["PYTHON"] = ""
 ```
 
 And call `instantiate` again. 
 
 ## Reproducing the figures
 
-> **TODO**
+The scripts to plot the figures are located in `./scripts/figure_plots`. To run a script, use
 
+```bash
+julia> include("./scripts/figure_plots/<figure_name>.jl")
+```
+
+and replace `<figure_name>` by the corresponding file name. 
 
 ## Running the simulation
 
@@ -53,11 +60,11 @@ To run the simulation, execute
 julia> include("./scripts/main.jl")
 ```
 
-from the Julia REPL. Alternatively, if you are using VS Code, navigate to the `main.jl` file and run it using the command "Julia: Execute active file in REPL". 
+from the Julia REPL. Alternatively, if you are using VS Code, navigate to the `./scripts/main.jl` file and run it using the command "Julia: Execute active file in REPL". 
 
 > **Note**: Long compile time at first start
 >
-> When you load the code into a REPL for the first time, Julia precompiles the code and all libraries which the code uses. This can take an annoyingly long amount of time, especially at the very first start. Unfortunately, most of this time comes from precompiling the dependent packages, so there is little we can do about it. Here is a [video](https://youtu.be/kmGnutu7_ZY) of adorable manul kittens you can watch while the code compiles. 
+> When you load the code into a REPL for the first time, Julia precompiles the code and all libraries which the code uses. This can take an annoyingly long amount of time, especially at the very first start. Unfortunately, most of this time comes from precompiling the dependent packages, so there is little we can do about it.
 >
 > To reduce this time, do not kill the Julia REPL; restarting the simulation from the same REPL is vastly faster than the first run. Do not close the window with the dashboard either; subsequent runs of the simulation will reuse it. You can also change the simulation parameters in the input file between simulation runs without restarting the REPL. 
 
@@ -86,3 +93,17 @@ mpiexec -n 8 julia --project="." -- ./scripts/main.jl ../input/mpi.jl
 The input file can be different, but it has to set the option `with_mpi = true`. 
 
 The parallelized version does not show an interactive interface since it is meant to be run on a server. Instead, the simulation results are written to a file and can be visualized later.
+
+### Using input files
+
+The parameters of the simulation are set using the input files in the `./input` folder. The file `./input/default_network.jl` is used per default if no input file is given. It is convenient to use this file as a sandbox to tweak parameters without creating a new file. 
+
+To pass a different input file, either pass the filename as a command-line argument when starting Julia like this:
+
+```bash
+$ julia --project="." -- ./scripts/main.jl ../input/small_network.jl
+```
+
+or change the value of the variable `input_file` in `/scripts/main.jl`. This second approach is more convenient, because it can be done without restarting the REPL. 
+
+The whole list of configuration settings and their descriptions can be found in `./src/simulation/InputParams.jl`.
