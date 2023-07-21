@@ -38,11 +38,17 @@ If the instantiation progress throws any errors from the `PyCall` package, try s
 julia> ENV["PYTHON"] = ""
 ```
 
-And call `instantiate` again. 
+And call `instantiate` again.
 
 ## Reproducing the figures
 
-The scripts to plot the figures are located in `./scripts/figure_plots`. To run a script, use
+First, you will need to unpack the data from the simulations to a folder. Download the `data.tar.xz` folder from Figshare and extract it in the project folder:
+
+```bash
+$ tar -xf data.tar.xz
+```
+
+Now, you can run the scripts to plot the figures, located in `./scripts/figure_plots`. To run a script, use
 
 ```bash
 julia> include("./scripts/figure_plots/<figure_name>.jl")
