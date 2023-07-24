@@ -42,10 +42,11 @@ And call `instantiate` again.
 
 ## Reproducing the figures
 
-First, you will need to unpack the data from the simulations to a folder. Download the `data.tar.xz` folder from Figshare and extract it in the project folder:
+First, you will need to unpack the data from the simulations to a folder. Download all `<dataset_name>.tar.xz` archives from Figshare and extract it into a folder `data`:
 
 ```bash
-$ tar -xf data.tar.xz
+$ mkdir data
+$ tar -xf <dataset_name>.tar.xz -C ./data
 ```
 
 Now, you can run the scripts to plot the figures, located in `./scripts/figure_plots`. To run a script, use
