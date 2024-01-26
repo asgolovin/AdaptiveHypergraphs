@@ -1,4 +1,4 @@
-export moment_expansion, rhs, moment_closure
+export moment_expansion, rhs!, moment_closure, moment_closure_coeff
 
 using DifferentialEquations
 
@@ -63,8 +63,8 @@ function moment_expansion(params::InputParams, tspan::NTuple{2,Float64},
     return t, motif_to_solution
 end
 
-function rhs!(dx, x, p, t)
-    moment_closure, params = p
+function rhs!(dx, x, args, t)
+    moment_closure, params = args
 
     nparams = params.network_params
     mparams = params.model_params
@@ -381,12 +381,25 @@ function moment_closure(high_order_motif::OrderTwoMotif, x::Vector{Float64},
     end
 
     # compute the combinatorical coefficient
-    combinatorical_coeff = binomial(m, mu) * binomial(n, nu) * binomial(a, mu) *
-                           binomial(b, nu)
-    if left_motif == right_motif
-        combinatorical_coeff /= 2
+    coeff = moment_closure_coeff(high_order_motif)
+
+    return coeff * x[left_id] * x[right_id] /
+           (binomial(numA, mu) * binomial(numB, nu))
+end
+
+function moment_closure_coeff(motif)
+    m = motif.left_motif.A
+    n = motif.left_motif.B
+    mu = motif.int.A
+    nu = motif.int.B
+    a = motif.right_motif.A
+    b = motif.right_motif.B
+
+    coeff = binomial(m, mu) * binomial(n, nu) * binomial(a, mu) *
+            binomial(b, nu)
+    if m == a && n == b
+        coeff /= 2
     end
 
-    return combinatorical_coeff * x[left_id] * x[right_id] /
-           (binomial(numA, mu) * binomial(numB, nu))
+    return coeff
 end
