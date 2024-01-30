@@ -39,7 +39,7 @@ prompt = false
 # number of active hyperedges below which the simulation counts as converged
 converged_threshold = 10
 
-filename = "./figures/fig_4_p_sweep.pdf"
+filename = "./figures/p_sweep.pdf"
 
 xlabel = L"$p$"
 ylabel = L"$|m(t \rightarrow \infty)|$"

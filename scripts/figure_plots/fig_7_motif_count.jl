@@ -25,7 +25,7 @@ end
 # show a prompt whether the figure should be saved
 prompt = false
 
-filename = "./figures/fig_2_motif_count.pdf"
+filename = "./figures/motif_count.pdf"
 
 panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 

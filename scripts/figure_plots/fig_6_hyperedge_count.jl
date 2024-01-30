@@ -15,7 +15,7 @@ linecolors = hyperedge_linecolors(max_size)
 # show a prompt whether the figure should be saved
 prompt = true
 
-filename = "./figures/fig_1_hyperedge_count.pdf"
+filename = "./figures/hyperedge_count.pdf"
 
 panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 

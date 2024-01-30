@@ -12,13 +12,13 @@ include("figure_plotting_tools.jl")
 draw_error_bars = false
 
 folder_maj_rts = joinpath(projectdir(),
-                          "results/run_2024-01-28_13-31-36_motifs_p_sweep_maj_rts")
+                          "data/run_2024-01-28_13-31-36_motifs_p_sweep_maj_rts")
 folder_maj_rtr = joinpath(projectdir(),
-                          "results/run_2024-01-28_17-19-32_motifs_p_sweep_maj_rtr")
+                          "data/run_2024-01-28_17-19-32_motifs_p_sweep_maj_rtr")
 folder_prop_rts = joinpath(projectdir(),
-                           "results/run_2024-01-28_12-03-05_motifs_p_sweep_prop_rts")
+                           "data/run_2024-01-28_12-03-05_motifs_p_sweep_prop_rts")
 folder_prop_rtr = joinpath(projectdir(),
-                           "results/run_2024-01-28_10-40-31_motifs_p_sweep_prop_rtr")
+                           "data/run_2024-01-28_10-40-31_motifs_p_sweep_prop_rtr")
 
 panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 titles = Dict(:maj_rts => "Majority voting,\nrewire-to-same",

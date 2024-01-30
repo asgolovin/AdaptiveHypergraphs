@@ -50,7 +50,7 @@ ylabel = L"\rho_i"
 xticks = -1:0.5:1
 yticks = 0:0.2:0.6
 
-filename = "./figures/fig_3_slow_manifold.pdf"
+filename = "./figures/slow_manifold.pdf"
 
 # ------------------------------------------------------
 # ======================================================
