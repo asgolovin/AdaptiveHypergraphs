@@ -49,7 +49,7 @@ function create_figure(size::Symbol, aspect_ratio::Float64=4 / 3, scale=1)
     return fig
 end
 
-function add_four_rules_axes!(layout, titles=nothing,
+function add_four_rules_axes!(layout; titles=nothing,
                               xlabel=nothing, ylabel=nothing,
                               xticks=nothing, yticks=nothing,
                               xlims=nothing, ylims=nothing)
@@ -272,4 +272,20 @@ function safe_min(vector1, vector2)
     else
         return vcat(min.(vector1[1:l2], vector2), vector1[(l2 + 1):end])
     end
+end
+
+"""
+Replace the numbers by superscripts and add a tiny space ("hair space") after the superscripts
+"""
+function pretty_label(motif)
+    label = "$motif"
+    int_map = Dict(r"\| ([AB1-9]+) \|" => s"( \1 )")
+    number_map = Dict("2" => "² ", "3" => "³ ", "4" => "⁴ ", " " => " ")
+    double_space_map = Dict("  " => " ")
+
+    label = replace(label, int_map...)
+    label = replace(label, number_map...)
+    label = replace(label, double_space_map...)
+
+    return label
 end

@@ -1,4 +1,5 @@
 using StatsBase
+using ColorSchemes
 
 using AdaptiveHypergraphs
 const AH = AdaptiveHypergraphs
@@ -10,15 +11,14 @@ include("figure_plotting_tools.jl")
 
 draw_error_bars = false
 
-#"results/run_2024-01-18_12-07-59_motifs_p_sweep_maj_rts") # long simulation
 folder_maj_rts = joinpath(projectdir(),
-                          "results/run_2024-01-21_15-42-22_motifs_p_sweep_maj_rts") # short simulation 
+                          "results/run_2024-01-28_13-31-36_motifs_p_sweep_maj_rts")
 folder_maj_rtr = joinpath(projectdir(),
-                          "results/run_2024-01-21_15-36-25_motifs_p_sweep_maj_rtr")
+                          "results/run_2024-01-28_17-19-32_motifs_p_sweep_maj_rtr")
 folder_prop_rts = joinpath(projectdir(),
-                           "results/run_2024-01-21_15-50-56_motifs_p_sweep_prop_rts")
+                           "results/run_2024-01-28_12-03-05_motifs_p_sweep_prop_rts")
 folder_prop_rtr = joinpath(projectdir(),
-                           "results/run_2024-01-21_15-53-41_motifs_p_sweep_prop_rtr")
+                           "results/run_2024-01-28_10-40-31_motifs_p_sweep_prop_rtr")
 
 panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
 titles = Dict(:maj_rts => "Majority voting,\nrewire-to-same",
@@ -33,7 +33,6 @@ input_folders = Dict(:maj_rts => folder_maj_rts,
 
 num_nodes = 1000
 max_size = 4
-linecolors = hyperedge_linecolors(max_size)
 
 prompt = false
 
@@ -42,28 +41,39 @@ filename = "./figures/motifs_p_sweep.pdf"
 xlabel = L"$p$"
 ylabel = L"[\Xi]/[\Xi]_\text{closure}"
 xticks = 0:0.2:1
-yticks = 0:1:6
+rts_yticks = 0:10:100
+rtr_yticks = 0:0.5:3
 xlims = (-0.02, 1.02)
-ylims = (-0.02, 6)
+rts_ylims = (0.0, 55)
+rtr_ylims = (0.0, 3)
 
 max_Δp = 1
 max_Δm = 0.06
 
-ABA_triples = [OrderTwoMotif((1, 0), (0, 1), (1, 0)), # [A(B)A]
-               OrderTwoMotif((2, 0), (0, 1), (1, 0)), # [A2(B)A]
-               OrderTwoMotif((2, 0), (0, 1), (2, 0)), # [A2(B)A2]
-               OrderTwoMotif((3, 0), (0, 1), (1, 0))] # [A3(B)A]
+groups = [:ABA, :BBA, :mixed]
 
-BBA_triples = [OrderTwoMotif((0, 1), (0, 1), (1, 0)), # [B(B)A]
-               OrderTwoMotif((0, 2), (0, 1), (1, 0)), # [B2(B)A]
-               OrderTwoMotif((0, 2), (0, 1), (2, 0))] # [B2(B)A2]
+triples = Dict(:ABA => [OrderTwoMotif((1, 0), (0, 1), (1, 0)), # [A(B)A]
+                        OrderTwoMotif((2, 0), (0, 1), (1, 0)), # [A2(B)A]
+                        OrderTwoMotif((2, 0), (0, 1), (2, 0)), # [A2(B)A2]
+                        OrderTwoMotif((3, 0), (0, 1), (1, 0))], # [A3(B)A]
+               :BBA => [OrderTwoMotif((0, 1), (0, 1), (1, 0)), # [B(B)A]
+                        OrderTwoMotif((0, 2), (0, 1), (1, 0)), # [B2(B)A]
+                        OrderTwoMotif((0, 2), (0, 1), (2, 0))], # [B2(B)A2]
+               :mixed => [OrderTwoMotif((1, 1), (0, 1), (1, 0)), # [AB(B)A]
+                          OrderTwoMotif((1, 1), (0, 1), (0, 1)), # [AB(B)B]
+                          OrderTwoMotif((1, 1), (0, 1), (1, 1)), # [AB(B)AB]
+                          OrderTwoMotif((2, 1), (0, 1), (1, 1))]) # [A2B(B)AB]
 
-mixed_triples = [OrderTwoMotif((1, 1), (0, 1), (1, 0)), # [AB(B)A]
-                 OrderTwoMotif((1, 1), (0, 1), (1, 1))] # [AB(B)AB]
+num_triples = Dict(group => length(triples[group]) for group in groups)
 
-#triples = vcat(ABA_triples, BBA_triples, mixed_triples)
+labels = Dict(group => [pretty_label(motif) for motif in triples[group]]
+              for group in groups)
 
-triples = [motif for motif in all_motifs(max_size) if AH.order(motif) == 2]
+colormaps = Dict(:ABA => :Oranges, :BBA => :Greens, :mixed => :Purples)
+
+colors = Dict(group => get(colorschemes[colormaps[group]], collect(num_triples[group]:-1:1),
+                           (-1, num_triples[group]))
+              for group in groups)
 
 # ------------------------------------------------------
 # ======================================================
@@ -87,12 +97,17 @@ function motif_ratio(batch_folder, motif)
         left_motif_count = load_data("motif_count_$(left_motif).csv", run_folder)[2]
         right_motif_count = load_data("motif_count_$(right_motif).csv", run_folder)[2]
 
+        # ignore datapoints where one of the counts is zero
+        mask = simulated_motif_vector .!= 0
+
+        simulated_motif_vector = simulated_motif_vector[mask]
+        left_motif_count = left_motif_count[mask]
+        right_motif_count = right_motif_count[mask]
+        A_count = A_count[mask]
+        B_count = B_count[mask]
+
         mu = motif.int.A
         nu = motif.int.B
-
-        if (mu + nu) > 1
-            continue
-        end
 
         mc_motif_vector = left_motif_count .* right_motif_count ./ binomial.(A_count, mu) ./
                           binomial.(B_count, nu)
@@ -115,18 +130,43 @@ end
 fig = create_figure(:large, 3 / 2)
 ax_gridpos = fig[1, 1] = GridLayout()
 
-axis = add_four_rules_axes!(ax_gridpos, titles,
-                            xlabel, ylabel,
-                            xticks, yticks,
-                            xlims, ylims)
-#axis.title = "Ratio of simulated triples to the moment closure"
+panels = [:maj_rts, :maj_rtr, :prop_rts, :prop_rtr]
+axis = Dict()
+for (i, panel) in enumerate(panels)
+    row = (i + 1) ÷ 2
+    col = mod1(i, 2)
+    axis[panel] = Axis(ax_gridpos[row, col])
+    axis[panel].title = titles[panel]
+
+    if row == 1
+        hidexdecorations!(axis[panel]; grid=false)
+    else
+        axis[panel].xlabel = xlabel
+    end
+
+    axis[panel].xticks = xticks
+
+    if panel == :maj_rts || panel == :prop_rts
+        axis[panel].yticks = rts_yticks
+        ylims!(axis[panel], rts_ylims)
+        axis[panel].ylabel = ylabel
+    else
+        axis[panel].yticks = rtr_yticks
+        ylims!(axis[panel], rtr_ylims)
+    end
+    xlims!(axis[panel], xlims)
+end
+colgap!(ax_gridpos, 15)
+rowgap!(ax_gridpos, 15)
 
 for panel in panels
     hlines!(axis[panel], [1.0]; color=:gray, linestyle=:dash, linewidth=1)
 
     p_values = Float64[]
-    ratios = Dict(motif => Float64[] for motif in triples)
-    errors = Dict(motif => Float64[] for motif in triples)
+    ratios = Dict(group => Dict(motif => Float64[] for motif in triples[group])
+                  for group in groups)
+    errors = Dict(group => Dict(motif => Float64[] for motif in triples[group])
+                  for group in groups)
 
     data_folder = DataFolder(input_folders[panel], :simulation)
 
@@ -135,50 +175,52 @@ for panel in panels
         p = params.model_params.adaptivity_prob
         push!(p_values, p)
 
-        for motif in triples
-            ratio, error = motif_ratio(batch_folder, motif)
-            push!(ratios[motif], ratio)
-            push!(errors[motif], error)
+        for group in groups
+            for motif in triples[group]
+                ratio, error = motif_ratio(batch_folder, motif)
+                push!(ratios[group][motif], ratio)
+                push!(errors[group][motif], error)
+            end
         end
     end
 
     indices = sortperm(p_values)
     p_values = p_values[indices]
-    for motif in triples
-        ratios[motif] = ratios[motif][indices]
-        errors[motif] = errors[motif][indices]
+    for group in groups
+        for motif in triples[group]
+            ratios[group][motif] = ratios[group][motif][indices]
+            errors[group][motif] = errors[group][motif][indices]
+        end
     end
 
-    for motif in triples
-        #scatter!(axis[panel], p_values, ratios[motif];
-        #        markersize=10, marker=:xcross, label="$motif")
-        lines!(axis[panel], p_values, ratios[motif]; linewidth=1.5, label="$motif")
-        if draw_error_bars
-            errorbars!(axis[panel], p_values, ratios[motif], errors[motif];
-                       whiskerwidth=7, linewidth=0.5)
+    for group in groups
+        for (i, motif) in enumerate(triples[group])
+            scatter!(axis[panel], p_values, ratios[group][motif];
+                     markersize=10, marker=:xcross, color=colors[group][i])
+            lines!(axis[panel], p_values, ratios[group][motif]; linewidth=1,
+                   color=colors[group][i])
+            if draw_error_bars
+                errorbars!(axis[panel], p_values, ratios[group][motif],
+                           errors[group][motif];
+                           whiskerwidth=7, linewidth=0.5, color=colors[group][i])
+            end
         end
     end
 end
 
-# for motif in BBA_triples
-#     scatter!(axis, p_values, ratios[motif];
-#              markersize=10, marker=:rect, label="$motif")
-#     if draw_error_bars
-#         errorbars!(axis, p_values, ratios[motif], errors[motif];
-#                    whiskerwidth=7, linewidth=0.5)
-#     end
-# end
+# draw the legend
+elements = Dict(group => [[LineElement(; color=color, linewidth=1),
+                           MarkerElement(; color=color, marker='x', markersize=10)]
+                          for color in colors[group]]
+                for group in groups)
 
-# for motif in mixed_triples
-#     scatter!(axis, p_values, ratios[motif];
-#              markersize=10, marker=:circle, label="$motif")
-#     if draw_error_bars
-#         errorbars!(axis, p_values, ratios[motif], errors[motif];
-#                    whiskerwidth=7, linewidth=0.5)
-#     end
-# end
+leg = Legend(fig[1, 2],
+             [elements[:ABA], elements[:BBA], elements[:mixed]],
+             [labels[:ABA], labels[:BBA], labels[:mixed]],
+             ["Aᵃ ( B ) Aᵐ motifs:", "Bᵇ ( B ) Aᵐ motifs:", "Mixed motifs:"])
 
-Legend(fig[1, 2], axis[:maj_rtr]; merge=true, orientation=:vertical, labelsize=12)
+leg.gridshalign = :left
+leg.gridsvalign = :top
 
 display(fig)
 
